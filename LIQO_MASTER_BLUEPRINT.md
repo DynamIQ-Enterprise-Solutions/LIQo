@@ -487,7 +487,7 @@ Mirrors `LIQO_PRD.md` §9 row for row. No dates: each milestone ends when its ga
 
 ## Part 6 — Feature Development Guidelines
 
-Named rules. Control kinds: **test** (deterministic, fails `npm test` / `flutter test`), **lint** (`flutter analyze`), **review** (code-review item), **human** (owner decision). No hooks or CI exist yet (FEATURE_PIPELINE P1-11); every "review" rule is a candidate for one.
+Named rules. Control kinds: **test** (deterministic, fails `npm test` / `flutter test`), **lint** (`flutter analyze`), **review** (code-review item), **human** (owner decision). The only git hook so far is `.githooks/pre-commit` (refuses `.env` files and uploaded floor plans); there is no CI yet (FEATURE_PIPELINE P1-11). Every "review" rule is a candidate for a hook or a CI check.
 
 | # | Name | Rule | Failure it prevents | Files | Enforcer / kind |
 |---|---|---|---|---|---|

@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Workspace layout
 
-Not a git repo. Two apps plus planning docs at the root:
+Git repository, public: https://github.com/DynamIQ-Enterprise-Solutions/LIQo (branch `main`). After cloning, run `git config core.hooksPath .githooks` once; the pre-commit hook refuses `.env` files and anything under `LIQo backend/uploads/`. Never commit secrets or client data, and never commit or push without the owner's approval. The root `.gitignore` also keeps the company-internal and third-party documents below (and the brand source images) out of the repository; they exist only in local copies. Apps plus planning docs at the root:
 
 - `LIQo backend/` — Node 24 + Express + SQL Server API. Port 3000. Local DB `liqo`, SQL login `liqo_app`.
 - `LIQo web/` — Flutter Web admin dashboard (package `gabay_admin`). Riverpod + go_router + dio.

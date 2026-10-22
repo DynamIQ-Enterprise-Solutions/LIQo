@@ -1,0 +1,26 @@
+#!/bin/sh
+# Refuses commits that would publish secrets or client data.
+# Enable once per clone:  git config core.hooksPath .githooks
+#
+# Blocked:
+#   - any .env file (.env, .env.local, .env.production, ...); .env.example is allowed
+#   - anything under "LIQo backend/uploads/" (clients' floor plans)
+
+blocked=$(git diff --cached --name-only --diff-filter=ACMR | while IFS= read -r f; do
+  name=${f##*/}
+  case "$name" in
+    .env.example) ;;
+    .env|.env.*|*.env) printf '  %s  (environment file: may hold keys and passwords)\n' "$f" ;;
+  esac
+  case "$f" in
+    "LIQo backend/uploads/"*) printf '  %s  (uploaded client floor plan)\n' "$f" ;;
+  esac
+done)
+
+if [ -n "$blocked" ]; then
+  echo "Commit refused. These files must never be committed:"
+  echo "$blocked"
+  echo "Unstage them with: git restore --staged <file>"
+  exit 1
+fi
+exit 0

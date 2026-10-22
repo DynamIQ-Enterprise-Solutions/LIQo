@@ -28,7 +28,7 @@ This file answers two questions and no others: **what is the state of X**, and *
 
 **Current totals** *(counted by hand 2026-10-22)*: active P0 3 · P1 8 · P2 2 · P3 2 · archived 8 · total 23
 
-**Before the artifact chain exists** (no git repo yet, P1-11), the `Intent`, `Spec`, `Plan` and `PR` rows point at what plays those parts today: the user story or owner request (intent), the round's decision doc in `docs/` (spec and plan), and "n/a" for PR.
+**Before the full artifact chain exists** (P1-11), the `Intent`, `Spec`, `Plan` and `PR` rows point at what plays those parts today: the user story or owner request (intent) and the round's decision doc in `docs/` (spec and plan). The git repository (https://github.com/DynamIQ-Enterprise-Solutions/LIQo) started on 2026-10-22: `PR` reads "n/a (built before the repository)" for work done before then, "none yet" for work still to come, and names the commit or pull request from now on.
 
 ---
 
@@ -78,7 +78,7 @@ Active entries only. Done entries are in §6.
 | Intent | Found while writing the Blueprint (2026-10-22) |
 | Spec | Blueprint §4.1 |
 | Plan | — |
-| PR | n/a (no git repo yet) |
+| PR | none yet |
 
 - [ ] Make temporary passwords from a secure random source
 
@@ -99,7 +99,7 @@ Active entries only. Done entries are in §6.
 | Intent | US-005 – US-011 |
 | Spec | `docs/round-2-superadmin.md`, `round-4`, `round-8`, `round-10` |
 | Plan | same docs, "Changes" sections |
-| PR | n/a (no git repo yet) |
+| PR | none yet |
 
 - [x] Accounts, created through step-by-step wizards (US-006)
 - [x] Malls and branches (US-007, US-008)
@@ -125,7 +125,7 @@ Active entries only. Done entries are in §6.
 | Intent | US-026 – US-031, US-037 – US-043 |
 | Spec | `OFFICE_MAP_DESIGNER_SPEC.md` as revised by the owner's map decisions (Blueprint Integration Summary) |
 | Plan | session plans (Phase 6) |
-| PR | n/a (no git repo yet) |
+| PR | none yet |
 
 - [x] Maps, walls, rooms, facilities and links between buildings and levels (US-026, US-027, US-029 – US-031)
 - [x] Problem list, drafts, edit lock, publishing, versions, rollback and copy (US-038 – US-043)
@@ -153,7 +153,7 @@ Active entries only. Done entries are in §6.
 | Intent | US-032, US-033 |
 | Spec | `docs/round-16-plan-formats.md`, `round-17-map-start-scan-3d.md` |
 | Plan | same docs |
-| PR | n/a (no git repo yet) |
+| PR | none yet |
 
 - [x] All formats built and tested with stand-in files
 - [ ] Owner: install ODA File Converter so DWG plans can be read
@@ -176,7 +176,7 @@ Active entries only. Done entries are in §6.
 | Intent | US-034, US-035 |
 | Spec | `docs/round-15-ai-reading.md`, `round-16`, `round-17`, `round-18` |
 | Plan | same docs |
-| PR | n/a (no git repo yet) |
+| PR | none yet |
 
 - [x] Built and tested with a stand-in AI service
 - [ ] Owner: choose the AI model in Settings
@@ -204,7 +204,7 @@ Active entries only. Done entries are in §6.
 | Intent | US-036 |
 | Spec | `docs/round-17-map-start-scan-3d.md` |
 | Plan | same doc |
-| PR | n/a (no git repo yet) |
+| PR | none yet |
 
 - [x] 3D shapes tested automatically; screen layout covered by the layout test
 - [ ] Check turning, zooming and rising walls in a browser
@@ -272,7 +272,7 @@ Active entries only. Done entries are in §6.
 | Intent | Owner request, 2026-10-22 |
 | Spec | `C:\Users\User\.claude\plans\do-you-know-what-starry-stearns.md` |
 | Plan | same file, "Order of work" steps 0–6 |
-| PR | n/a (no git repo yet) |
+| PR | none yet |
 
 - [x] Finish the port from the demo app (159 tests pass, analyzer clean, debug and release APKs build)
 - [ ] Run the main flows on an Android emulator or phone (this machine has no emulator image yet); iOS is checked on paper only (no Mac)
@@ -315,17 +315,18 @@ Active entries only. Done entries are in §6.
 | Frontend | `analysis_options.yaml` gates, README |
 | Effort | L |
 | Dependencies | — |
-| Status | `PLANNED` |
+| Status | `IN PROGRESS` |
 | Intent | US-047 (run and test each module locally, setup docs, checklists); pipeline founding, 2026-10-22 |
 | Spec | `Engineering Standards.html` §2, §8, §9, §12, §14 |
 | Plan | — |
-| PR | n/a |
+| PR | first commit `1f5b190` (repository set-up) |
 
-- [ ] Git repository, with a README step that turns on its hooks
+- [x] Git repository on GitHub (public), with a check that refuses secret files and clients' floor plans before each commit, and a README that explains how to turn it on
+- [ ] Owner: get the company's decision on a licence for the public repository (none yet, so all rights are reserved)
 - [ ] Automatic checks that can fail a build: backend tests, web and mobile analysis and tests
 - [ ] Schema file with teardown, kept in step with the migrations
 - [ ] End-to-end test manuals and a smoke-test guide (today: `LIQo backend/docs/TESTING.md`)
-- [ ] Root README, install guide, changelog and review rules
+- [ ] Install guide, changelog and review rules (the root README is done)
 - [ ] Fix the demo seed script (`npm run seed:demo` points at a missing file)
 - [ ] Fix outdated texts: the backend package says PostgreSQL; the web README describes the old mockup
 - [ ] Decide on library versions (Express 5; Riverpod 3 for the web app) and record the SQL Server version
@@ -467,7 +468,7 @@ flowchart LR
 
 **Owner decisions that unblock the most:** the shopper-integration plan (P1-07, P1-08, P2-01, P3-02), the gateway wallet and model (P1-05), the production database (P1-10).
 
-**Cross-cutting prerequisites** (already in place, Blueprint §2.4): middleware order, `{error}` shape, pagination envelope, scope resolver, audit trail, layout sweep. Missing: git hooks and CI (P1-11).
+**Cross-cutting prerequisites** (already in place, Blueprint §2.4): middleware order, `{error}` shape, pagination envelope, scope resolver, audit trail, layout sweep. In place since 2026-10-22: the git repository and its pre-commit hook. Missing: CI (P1-11).
 
 ---
 
