@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Written by tool/crop_brand.mjs. -->
+<resources>
+    <!-- the dark tile's own colour, behind the adaptive icon's mark -->
+    <color name="ic_launcher_background">#0D1017</color>
+    <!-- Obsidian, behind the launch screen's mark (Pal.darkPal.bg) -->
+    <color name="launch_background">#121216</color>
+</resources>

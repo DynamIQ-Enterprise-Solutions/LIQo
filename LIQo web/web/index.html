@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <!--
+    If you are serving your web app in a path other than the root, change the
+    href value below to reflect the base path you are serving from.
+    The path provided below has to start and end with a slash "/".
+    This is a placeholder for base href that will be replaced by the value of
+    the `--base-href` argument provided to `flutter build`.
+  -->
+  <base href="$FLUTTER_BASE_HREF">
+
+  <meta charset="UTF-8">
+  <meta content="IE=Edge" http-equiv="X-UA-Compatible">
+  <meta name="description" content="LIQO admin: malls, branches, maps and announcements for the LIQO indoor navigation platform.">
+  <meta name="theme-color" content="#15151A">
+
+  <!-- iOS meta tags & icons -->
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black">
+  <meta name="apple-mobile-web-app-title" content="LIQO Admin">
+  <link rel="apple-touch-icon" href="icons/Icon-192.png">
+
+  <!-- Browser-tab icon: the brand's app tile, dark in dark mode and light in light mode.
+       The app also swaps it when the person picks a mode by hand. -->
+  <link rel="icon" type="image/png" href="favicon-dark.png" media="(prefers-color-scheme: dark)"/>
+  <link rel="icon" type="image/png" href="favicon-light.png" media="(prefers-color-scheme: light)"/>
+  <link rel="icon" type="image/png" href="favicon.png"/>
+
+  <title>LIQO — Smart Way Forward</title>
+  <link rel="manifest" href="manifest.json">
+  <style>
+    /* The first paint, before Flutter is up, already wears the brand background. */
+    html, body { height: 100%; margin: 0; background: #15151A; }
+    @media (prefers-color-scheme: light) { html, body { background: #F8F8FA; } }
+  </style>
+</head>
+<body>
+  <script src="flutter_bootstrap.js" async></script>
+</body>
+</html>

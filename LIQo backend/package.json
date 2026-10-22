@@ -1,0 +1,36 @@
+{
+  "name": "liqo-backend",
+  "version": "0.1.0",
+  "private": true,
+  "description": "LIQo admin platform API (Express + PostgreSQL)",
+  "type": "module",
+  "main": "src/server.js",
+  "scripts": {
+    "dev": "node --watch src/server.js",
+    "start": "node src/server.js",
+    "migrate": "node src/db/migrate-cli.js",
+    "seed": "node src/db/seed.js",
+    "seed:demo": "node src/db/seed-demo.js",
+    "test": "node --test --test-concurrency=1"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "bcryptjs": "^3.0.3",
+    "cors": "^2.8.6",
+    "dotenv": "^18.0.8",
+    "dxf-parser": "^1.1.2",
+    "express": "^4.22.3",
+    "express-rate-limit": "^8.7.1",
+    "fast-xml-parser": "^5.11.2",
+    "helmet": "^8.3.0",
+    "jpeg-js": "^0.4.4",
+    "jsonwebtoken": "^9.0.3",
+    "mssql": "^12.7.10",
+    "multer": "^2.4.0",
+    "pngjs": "^7.0.0",
+    "svg-pathdata": "^9.0.0",
+    "zod": "^3.25.76"
+  }
+}

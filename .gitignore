@@ -1,0 +1,38 @@
+# Secrets: every .env file, but keep the examples.
+.env
+.env.*
+!.env.example
+
+# Client data: uploaded floor plans.
+LIQo backend/uploads/
+
+# Dependencies and build output.
+node_modules/
+build/
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.idea/
+*.iml
+.gradle/
+**/flutter/ephemeral/
+
+# Claude Code: personal settings stay local; .claude/settings.json is shared.
+.claude/settings.local.json
+
+# OS junk.
+Thumbs.db
+.DS_Store
+
+# Kept out of the public repo (owner decisions 2026-10-22).
+# Built demo app (67 MB, not source).
+/Gabay Demo.apk
+# Page data rebuilt from the markdown by the hook (tool/pipeline-hook.mjs).
+/tool/*.json
+# Company-internal or third-party documents and brand source images.
+/Engineering Standards.html
+/iqgateway-documentation*.md
+/OFFICE_MAP_DESIGNER_SPEC.md
+/USER_STORY(ADMIN).md
+/LIQO Brand Guidelines Presentation.png
+/LIQO Indoor Navigation Brand Board.png

@@ -1,0 +1,9 @@
+{
+  "name": "liqo-mobile-tools",
+  "private": true,
+  "description": "Tools for LIQo mobile: tool/crop_brand.mjs cuts the brand images.",
+  "type": "module",
+  "dependencies": {
+    "pngjs": "7.0.0"
+  }
+}
