@@ -291,3 +291,14 @@ Part of the `/directory` reply, refreshed with it, kept on the phone:
 - `floor` is the floor's short label (as in the package).
 - `category` is the store's App category.
 - Only active stores that are on the published map.
+
+## 11. App settings (`/app-config`)
+
+```
+GET /api/shopper/app-config
+{ "mustUpdateBelow": 7 | null, "serverTime": "2026-10-23T10:15:00+08:00", "formatVersion": 1 }
+```
+
+- **`mustUpdateBelow`** is an app **build number** (the `+N` of the app's version), set by a superadmin; 0 or none means `null`. An app whose build number is below it shows only "Please update LIQo" (rare, for serious problems).
+- **`serverTime`** lets the app correct the phone's clock (differences under a minute are ignored) for opening hours and post end dates.
+- **`formatVersion`** is the newest package format the server builds.
