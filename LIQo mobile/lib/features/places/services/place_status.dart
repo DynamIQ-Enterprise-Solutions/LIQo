@@ -4,8 +4,8 @@ import '../models/place_info.dart';
 
 /// Whether a place is open, for its chip and its line ("Open · Closes 9:00 PM").
 /// The map's own status (closed, being repaired, opening soon) comes first; then
-/// the opening hours. Closed by its hours, a place can still be routed to, with a
-/// note (owner decision 2026-10-22).
+/// the opening hours. Whatever its status, a place can still be routed to; the
+/// status is shown beside the way (owner decisions 2026-10-22 and 2026-10-23).
 class PlaceStatus {
   const PlaceStatus(this.key, this.line);
 
@@ -14,9 +14,6 @@ class PlaceStatus {
   final String line;
 
   bool get isOpen => key == 'open';
-
-  /// The map's own status blocks routing; being closed by the hours does not.
-  bool get blocksRouting => key == 'closed' || key == 'maintenance' || key == 'comingSoon';
 
   /// The chip's key in the status colours.
   String get chip => key == 'closedNow' ? 'closed' : key;

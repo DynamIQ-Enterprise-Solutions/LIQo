@@ -63,6 +63,14 @@ void main() {
       expect(h.c.read(settingsProvider), const AppSettings());
       expect(h.c.read(routeOptionsProvider), const RouteOptions());
     });
+
+    test('the map faces the way you walk by default; settings saved before that get it switched on once', () {
+      expect(const AppSettings().headingUp, isTrue);
+      expect(AppSettings.fromJson(jsonDecode('{"headingUp":false,"pace":"fast"}')).headingUp, isTrue, reason: 'saved before version 2');
+      final off = AppSettings.fromJson(jsonDecode('{"headingUp":false,"pace":"fast","v":2}'));
+      expect((off.headingUp, off.pace), (false, 'fast'), reason: 'turned off since: kept');
+      expect(AppSettings.fromJson(off.toJson()).headingUp, isFalse);
+    });
   });
 
   test('walking pace changes the minutes and nothing else about the route', () {

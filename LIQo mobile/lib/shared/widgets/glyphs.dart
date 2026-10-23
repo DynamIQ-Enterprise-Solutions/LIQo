@@ -49,6 +49,9 @@ const Map<String, List<String>> _src = {
   'i-pause': ['p:M8 5.5v13M16 5.5v13'],
   'i-more': ['c:12,5.5,1.4', 'c:12,12,1.4', 'c:12,18.5,1.4'],
   // the map turns to face the way you walk
+  // my location (a crosshair) and the floors
+  'i-locate': ['c:12,12,6.5', 'c:12,12,2.2', 'p:M12 2.5v3M12 18.5v3M2.5 12h3M18.5 12h3'],
+  'i-floors': ['p:M5 7h14M5 12h14M5 17h14'],
   'i-headup': ['c:12,12,9', 'p:M12 6.5l3.8 9.5-3.8-2.4-3.8 2.4z'],
   // Turn-by-turn arrows (the direction card)
   'i-straight': ['p:M12 20V5M6 11l6-6 6 6'],

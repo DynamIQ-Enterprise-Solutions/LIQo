@@ -13,7 +13,7 @@ class HelpView extends ConsumerWidget {
   static const tips = [
     (Icons.search, 'Find a place', 'Search for a store, a kind of place or a level, or open a category on Home. Each result shows whether it is open.'),
     (Icons.location_on_outlined, 'Say where you are', 'Until the mall has beacons, tell LIQo where you are: pick a shop near you, or your floor and then tap the map.'),
-    (Icons.directions_walk, 'Get directions', 'Open a place and press Get directions, then Start. The walk stops at each lift, escalator or stairs to check you are there.'),
+    (Icons.directions, 'Get directions', 'Open a place and press Directions (or the bent-arrow button on the map), then Start. The walk stops at each lift, escalator or stairs to check you are there.'),
     (Icons.alt_route, 'Find another way', 'While walking, Find another way shows ways around the stretch just ahead, places like the one you are going to, and the way to the information desk.'),
     (Icons.tune, 'Route options', 'Choose Fastest or Shortest, and avoid stairs or escalators. A wheelchair route uses lifts, ramps and wide corridors only.'),
     (Icons.emergency_outlined, 'Emergency evacuation', 'In More, Emergency evacuation shows the way to the nearest exit by stairs, never lifts. Wheelchair users are shown a safe place to wait for staff.'),

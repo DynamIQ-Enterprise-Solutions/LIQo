@@ -1,7 +1,9 @@
 // Search (the board's Search screen): type a store, a kind of place or a level.
 // Before typing: Recent Searches (places picked here) and Most visited (on this
 // phone); the popular places across all shoppers wait for the backend (owner
-// decision 2026-10-22). Every result shows whether it is open.
+// decision 2026-10-22). Every result shows whether it is open. Opened from the
+// map's Directions button it asks "Where to?", and a pick starts the route at once
+// (owner decision 2026-10-23).
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -24,7 +26,10 @@ import '../../settings/providers/words_provider.dart';
 import '../providers/search_providers.dart';
 
 class SearchView extends ConsumerStatefulWidget {
-  const SearchView({super.key});
+  const SearchView({super.key, this.go = false});
+
+  /// From the map's Directions button: a pick starts the route instead of opening the place.
+  final bool go;
   @override
   ConsumerState<SearchView> createState() => _SearchViewState();
 }
@@ -41,7 +46,13 @@ class _SearchViewState extends ConsumerState<SearchView> {
 
   void _open(String mallId, Place place) {
     ref.read(recentsProvider(mallId).notifier).add(place.id);
-    context.push('/place/$mallId/${place.id}');
+    // whatever its status: the way is given, and the map shows the status
+    if (widget.go) {
+      ref.read(navProvider.notifier).startTo(place.id);
+      context.go('/map');
+    } else {
+      context.push('/place/$mallId/${place.id}');
+    }
   }
 
   @override
@@ -123,7 +134,7 @@ class _SearchViewState extends ConsumerState<SearchView> {
                               decoration: InputDecoration(
                                 isCollapsed: true,
                                 border: InputBorder.none,
-                                hintText: w.tr('Search for a store, a category or a place'),
+                                hintText: widget.go ? w.tr('Where to?') : w.tr('Search for a store, a category or a place'),
                                 hintStyle: ts(15, color: p.muted),
                                 hintMaxLines: 1,
                               ),

@@ -1,5 +1,5 @@
 // The screens outside the map, through the real UI: Home and a category, a
-// place's page (Call / Website / Share, the heart, Get directions), Search,
+// place's page (Call / Website / Share, the heart, Directions), Search,
 // Saved, Route options, Settings (look, text size, language), More, the
 // look-only sign in, a post, and switching malls from the header.
 import 'package:flutter/material.dart';
@@ -55,7 +55,7 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('a place page: status, Call, Website, Share, the heart; Get directions asks where you are, then routes', (tester) async {
+  testWidgets('a place page: status, Call, Website, Share, the heart; Directions asks where you are, then routes', (tester) async {
     final h = await pumpApp(tester);
     h.c.read(routerProvider).push('/place/bayview/3-M1');
     await h.step(30);
@@ -79,7 +79,27 @@ void main() {
     expect(find.text('Tell us where you are, and the way there will show.'), findsOneWidget);
     await h.tapKey('locfloor-0');
     expect(h.s.route!.placeId, '3-M1');
-    expect(find.byKey(const ValueKey('direction-card')), findsOneWidget);
+    expect(find.byKey(const ValueKey('nav-banner')), findsOneWidget);
+  });
+
+  testWidgets('the Directions button on the map: "Where to?", a pick starts the route; hidden while walking', (tester) async {
+    final h = await pumpApp(tester);
+    await tester.tap(find.byKey(const ValueKey('tab-1')));
+    await h.step(20);
+    await tester.tap(find.text('Skip for now'));
+    await h.step(10);
+    await h.tapKey('directions');
+    expect(h.path, '/search');
+    expect(find.text('Where to?'), findsOneWidget);
+    await tester.enterText(find.byKey(const ValueKey('search-field')), 'Hypermart');
+    await h.step(5);
+    await h.tapKey('result-G-EHM');
+    expect(h.path, '/map');
+    expect(h.s.locSheet, isTrue, reason: 'no position yet: it asks first');
+    await h.tapKey('locfloor-0', frames: 40);
+    expect(h.s.route!.placeId, 'G-EHM');
+    expect(find.byKey(const ValueKey('directions')), findsNothing);
+    expect(h.c.read(recentsProvider('bayview')), contains('G-EHM'));
   });
 
   testWidgets('a place closed by its hours can still be routed to, with a note', (tester) async {
@@ -158,6 +178,7 @@ void main() {
     h.nav.startTo('3-M1');
     await h.step(5);
     final before = h.s.route;
+    await h.tapKey('nav-expand');
     await h.tapKey('route-options');
     expect(h.path, '/route-options');
     await h.tapKey('metric-shortest', frames: 5);
@@ -201,6 +222,8 @@ void main() {
     expect(find.text('Nasaan ka?'), findsOneWidget);
     expect(find.text('Where are you?'), findsNothing);
     await h.tapKey('locfloor-0');
+    expect(find.text('Tapusin'), findsOneWidget);
+    await h.tapKey('nav-expand');
     expect(find.text('Humanap ng ibang daan'), findsOneWidget);
     expect(find.text('Find another way'), findsNothing);
     await tester.tap(find.byKey(const ValueKey('tab-3')));
@@ -264,6 +287,10 @@ void main() {
     h.nav.refineAt(scenarioStart(h.s.v).lv, 720, 600);
     await h.step(5);
     expect(h.s.route, isNotNull, reason: 'the demo trip');
+    // while walking, the map shows no search bar: the mall is changed from Home's header
+    expect(find.byKey(const ValueKey('mall-switcher')), findsNothing);
+    await tester.tap(find.byKey(const ValueKey('tab-0')));
+    await h.step(20);
     await tester.tap(find.byKey(const ValueKey('mall-switcher')));
     await h.step(30);
     await tester.tap(find.byKey(const ValueKey('switch-spire')));

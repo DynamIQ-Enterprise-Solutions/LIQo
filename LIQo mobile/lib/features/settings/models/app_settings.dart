@@ -14,10 +14,12 @@ class AppSettings {
     this.reduceMotion = false,
     this.wheelchair = false,
     this.pace = 'normal',
-    this.headingUp = false,
-    this.railFolded = false,
-    this.levelsFolded = false,
+    this.headingUp = true,
   });
+
+  /// The version of the saved settings. 2: the map faces the way you walk by default (owner
+  /// decision 2026-10-23), so settings saved before it get it switched on once.
+  static const version = 2;
 
   /// en | tl
   final String lang;
@@ -41,8 +43,8 @@ class AppSettings {
   /// slow | relaxed | normal | brisk | fast: the minutes shown, and the simulated walk's speed.
   final String pace;
 
-  /// Map controls kept between launches: heading-up, the folded tools and level chips.
-  final bool headingUp, railFolded, levelsFolded;
+  /// The map turns to face the way you walk while walking (on by default; kept between launches).
+  final bool headingUp;
 
   /// How much longer than at a normal pace a walk takes: more for a relaxed or slow walker,
   /// less for a brisk (+25% speed) or fast (+50%) one.
@@ -58,8 +60,6 @@ class AppSettings {
     bool? wheelchair,
     String? pace,
     bool? headingUp,
-    bool? railFolded,
-    bool? levelsFolded,
   }) =>
       AppSettings(
         lang: lang ?? this.lang,
@@ -71,13 +71,11 @@ class AppSettings {
         wheelchair: wheelchair ?? this.wheelchair,
         pace: pace ?? this.pace,
         headingUp: headingUp ?? this.headingUp,
-        railFolded: railFolded ?? this.railFolded,
-        levelsFolded: levelsFolded ?? this.levelsFolded,
       );
 
   Map<String, Object> toJson() => {
         'lang': lang, 'theme': theme, 'textSize': textSize, 'highContrast': highContrast, 'vibration': vibration, 'reduceMotion': reduceMotion,
-        'wheelchair': wheelchair, 'pace': pace, 'headingUp': headingUp, 'railFolded': railFolded, 'levelsFolded': levelsFolded,
+        'wheelchair': wheelchair, 'pace': pace, 'headingUp': headingUp, 'v': version,
       };
 
   /// What was saved, with anything unreadable left at its default.
@@ -96,9 +94,7 @@ class AppSettings {
       reduceMotion: b('reduceMotion', d.reduceMotion),
       wheelchair: b('wheelchair', d.wheelchair),
       pace: str('pace', d.pace, const ['slow', 'relaxed', 'normal', 'brisk', 'fast']),
-      headingUp: b('headingUp', d.headingUp),
-      railFolded: b('railFolded', d.railFolded),
-      levelsFolded: b('levelsFolded', d.levelsFolded),
+      headingUp: json['v'] is int && (json['v'] as int) >= 2 ? b('headingUp', d.headingUp) : d.headingUp,
     );
   }
 

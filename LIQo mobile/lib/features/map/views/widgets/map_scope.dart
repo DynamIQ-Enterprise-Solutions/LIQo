@@ -9,7 +9,7 @@ import '../../providers/map_provider.dart';
 /// Gives the map's panels the navigation, the camera and the words without
 /// passing them down by hand (the demo's Scope). Rebuilt with every change.
 class MapScope extends InheritedWidget {
-  const MapScope({super.key, required this.s, required this.mv, required this.t, required this.nav, required this.map, required this.settings, required this.mallId, required this.version, required this.onFoldRail, required this.onFoldLevels, required super.child});
+  const MapScope({super.key, required this.s, required this.mv, required this.t, required this.nav, required this.map, required this.settings, required this.mallId, required this.version, required super.child});
 
   final NavState s;
   final MapView mv;
@@ -19,9 +19,6 @@ class MapScope extends InheritedWidget {
   final AppSettings settings;
   final String mallId;
   final int version;
-
-  /// Folding the tool rail and the level chips (saved in the settings).
-  final VoidCallback onFoldRail, onFoldLevels;
 
   String tr(String en) => t.tr(en);
 

@@ -71,7 +71,7 @@ final routerProvider = Provider<GoRouter>((ref) {
           StatefulShellBranch(routes: [GoRoute(path: '/more', builder: (context, state) => const MoreView())]),
         ],
       ),
-      GoRoute(parentNavigatorKey: rootNavigatorKey, path: '/search', builder: (context, state) => const SearchView()),
+      GoRoute(parentNavigatorKey: rootNavigatorKey, path: '/search', builder: (context, state) => SearchView(go: state.uri.queryParameters['go'] == '1')),
       GoRoute(
         parentNavigatorKey: rootNavigatorKey,
         path: '/place/:mall/:place',

@@ -24,8 +24,6 @@ class SettingsNotifier extends Notifier<AppSettings> {
   void setWheelchair(bool v) => _set(state.copyWith(wheelchair: v));
   void setPace(String v) => _set(state.copyWith(pace: v));
   void setHeadingUp(bool v) => _set(state.copyWith(headingUp: v));
-  void toggleRail() => _set(state.copyWith(railFolded: !state.railFolded));
-  void toggleLevels() => _set(state.copyWith(levelsFolded: !state.levelsFolded));
 }
 
 final settingsProvider = NotifierProvider<SettingsNotifier, AppSettings>(SettingsNotifier.new);

@@ -5,7 +5,6 @@ import 'package:flutter/material.dart' hide Step;
 import 'package:go_router/go_router.dart';
 
 import '../../../../core/engine/reroute.dart';
-import '../../../../core/engine/routing.dart';
 import '../../../../core/theme.dart';
 import '../../../../shared/widgets/common.dart';
 import '../../../../shared/widgets/glyphs.dart';
@@ -164,9 +163,9 @@ class _OptionRow extends StatelessWidget {
   }
 }
 
-/// The evacuation sheet.
+/// The evacuation sheet, when there is no way to walk: no position yet, already outside, no way out, or arrived.
 Widget evacBody(BuildContext context) {
-  final sc = MapScope.of(context), s = sc.s, p = context.pal, r = s.route, t = sc.t;
+  final sc = MapScope.of(context), s = sc.s, p = context.pal, r = s.route;
   final header = Container(
     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
     decoration: BoxDecoration(color: p.danger, borderRadius: BorderRadius.circular(12)),
@@ -203,51 +202,13 @@ Widget evacBody(BuildContext context) {
       ?help, stopRow,
     ]);
   }
-  final rem = r.total - r.progress;
-  final steps = stepsOf(r), curIdx = steps.indexWhere((st) => r.progress < st.endAt - 0.001);
-  final where = e.refuge ? sc.tr('the stairs (a safe place to wait)') : e.exit!.name;
+  // on the way out, the red banner and bottom bar take over (nav_bar.dart); the sheet says you made it
   return _col([
     const Grab(),
     header,
-    if (s.arrived)
-      e.refuge
-          ? iconNote(context, 'warn', 'i-flag', sc.tr('Wait here at the stairs. Staff will come and help you down.'))
-          : iconNote(context, 'ok', 'i-check', sc.tr('You are out. Keep clear of the doors and follow staff.'))
-    else ...[
-      if (e.refuge)
-        iconNote(
-          context,
-          'warn',
-          'i-flag',
-          s.routeOpts.wheel
-              ? sc.tr('Lifts must not be used in an emergency. Go to the stairs and wait there: staff will help you down.')
-              : sc.tr('No exit can be reached from here. Go to the stairs and wait for staff.'),
-        ),
-      Padding(
-        padding: const EdgeInsets.only(top: 8),
-        child: Text.rich(TextSpan(children: [
-          TextSpan(text: '${sc.tr('To $where')}\n', style: ts(12.5, w: FontWeight.w500, color: p.muted)),
-          TextSpan(text: t.fmtEta(rem), style: ts(22, w: FontWeight.w700, ls: -.2, color: p.danger)),
-          TextSpan(text: ' (${t.fmtM(rem)})', style: ts(22, w: FontWeight.w500, ls: -.2, color: p.ink)),
-        ])),
-      ),
-      // only the next step, so the actions below stay in view without scrolling
-      if (steps.isNotEmpty)
-        Container(
-          margin: const EdgeInsets.only(top: 8),
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-          decoration: BoxDecoration(color: p.raised, borderRadius: BorderRadius.circular(12)),
-          child: Row(children: [
-            AppIcon(t.stepIcon(steps[curIdx < 0 ? steps.length - 1 : curIdx]), size: 18, color: p.danger),
-            const SizedBox(width: 8),
-            Expanded(child: Text(t.stepText(steps[curIdx < 0 ? steps.length - 1 : curIdx]), style: ts(13.5, w: FontWeight.w600, color: p.ink))),
-          ]),
-        ),
-      if (!s.playing)
-        btns([Btn(sc.tr('Start'), primary: true, onTap: sc.nav.start, semantics: sc.tr('Start the walk'))], top: 8)
-      else
-        btns([Btn(sc.tr('Pause'), primary: true, onTap: sc.nav.pause, semantics: sc.tr('Pause the walk'))], top: 8),
-    ],
+    e.refuge
+        ? iconNote(context, 'warn', 'i-flag', sc.tr('Wait here at the stairs. Staff will come and help you down.'))
+        : iconNote(context, 'ok', 'i-check', sc.tr('You are out. Keep clear of the doors and follow staff.')),
     ?help,
     stopRow,
   ]);

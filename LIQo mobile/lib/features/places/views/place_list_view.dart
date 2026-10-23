@@ -50,6 +50,13 @@ class PlaceListView extends ConsumerStatefulWidget {
 
 class _PlaceListViewState extends ConsumerState<PlaceListView> {
   String _filter = 'all';
+  final _q = TextEditingController();
+
+  @override
+  void dispose() {
+    _q.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -60,10 +67,38 @@ class _PlaceListViewState extends ConsumerState<PlaceListView> {
     // the pills: the kinds of place in this category (Shops: fashion, tech, cinema...)
     final kinds = <String>{for (final x in all) x.cat}.toList();
     final pills = kinds.length > 1 ? ['all', ...kinds] : const <String>[];
-    final shown = _filter == 'all' ? all : all.where((x) => x.cat == _filter).toList();
+    // the search: every word typed must appear in the place's name, kind, level or wing
+    final q = _q.text.trim();
+    final shown = all.where((x) => (_filter == 'all' || x.cat == _filter) && s.matches(x, q)).toList();
     return AppPage(
       title: w.tr(cat.label),
       children: [
+        Padding(
+          padding: const EdgeInsets.only(bottom: 10),
+          child: Container(
+            height: 48,
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+            decoration: BoxDecoration(color: p.panel, borderRadius: BorderRadius.circular(14), border: Border.all(color: p.line, width: p.lineW)),
+            child: Row(children: [
+              Icon(Icons.search, color: p.muted),
+              const SizedBox(width: 8),
+              Expanded(
+                child: TextField(
+                  key: const ValueKey('list-search'),
+                  controller: _q,
+                  onChanged: (_) => setState(() {}),
+                  autocorrect: false,
+                  enableSuggestions: false,
+                  textInputAction: TextInputAction.search,
+                  style: ts(15, color: p.ink),
+                  decoration: InputDecoration(isCollapsed: true, border: InputBorder.none, hintText: w.tr('Search this list'), hintStyle: ts(15, color: p.muted), hintMaxLines: 1),
+                ),
+              ),
+              if (_q.text.isNotEmpty)
+                IconButton(tooltip: w.tr('Clear the search'), visualDensity: VisualDensity.compact, onPressed: () => setState(_q.clear), icon: Icon(Icons.close, color: p.muted)),
+            ]),
+          ),
+        ),
         if (pills.isNotEmpty)
           SizedBox(
             height: 46,
@@ -98,7 +133,7 @@ class _PlaceListViewState extends ConsumerState<PlaceListView> {
             child: Text(w.tr('Tell us where you are on the map to see how far each place is.'), style: ts(13, color: p.muted)),
           ),
         if (shown.isEmpty)
-          CardX(children: [RowX(title: w.tr('Nothing here yet'), last: true)])
+          CardX(children: [RowX(title: q.isEmpty ? w.tr('Nothing here yet') : w.tr('Nothing found'), last: true)])
         else
           CardX(
             children: [

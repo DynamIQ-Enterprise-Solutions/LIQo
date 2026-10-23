@@ -71,6 +71,9 @@ Widget statusChip(BuildContext context, String key, String label) {
   return ChipX(label: label, icon: icon, fg: fg, bg: bg);
 }
 
+/// A status's own colour: green open, red closed, amber being repaired, violet opening soon.
+Color statusColour(Pal p, String key) => switch (key) { 'open' => p.open, 'closed' || 'closedNow' => p.closed, 'maintenance' => p.maint, _ => p.soon };
+
 /// A quiet grey chip (a level, "Other level").
 Widget flChip(BuildContext context, String label) {
   final p = context.pal;
@@ -194,8 +197,11 @@ class Sw extends StatelessWidget {
 
 /// A button: primary (orange) or secondary. Expands in a [btns] row.
 class Btn extends StatelessWidget {
-  const Btn(this.label, {super.key, required this.onTap, this.primary = false, this.disabled = false, this.height = 48, this.fontSize = 15, this.semantics, this.danger = false});
+  const Btn(this.label, {super.key, required this.onTap, this.primary = false, this.disabled = false, this.height = 48, this.fontSize = 15, this.semantics, this.danger = false, this.icon});
   final String label;
+
+  /// An icon before the label (Directions' bent arrow).
+  final IconData? icon;
   final VoidCallback? onTap;
   final bool primary, disabled, danger;
   final double height, fontSize;
@@ -229,7 +235,13 @@ class Btn extends StatelessWidget {
                 border: primary || danger ? null : Border.all(color: p.line, width: p.lineW),
                 boxShadow: primary && !disabled ? p.glow : null,
               ),
-              child: Text(label, textAlign: TextAlign.center, style: ts(fontSize, w: primary ? FontWeight.w700 : FontWeight.w600, color: fg)),
+              child: icon == null
+                  ? Text(label, textAlign: TextAlign.center, style: ts(fontSize, w: primary ? FontWeight.w700 : FontWeight.w600, color: fg))
+                  : Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+                      Icon(icon, size: 20, color: fg),
+                      const SizedBox(width: 8),
+                      Flexible(child: Text(label, textAlign: TextAlign.center, style: ts(fontSize, w: primary ? FontWeight.w700 : FontWeight.w600, color: fg))),
+                    ]),
             ),
           ),
         ),

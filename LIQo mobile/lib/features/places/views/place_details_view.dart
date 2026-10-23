@@ -8,6 +8,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../core/clock.dart';
 import '../../../core/theme.dart';
+import '../../../shared/widgets/common.dart' show statusColour;
 import '../../../shared/widgets/page.dart';
 import '../../../shared/widgets/placeholders.dart';
 import '../../malls/providers/mall_provider.dart';
@@ -106,13 +107,12 @@ class _PlaceDetailsViewState extends ConsumerState<PlaceDetailsView> {
             Text('$level · ${w.tr(catLabels[place.cat] ?? place.cat)} · ${venue.name}', style: ts(14, color: p.muted)),
             if (hasStatus) ...[
               const SizedBox(height: 6),
-              Text(status.line, key: const ValueKey('status-line'), style: ts(14, w: FontWeight.w700, color: status.isOpen ? p.open : p.closed)),
+              Text(status.line, key: const ValueKey('status-line'), style: ts(14, w: FontWeight.w700, color: statusColour(p, status.key))),
             ],
-            if (status.key == 'closedNow')
+            if (hasStatus && !status.isOpen)
               Padding(padding: const EdgeInsets.only(top: 4), child: Text(w.tr('You can still get directions.'), style: ts(13, color: p.muted))),
             const SizedBox(height: 16),
-            PrimaryButton(key: const ValueKey('get-directions'), label: w.tr('Get directions'), icon: Icons.directions_walk, onPressed: status.blocksRouting ? null : _directions),
-            if (status.blocksRouting) Padding(padding: const EdgeInsets.only(top: 6), child: Text(w.tr('Not open, so you cannot go here yet.'), style: ts(13, color: p.closed))),
+            PrimaryButton(key: const ValueKey('get-directions'), label: w.tr('Directions'), icon: Icons.directions, onPressed: _directions),
             if (info.phone != null || info.website != null) ...[
               const SizedBox(height: 16),
               Row(children: [

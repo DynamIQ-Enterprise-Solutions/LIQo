@@ -7,12 +7,13 @@
 /// Exact phrases.
 const Map<String, String> _exact = {
   // the map and its controls
-  'Map': 'Mapa', 'Whole site': 'Buong lugar', 'All levels': 'Lahat ng palapag', 'Levels': 'Palapag', 'Level': 'Palapag',
-  'Show all levels': 'Ipakita lahat ng palapag', 'Hide other levels': 'Itago ang ibang palapag',
-  'Show map tools': 'Ipakita ang mga map tool', 'Hide map tools': 'Itago ang mga map tool',
+  'Map': 'Mapa', 'Whole site': 'Buong lugar', 'All levels': 'Lahat ng palapag', 'Level': 'Palapag',
+  'Layers': 'Mga layer', 'Map view': 'Itsura ng mapa', 'All floors': 'Lahat ng palapag', 'Go to': 'Pumunta sa',
+  'Change my location': 'Palitan ang lokasyon ko', 'My location': 'Lokasyon ko', 'The map faces the way I walk': 'Nakaharap ang mapa sa dinadaanan ko',
+  'End': 'Tapusin', 'End the route': 'Tapusin ang ruta', 'Show the details': 'Ipakita ang detalye', 'Hide the details': 'Itago ang detalye',
   'you are here': 'nandito ka', 'on your route': 'nasa ruta mo', 'Show': 'Ipakita', 'Cancel': 'Kanselahin', 'Close': 'Isara', 'Done': 'Tapos', 'Stop': 'Itigil',
   'Show more': 'Ipakita pa', 'Show less': 'Bawasan', '3D view': '3D view',
-  'Set my location': 'Itakda ang lokasyon ko', 'Centre on me': 'Igitna sa akin', 'Back': 'Bumalik',
+  'Back': 'Bumalik',
   
   'Favourite': 'Paborito', 'Go this way': 'Dito dumaan',
   'All levels · tap one to open it': 'Lahat ng palapag · i-tap ang isa para buksan',
@@ -33,7 +34,7 @@ const Map<String, String> _exact = {
   'There is no other way to get there.': 'Wala nang ibang daan papunta roon.',
   'The dotted amber line on the map is the other way.': 'Ang putol-putol na kulay-kahel na linya sa mapa ang ibang daan.',
   'Wheelchair route (lifts only)': 'Wheelchair route (elevator lang)', 'Wheelchair route': 'Wheelchair route', 'Turn off wheelchair route': 'I-off ang wheelchair route',
-  "I've arrived": 'Nakarating na ako', 'You are outside': 'Nasa labas ka', 'Not open, so you cannot go here yet.': 'Sarado pa, kaya hindi pa puwedeng pumunta rito.',
+  "I've arrived": 'Nakarating na ako', 'You are outside': 'Nasa labas ka',
   'This way needs stairs: no lift or ramp reaches this floor.': 'Kailangan ng hagdan sa daang ito: walang elevator o rampa papunta sa palapag na ito.',
   'This way needs an escalator: nothing else reaches this floor.': 'Kailangan ng escalator sa daang ito: wala nang ibang daan papunta sa palapag na ito.',
   'By walking distance from you': 'Ayon sa layo ng lakad mula sa iyo', 'Details': 'Mga detalye', 'Open the panel': 'Buksan ang panel',
@@ -110,6 +111,7 @@ const Map<String, String> _exact = {
   'Stairs': 'Hagdan', 'stairs': 'hagdan', 'to': 'hanggang',
   // ----- LIQo mobile (2026-10-22); please have a fluent speaker review -----
   // the shell and Home
+  'Search this list': 'Maghanap sa listahang ito',
   'Brisk': 'Mabilis-bilis', 'Fast': 'Mabilis',
   'Walking pace (the minutes shown and the walk on the map)': 'Bilis ng lakad (ang minutong ipinapakita at ang lakad sa mapa)',
   'Home': 'Home', 'Places': 'Mga lugar', 'Saved': 'Naka-save', 'More': 'Iba pa', 'Categories': 'Mga kategorya', 'Posts': 'Mga post', 'Sample': 'Sample', 'Sample post': 'Sample na post',
@@ -129,7 +131,7 @@ const Map<String, String> _exact = {
   'All': 'Lahat', 'Information desk': 'Information desk', 'Entrance': 'Pasukan', 'Escalator': 'Escalator', 'Ramp': 'Rampa', 'Escalators': 'Mga escalator',
   'Open 24 hours': 'Bukas 24 oras', 'Nothing here yet': 'Wala pang laman dito', 'Place': 'Lugar', 'This place is no longer on the map.': 'Wala na sa mapa ang lugar na ito.',
   'Tell us where you are on the map to see how far each place is.': 'Sabihin kung nasaan ka sa mapa para makita kung gaano kalayo ang bawat lugar.',
-  'Get directions': 'Kunin ang direksyon', 'You can still get directions.': 'Makakakuha ka pa rin ng direksyon.', 'Call': 'Tumawag', 'Website': 'Website', 'Share': 'Ibahagi',
+  'Get directions': 'Kunin ang direksyon', 'Directions': 'Direksyon', 'Where to?': 'Saan pupunta?', 'Show all floors': 'Ipakita lahat ng palapag', 'Hide the floors': 'Itago ang mga palapag', 'Tap one to see the way there': 'I-tap ang isa para makita ang daan', 'You can still get directions.': 'Makakakuha ka pa rin ng direksyon.', 'Call': 'Tumawag', 'Website': 'Website', 'Share': 'Ibahagi',
   'About': 'Tungkol dito', 'Phone': 'Telepono',
   'Sample details: the hours, phone and website are made up until the mall adds its own.': 'Sample na detalye: gawa-gawa lang ang oras, telepono at website hangga\'t hindi pa naglalagay ang mall ng sarili nila.',
   // search
@@ -137,7 +139,6 @@ const Map<String, String> _exact = {
   'Search for a store, a kind of place or a level, like "food" or "level 2".': 'Maghanap ng tindahan, uri ng lugar o palapag, gaya ng "pagkain" o "level 2".',
   // the map
   'Whole site · tap a building to go in': 'Buong lugar · i-tap ang isang gusali para pumasok', 'Skip for now': 'Laktawan muna',
-  'Make the map face the way you walk': 'Iharap ang mapa sa dinadaanan mo', 'The map faces the way you walk. Tap for north up': 'Nakaharap ang mapa sa dinadaanan mo. I-tap para hilaga sa itaas',
   'Tell us where you are to see what is nearest.': 'Sabihin kung nasaan ka para makita ang pinakamalapit.',
   'Tell us where you are, and the way out will show.': 'Sabihin kung nasaan ka, at lalabas ang daan palabas.',
   'Tell us where you are, and the way there will show.': 'Sabihin kung nasaan ka, at lalabas ang daan papunta roon.',
@@ -145,7 +146,7 @@ const Map<String, String> _exact = {
   // your route and route options
   'Your route': 'Ang ruta mo', 'Start where you are now': 'Magsimula kung nasaan ka ngayon', 'Ways there': 'Mga daan papunta roon', 'End navigation': 'Tapusin ang nabigasyon',
   'Back to the map': 'Bumalik sa mapa', 'Save this route': 'I-save ang rutang ito', 'Remove this saved route': 'Alisin ang naka-save na rutang ito',
-  'There is no route right now. Pick a place and press Get directions.': 'Walang ruta ngayon. Pumili ng lugar at pindutin ang Kunin ang direksyon.',
+  'There is no route right now. Pick a place and press Directions.': 'Walang ruta ngayon. Pumili ng lugar at pindutin ang Direksyon.',
   'The dashed blue line on the map is the other way.': 'Ang putol-putol na asul na linya sa mapa ang ibang daan.',
   'Fastest': 'Pinakamabilis', 'Shortest': 'Pinakamaikli', 'Avoid': 'Iwasan', 'Apply': 'Ilapat', 'No stairs': 'Walang hagdan', 'No escalators': 'Walang escalator',
   'Recommended · the least time, waits for lifts and escalators included': 'Inirerekomenda · pinakamaikling oras, kasama ang paghihintay sa elevator at escalator',
@@ -170,7 +171,7 @@ const Map<String, String> _exact = {
   'Find a place': 'Maghanap ng lugar', 'Say where you are': 'Sabihin kung nasaan ka',
   'Search for a store, a kind of place or a level, or open a category on Home. Each result shows whether it is open.': 'Maghanap ng tindahan, uri ng lugar o palapag, o magbukas ng kategorya sa Home. Makikita sa bawat resulta kung bukas ito.',
   'Until the mall has beacons, tell LIQo where you are: pick a shop near you, or your floor and then tap the map.': 'Hangga\'t wala pang beacon ang mall, sabihin sa LIQo kung nasaan ka: pumili ng tindahang malapit sa iyo, o ang palapag mo at saka i-tap ang mapa.',
-  'Open a place and press Get directions, then Start. The walk stops at each lift, escalator or stairs to check you are there.': 'Buksan ang isang lugar at pindutin ang Kunin ang direksyon, saka Simulan. Humihinto ang lakad sa bawat elevator, escalator o hagdan para tiyaking nandoon ka.',
+  'Open a place and press Directions (or the bent-arrow button on the map), then Start. The walk stops at each lift, escalator or stairs to check you are there.': 'Buksan ang isang lugar at pindutin ang Direksyon (o ang nakabaluktot na arrow sa mapa), saka Simulan. Humihinto ang lakad sa bawat elevator, escalator o hagdan para tiyaking nandoon ka.',
   'While walking, Find another way shows ways around the stretch just ahead, places like the one you are going to, and the way to the information desk.': 'Habang naglalakad, ipinapakita ng Humanap ng ibang daan ang mga daan paikot sa bahaging nasa unahan, mga lugar na katulad ng pupuntahan mo, at ang daan papunta sa information desk.',
   'Choose Fastest or Shortest, and avoid stairs or escalators. A wheelchair route uses lifts, ramps and wide corridors only.': 'Piliin ang Pinakamabilis o Pinakamaikli, at iwasan ang hagdan o escalator. Elevator, rampa at maluluwag na pasilyo lang ang ginagamit ng wheelchair route.',
   'In More, Emergency evacuation shows the way to the nearest exit by stairs, never lifts. Wheelchair users are shown a safe place to wait for staff.': 'Sa Iba pa, ipinapakita ng Emergency evacuation ang daan papunta sa pinakamalapit na exit gamit ang hagdan, hindi kailanman ang elevator. Ipinapakita sa mga naka-wheelchair ang ligtas na lugar para hintayin ang staff.',
@@ -207,6 +208,8 @@ final List<(RegExp, String Function(Match))> _rules = [
   (RegExp(r'^Closed now · Opens (.+)$'), (m) => 'Sarado ngayon · Magbubukas nang ${m[1]}'),
   (RegExp(r'^Best way \((.+)\)$'), (m) => 'Pinakamagandang daan (${m[1]})'),
   (RegExp(r'^Mall: (.+)\. Change mall$'), (m) => 'Mall: ${m[1]}. Palitan ang mall'),
+  (RegExp(r'^Search in (.+)$'), (m) => 'Maghanap sa ${m[1]}'),
+  (RegExp(r'^Directions to (.+)$'), (m) => 'Direksyon papunta sa ${m[1]}'),
   (RegExp(r'^There is no way to (.+) from here\.$'), (m) => 'Walang daan papunta sa ${m[1]} mula rito.'),
   (RegExp(r'^Page (\d+) of (\d+)$'), (m) => 'Pahina ${m[1]} ng ${m[2]}'),
   (RegExp(r'^Version (.+)$'), (m) => 'Bersyon ${m[1]}'),

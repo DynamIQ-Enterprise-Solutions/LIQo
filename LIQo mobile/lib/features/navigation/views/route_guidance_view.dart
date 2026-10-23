@@ -45,7 +45,7 @@ class RouteGuidanceView extends ConsumerWidget {
     final place = s.place == null ? null : s.placeById(s.place!);
     if (r == null || place == null || s.emergency) {
       return AppPage(title: w.tr('Your route'), children: [
-        Text(w.tr('There is no route right now. Pick a place and press Get directions.'), style: ts(15, color: p.muted)),
+        Text(w.tr('There is no route right now. Pick a place and press Directions.'), style: ts(15, color: p.muted)),
         const SizedBox(height: 16),
         PrimaryButton(label: w.tr('Back to the map'), onPressed: () => context.canPop() ? context.pop() : context.go('/map')),
       ]);

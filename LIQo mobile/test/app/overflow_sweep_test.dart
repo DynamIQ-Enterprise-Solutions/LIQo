@@ -106,6 +106,7 @@ void main() {
         await state('refining a floor', () => nav.locAtFloor(1));
         await state('a position', () => nav.refineAt(start.lv, start.x, start.y));
         await state('nearest', () => nav.showNearest('restroom'));
+        await state('nearest, a row previewed', () => nav.previewNearest(h.c.read(navProvider).near!.ids.first));
         await state('a route', () => nav.startTo('3-M1'));
         await state('walking', nav.start);
         final s = h.c.read(navProvider), steps = stepsOf(s.route!);
@@ -126,8 +127,18 @@ void main() {
           nav.findAnotherWay();
         });
         await state('back on the way', nav.cancelReroute);
-        await state('the sheet swiped down', map.sheetDown);
-        await state('the sheet back up', map.sheetUp);
+        await state('the bottom bar opened', map.toggleNavOpen);
+        await state('paused, the bar open', () {
+          nav.pause();
+          nav.answerYes();
+        });
+        await state('the bottom bar closed', map.toggleNavOpen);
+        // the Layers panel, over the walk
+        await tester.tap(find.byKey(const ValueKey('layers')));
+        await h.step(30);
+        await check(tester, 'map: the Layers panel');
+        Navigator.of(tester.element(find.byKey(const ValueKey('layers-3d')))).pop();
+        await h.step(30);
         await state('the arrival question', () => nav.debugScrub(1000));
         await state('arrived', nav.confirmArrived);
         await state('all levels', () {
@@ -139,6 +150,12 @@ void main() {
           h.c.read(mapProvider).cam.zoom = 5 * s.v.ratio;
           map.notify();
         });
+        // the floor picker opened
+        await tester.tap(find.byKey(const ValueKey('floors-toggle')));
+        await h.step(4);
+        await check(tester, 'map: every floor listed');
+        await tester.tap(find.byKey(const ValueKey('floors-toggle')));
+        await h.step(4);
         await state('no wheelchair route', () {
           s.wcError = 'Bayview Department Store International Flagship Super Centre and Lifestyle Hall';
           s.wcPlace = 'G-WDS';

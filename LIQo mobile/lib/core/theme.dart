@@ -386,24 +386,27 @@ final Map<String, Color> _mapLight = {
   'water': const Color(0xFFCFE0EA), 'sand': const Color(0xFFEFE6D2),
 };
 
+/// Dark mode's map: a lighter blue-grey, like Google Maps at night (owner decision 2026-10-23:
+/// the first dark map was too dark to read), with clearly lighter corridors and shops, white
+/// labels on a dark halo, and a brighter route and pins.
 final Map<String, Color> _mapDark = {
-  'ground': const Color(0xFF121216), 'surface': const Color(0xFF1A1A1F), 'alt': const Color(0xFF22222A), 'text': const Color(0xFFF8F8FA), 'muted': const Color(0xFFA4A4AF), 'outline': const Color(0xFF2E2E36),
-  'accent': const Color(0xFFFF5A3D), 'on-accent': const Color(0xFFFFFFFF), 'accent-text': const Color(0xFFFF8A6E), 'cone': const Color(0xFFFF7A5C),
-  'grass': const Color(0xFF1E2620), 'road': const Color(0xFF2A2A31), 'road-line': const Color(0xFF44444E), 'walk': const Color(0xFF24242B), 'lot': const Color(0xFF222229), 'stall': const Color(0xFF2A2A31), 'stall-line': const Color(0xFF55555F), 'plazaG': const Color(0xFF26252A),
-  'tree': const Color(0xFF34503A), 'tree-dark': const Color(0xFF263C2B),
-  'floor': const Color(0xFF1D1D23), 'corridor': const Color(0xFF26262D), 'store': const Color(0xFF2E2120), 'store-line': const Color(0xFF3A2E2C), 'staff': const Color(0xFF2E2228), 'void': const Color(0xFF0B0B0E),
-  'box': const Color(0xFF3A2723), 'box-a': const Color(0xFF241816), 'box-b': const Color(0xFF1E1412), 'roof': const Color(0xFF2E2E35), 'bs': const Color(0xFF1B1B20), 'bs-line': const Color(0xFF4E4E58),
-  'wall-top': const Color(0xFF4A4A54), 'wall-a': const Color(0xFF30303A), 'wall-b': const Color(0xFF282830),
-  'slab-a': const Color(0xFF241B1A), 'slab-b': const Color(0xFF1E1716),
-  'col-top': const Color(0xFF5A5A63), 'col-a': const Color(0xFF3E3E46), 'col-b': const Color(0xFF34343B),
-  'glass-top': _rgba(120, 190, 205, .30), 'glass-a': _rgba(90, 150, 165, .24), 'glass-b': _rgba(70, 120, 135, .24),
-  'label': const Color(0xFFF2F2F5), 'halo': const Color(0xFF121216),
-  'route': const Color(0xFFFF5A3D), 'route-rim': const Color(0xFF8B1E2D), 'route-text': const Color(0xFFFF8A6E), 'route-alt': const Color(0xFF60A5FA),
-  'poi': const Color(0xFFC0392B), 'conn': const Color(0xFFC4C4CE),
+  'ground': const Color(0xFF232733), 'surface': const Color(0xFF2B303B), 'alt': const Color(0xFF353B48), 'text': const Color(0xFFF2F4F7), 'muted': const Color(0xFFB8BEC9), 'outline': const Color(0xFF4A5160),
+  'accent': const Color(0xFFFF6A4D), 'on-accent': const Color(0xFFFFFFFF), 'accent-text': const Color(0xFFFF9F88), 'cone': const Color(0xFFFF8A6E),
+  'grass': const Color(0xFF2E3A34), 'road': const Color(0xFF3B4250), 'road-line': const Color(0xFF59606E), 'walk': const Color(0xFF363C49), 'lot': const Color(0xFF323845), 'stall': const Color(0xFF3A404D), 'stall-line': const Color(0xFF6B7280), 'plazaG': const Color(0xFF383E4B),
+  'tree': const Color(0xFF4D7058), 'tree-dark': const Color(0xFF3C5A46),
+  'floor': const Color(0xFF2F3542), 'corridor': const Color(0xFF4A5262), 'store': const Color(0xFF4A403E), 'store-line': const Color(0xFF6E625E), 'staff': const Color(0xFF4A3F48), 'void': const Color(0xFF1A1D25),
+  'box': const Color(0xFF57463F), 'box-a': const Color(0xFF3D312C), 'box-b': const Color(0xFF342A26), 'roof': const Color(0xFF3E4451), 'bs': const Color(0xFF2C313C), 'bs-line': const Color(0xFF6B7280),
+  'wall-top': const Color(0xFF6B7280), 'wall-a': const Color(0xFF4B5260), 'wall-b': const Color(0xFF424856),
+  'slab-a': const Color(0xFF3A322F), 'slab-b': const Color(0xFF332C2A),
+  'col-top': const Color(0xFF7A808C), 'col-a': const Color(0xFF565C68), 'col-b': const Color(0xFF4B515C),
+  'glass-top': _rgba(140, 200, 215, .34), 'glass-a': _rgba(110, 170, 185, .28), 'glass-b': _rgba(90, 145, 160, .28),
+  'label': const Color(0xFFFFFFFF), 'halo': const Color(0xFF1A1D25),
+  'route': const Color(0xFFFF6A4D), 'route-rim': const Color(0xFFFFE1D8), 'route-text': const Color(0xFFFF9F88), 'route-alt': const Color(0xFF7FB8FF),
+  'poi': const Color(0xFFE8553A), 'conn': const Color(0xFFD5D9E0),
   'open': const Color(0xFF3DDC97), 'open-chip': const Color(0xFF15302A), 'closed': const Color(0xFFFF8A7A), 'closed-chip': const Color(0xFF3A1A18),
   'maint': const Color(0xFFFFB547), 'maint-chip': const Color(0xFF3A2A12), 'soon': const Color(0xFFC4B5FD), 'soon-chip': const Color(0xFF2A2440),
-  'good': const Color(0xFF3DDC97), 'mid': const Color(0xFFFFB547), 'bad': const Color(0xFFFF5A5A),
-  'water': const Color(0xFF142530), 'sand': const Color(0xFF2E2A22),
+  'good': const Color(0xFF3DDC97), 'mid': const Color(0xFFFFB547), 'bad': const Color(0xFFFF6B6B),
+  'water': const Color(0xFF1F3A4D), 'sand': const Color(0xFF3B362C),
 };
 
 /// High contrast: pure text, darker secondary text and outlines, so labels read at WCAG AA or better.

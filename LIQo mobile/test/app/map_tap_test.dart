@@ -52,7 +52,7 @@ void main() {
     await h.step(5);
     expect(find.textContaining('You have arrived'), findsNothing);
     expect(find.text(other.name), findsOneWidget);
-    expect(find.text('Get directions'), findsOneWidget);
+    expect(find.text('Directions'), findsOneWidget);
     await tester.pump(const Duration(seconds: 3));
     expect(tester.takeException(), isNull);
   });

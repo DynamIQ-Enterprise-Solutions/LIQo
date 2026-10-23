@@ -46,6 +46,9 @@ class MapView {
   bool sheetMin = false;
   String? _sheetFor;
 
+  /// While walking a route: the bottom bar opened to show the notes, other ways and all the steps.
+  bool navOpen = false;
+
   double _z0 = 1, _r0 = 0;
 
   /// Zoom limits, scaled to the venue (the same on-screen detail in every mall).
@@ -280,7 +283,13 @@ class MapController extends Notifier<MapView> {
     if (kind != m._sheetFor) {
       m._sheetFor = kind;
       m.sheetMin = false;
+      m.navOpen = false;
     }
+  }
+
+  void toggleNavOpen() {
+    m.navOpen = !m.navOpen;
+    notify();
   }
 
   void sheetUp() {

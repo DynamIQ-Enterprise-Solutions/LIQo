@@ -76,6 +76,10 @@ class NavState {
   int arrivalSeq = 0;
   Near? near;
 
+  /// Browsing a chip list: [place]'s way is drawn and highlighted, the list stays open, and nothing
+  /// is a trip until the shopper confirms it (owner decision 2026-10-23).
+  bool preview = false;
+
   /// Where the last ride ended (route, metres, level, connector): the card says what to expect for a few metres.
   (RouteT, double, int, String?)? rideEndAt;
   int? ridingLv;
@@ -233,7 +237,8 @@ class NavState {
     }
     // 'shops' is every store-type place but food (the Shops category)
     bool kind(Place p) => type == 'shops' ? (p.kind == 'store' || p.kind == 'box') && p.cat != 'food' : p.cat == type;
-    bool ok(Place p) => kind(p) && (type == 'parking' || p.status == 'open') && p.nodes.any(d.containsKey);
+    // closed and being-repaired places too: the list shows their status (owner decision 2026-10-23)
+    bool ok(Place p) => kind(p) && p.nodes.any(d.containsKey);
     final ranked = v.places.where(ok).map((p) => (p, p.nodes.where(d.containsKey).map((k) => d[k]!).reduce(math.min))).toList();
     return stableSorted(ranked, (a, b) => cmpNum(a.$2, b.$2)).take(3).map((x) => x.$1).toList();
   }

@@ -60,10 +60,10 @@ void main() {
     final night = placeStatus(shop, placeInfoFor(v, shop), DateTime(2026, 10, 22, 23), w);
     expect(night.key, 'closedNow');
     expect(night.line, 'Closed now · Opens 10:00 AM');
-    expect(night.blocksRouting, isFalse, reason: 'closed by the hours, a place can still be routed to');
+    expect(night.isOpen, isFalse);
     expect(placeStatus(cinema, placeInfoFor(v, cinema), DateTime(2026, 10, 22, 23, 30), w).isOpen, isTrue);
     final closed = v.places.firstWhere((p) => p.status == 'closed');
-    expect(placeStatus(closed, placeInfoFor(v, closed), DateTime(2026, 10, 22, 14), w).blocksRouting, isTrue);
+    expect(placeStatus(closed, placeInfoFor(v, closed), DateTime(2026, 10, 22, 14), w).key, 'closed', reason: "the map's own status comes before the hours");
     expect(placeStatus(shop, placeInfoFor(v, shop), DateTime(2026, 10, 22, 14), const Words('tl')).line, 'Bukas · Magsasara nang 10:00 PM');
   });
 

@@ -1,7 +1,8 @@
 // The Map tab, driven through the real UI (from the demo's interaction, pause,
 // ux and voice tests): saying where you are, the demo trip, the walk at a real
-// pace with its questions, the map's tools and gestures, the sheet, other ways,
-// arriving, the evacuation, Back, and what the screen reader hears.
+// pace with its questions, the Layers panel and the gestures, the walking
+// banner and bottom bar, other ways, arriving, the evacuation, Back, and what
+// the screen reader hears.
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
@@ -12,6 +13,7 @@ import 'package:liqo_mobile/features/map/providers/map_provider.dart';
 import 'package:liqo_mobile/features/navigation/models/nav_state.dart';
 import 'package:liqo_mobile/features/navigation/providers/nav_provider.dart';
 import 'package:liqo_mobile/features/navigation/services/narration.dart';
+import 'package:liqo_mobile/features/saved/providers/saved_providers.dart';
 import 'package:liqo_mobile/features/settings/providers/settings_provider.dart';
 
 import '../support/app.dart';
@@ -32,6 +34,16 @@ extension on AppHarness {
   Future<void> placeAt(Pos p) async {
     nav.refineAt(p.lv, p.x, p.y);
     await step(5);
+  }
+
+  Future<void> openLayers() async {
+    await tester.tap(find.byKey(const ValueKey('layers')));
+    await step(30);
+  }
+
+  Future<void> closeLayers() async {
+    await tester.tap(find.byTooltip('Close'));
+    await step(30);
   }
 }
 
@@ -90,7 +102,7 @@ void main() {
     expect(h.s.route!.placeId, h.s.v.tripTarget);
   });
 
-  testWidgets('Skip: no position and no trip; distances stay hidden; Get directions asks again', (tester) async {
+  testWidgets('Skip: no position and no trip; distances stay hidden; Directions asks again', (tester) async {
     final h = await pumpApp(tester);
     await h.openMap();
     await tester.tap(find.text('Skip for now'));
@@ -102,7 +114,7 @@ void main() {
     await h.step(30);
     expect(find.text('Hypermart Bayview'), findsWidgets);
     expect(find.textContaining('to walk'), findsNothing);
-    await tester.tap(find.text('Get directions'));
+    await tester.tap(find.byKey(const ValueKey('card-directions')));
     await h.step(10);
     expect(h.s.locSheet, isTrue);
     expect(find.text('Tell us where you are, and the way there will show.'), findsOneWidget);
@@ -202,10 +214,12 @@ void main() {
     await tester.tapAt(roof);
     await h.step(45);
     expect(h.mv.mode, 'building');
-    expect(find.byKey(const ValueKey('wing-G')), findsOneWidget); // the wing pad
+    expect(find.text('Whole site · tap a building to go in'), findsNothing);
+    await h.openLayers();
+    expect(find.byKey(const ValueKey('wing-G')), findsOneWidget); // the wings, in the Layers panel
   });
 
-  testWidgets('level chips, the wing pad and the stacked view; Back leaves the stack', (tester) async {
+  testWidgets('the floor picker, the wings and all floors; Back leaves the stack', (tester) async {
     final h = await pumpApp(tester);
     await h.openMap();
     await h.placeAt(spot(h.s.v, 0, 750, 350));
@@ -213,14 +227,25 @@ void main() {
     h.mv.cam.zoom = 4 * h.s.v.ratio;
     h.map.notify();
     await h.step(5);
+    // folded: one chip, your floor
+    expect(find.byKey(const ValueKey('level-2')), findsNothing);
+    expect(find.bySemanticsLabel(RegExp(r'^Ground floor, you are here')), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('floors-toggle')));
+    await tester.pump();
+    expect(find.byKey(const ValueKey('level-4')), findsOneWidget);
     await tester.tap(find.byKey(const ValueKey('level-2')));
     await tester.pump();
     expect(h.mv.level, 2);
+    expect(find.byKey(const ValueKey('level-4')), findsNothing, reason: 'a pick folds the list again');
+    await h.openLayers();
     await tester.tap(find.byKey(const ValueKey('wing-G')));
     await h.step(45);
+    expect(find.byKey(const ValueKey('wing-G')), findsNothing, reason: 'going to a wing closes the panel');
     expect(h.mv.cam.zoom, closeTo(6.5 * h.s.v.ratio, 0.01));
-    await tester.tap(find.byKey(const ValueKey('tool-stack')));
+    await h.openLayers();
+    await tester.tap(find.byKey(const ValueKey('layers-floors')));
     await h.step(45);
+    await h.closeLayers();
     expect(h.mv.mode, 'stack');
     expect(find.text('All levels · tap one to open it'), findsOneWidget);
     // the camera is frozen in the stack
@@ -276,7 +301,7 @@ void main() {
     expect(find.text('Categories'), findsOneWidget);
   });
 
-  testWidgets('the tools and the level chips fold and unfold, and stay so', (tester) async {
+  testWidgets('the Layers panel: 3D, the map facing the way I walk (on by default, kept), and Change my location', (tester) async {
     final h = await pumpApp(tester);
     await h.openMap();
     await h.placeAt(spot(h.s.v, 0, 750, 350));
@@ -284,36 +309,156 @@ void main() {
     h.mv.cam.zoom = 4 * h.s.v.ratio;
     h.map.notify();
     await h.step(5);
-    expect(find.byKey(const ValueKey('tool-3d')), findsOneWidget);
-    await tester.tap(find.byKey(const ValueKey('railfold')));
-    await tester.pump();
-    expect(find.byKey(const ValueKey('tool-3d')), findsNothing);
-    expect(h.c.read(settingsProvider).railFolded, isTrue);
-    await tester.tap(find.byKey(const ValueKey('railfold')));
-    await tester.pump();
-    expect(find.byKey(const ValueKey('tool-3d')), findsOneWidget);
-    expect(find.byKey(const ValueKey('level-4')), findsOneWidget);
-    await tester.tap(find.byKey(const ValueKey('levelsfold')));
-    await tester.pump();
-    expect(find.byKey(const ValueKey('level-4')), findsNothing);
-    expect(h.store.get(Keys.settings), contains('"levelsFolded":true'));
+    // browsing: one search bar with the mall, the chips, and only Layers, the floors and my location on the map
+    expect(find.text('Search in Bayview Grand'), findsOneWidget);
+    expect(find.byKey(const ValueKey('chip-food')), findsOneWidget);
+    expect(find.byKey(const ValueKey('floor-picker')), findsOneWidget);
+    expect(find.byKey(const ValueKey('layers-3d')), findsNothing);
+    final flat = h.mv.cam.tilt < .5;
+    await h.openLayers();
+    await tester.tap(find.byKey(const ValueKey('layers-3d')));
+    await h.step(45);
+    expect(h.mv.cam.tilt < .5, !flat, reason: '3D view toggles the tilt');
+    await tester.tap(find.byKey(const ValueKey('layers-headup')));
+    await h.step(5);
+    expect(h.c.read(settingsProvider).headingUp, isFalse, reason: 'on by default; the switch turns it off');
+    expect(h.store.get(Keys.settings), contains('"headingUp":false'));
+    await tester.tap(find.byKey(const ValueKey('layers-location')));
+    await h.step(30);
+    expect(find.byKey(const ValueKey('layers-3d')), findsNothing, reason: 'the panel closed');
+    expect(h.s.locSheet, isTrue);
+    expect(find.text('Where are you?'), findsOneWidget);
   });
 
-  testWidgets('the sheet swipes down to one line and back up; it never ends the route', (tester) async {
+  testWidgets('my location: with no position it asks "Where are you?"; with one it centres on you', (tester) async {
+    final h = await pumpApp(tester);
+    await h.openMap();
+    await tester.tap(find.text('Skip for now'));
+    await h.step(10);
+    await tester.tap(find.byKey(const ValueKey('recenter')));
+    await h.step(10);
+    expect(h.s.locSheet, isTrue);
+    await tester.tap(find.byKey(const ValueKey('locfloor-0')));
+    await h.step(40);
+    h.nav.stop();
+    h.mv.cam.cx += 300;
+    h.map.notify();
+    await h.step(5);
+    await tester.tap(find.byKey(const ValueKey('recenter')));
+    await h.step(60);
+    expect(h.mv.cam.cx, closeTo(h.s.user!.x, 1));
+  });
+
+  testWidgets('walking: the next turn on top, the bottom bar below; it opens for more; End stops the route', (tester) async {
     final h = await pumpApp(tester);
     await h.openMap();
     await h.placeAt(scenarioStart(h.s.v));
-    expect(find.byKey(const ValueKey('direction-card')), findsOneWidget);
-    await tester.drag(find.byKey(const ValueKey('sheet')), const Offset(0, 160));
-    await h.step(5);
-    expect(h.mv.sheetMin, isTrue);
     expect(h.s.route, isNotNull);
-    expect(find.byKey(const ValueKey('direction-card')), findsNothing);
-    expect(find.byKey(const ValueKey('walk')), findsOneWidget, reason: 'the walk button joins the tools');
-    await tester.drag(find.byKey(const ValueKey('sheet')), const Offset(0, -120));
+    expect(find.byKey(const ValueKey('nav-banner')), findsOneWidget);
+    expect(find.byKey(const ValueKey('nav-bar')), findsOneWidget);
+    expect(find.byKey(const ValueKey('map-search')), findsNothing, reason: 'no search or chips while walking');
+    expect(find.byKey(const ValueKey('chip-food')), findsNothing);
+    expect(find.byKey(const ValueKey('walk')), findsOneWidget);
+    expect(find.byKey(const ValueKey('reroute')), findsNothing);
+    await tester.tap(find.byKey(const ValueKey('nav-expand')));
     await h.step(5);
-    expect(h.mv.sheetMin, isFalse);
-    expect(find.byKey(const ValueKey('direction-card')), findsOneWidget);
+    expect(h.mv.navOpen, isTrue);
+    expect(find.byKey(const ValueKey('reroute')), findsOneWidget);
+    expect(find.byKey(const ValueKey('nav-steps')), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('nav-expand')));
+    await h.step(5);
+    expect(h.mv.navOpen, isFalse);
+    await tester.tap(find.byKey(const ValueKey('nav-end')));
+    await h.step(5);
+    expect(h.s.route, isNull);
+    expect(find.byKey(const ValueKey('map-search')), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('the turn banner shrinks to a pill after 4 seconds; a tap or the next step opens it again', (tester) async {
+    final h = await pumpApp(tester);
+    await h.openMap();
+    await h.placeAt(scenarioStart(h.s.v));
+    expect(find.byKey(const ValueKey('nav-banner-small')), findsNothing);
+    await tester.pump(const Duration(seconds: 4));
+    await h.step(20);
+    expect(find.byKey(const ValueKey('nav-banner-small')), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('nav-banner-small')));
+    await h.step(20);
+    expect(find.byKey(const ValueKey('nav-banner-small')), findsNothing, reason: 'a tap opens it in full');
+    await tester.pump(const Duration(seconds: 4));
+    await h.step(20);
+    expect(find.byKey(const ValueKey('nav-banner-small')), findsOneWidget);
+    // the next step
+    final first = h.s.nextDirection!;
+    h.nav.debugScrub((first.$2.atM + 1) / h.s.route!.total * 1000);
+    await h.step(5);
+    expect(h.s.nextDirection!.$1, isNot(first.$1));
+    expect(find.byKey(const ValueKey('nav-banner-small')), findsNothing, reason: 'a new step opens it in full');
+    await tester.pump(const Duration(seconds: 4));
+    await h.step(5);
+  });
+
+  testWidgets('a chip list: a tap draws the way and keeps the list; only the row\'s Directions makes it a trip', (tester) async {
+    final h = await pumpApp(tester);
+    await h.openMap();
+    await h.placeAt(spot(h.s.v, 0, 750, 350));
+    h.nav.stop();
+    await h.step(5);
+    final trips = h.c.read(historyProvider).length;
+    await tester.tap(find.byKey(const ValueKey('chip-food')));
+    await h.step(30);
+    final ids = h.s.near!.ids;
+    expect(ids.length, greaterThan(1));
+    expect(h.s.route, isNull, reason: 'a chip only lists');
+    await tester.tap(find.byKey(ValueKey('near-${ids[0]}')));
+    await h.step(30);
+    expect((h.s.preview, h.s.route!.placeId, h.s.near?.type), (true, ids[0], 'food'), reason: 'the way is drawn, the list stays');
+    expect(find.byKey(const ValueKey('nav-banner')), findsNothing, reason: 'not a trip yet');
+    expect(find.byKey(ValueKey('near-go-${ids[0]}')), findsOneWidget);
+    // another row
+    await tester.tap(find.byKey(ValueKey('near-${ids[1]}')));
+    await h.step(30);
+    expect(h.s.route!.placeId, ids[1]);
+    expect(find.byKey(ValueKey('near-go-${ids[0]}')), findsNothing);
+    expect(h.c.read(historyProvider).length, trips, reason: 'browsing is not recorded');
+    // Back drops the drawn way and keeps the list
+    expect(h.nav.handleBack(), isTrue);
+    await h.step(5);
+    expect((h.s.route, h.s.near?.type), (null, 'food'));
+    await tester.tap(find.byKey(ValueKey('near-${ids[1]}')));
+    await h.step(30);
+    await tester.tap(find.byKey(ValueKey('near-go-${ids[1]}')));
+    await h.step(30);
+    expect((h.s.preview, h.s.near, h.s.route!.placeId), (false, null, ids[1]));
+    expect(find.byKey(const ValueKey('nav-banner')), findsOneWidget, reason: 'now the trip: banner, Start and End');
+    expect(find.byKey(const ValueKey('nav-end')), findsOneWidget);
+    expect(h.c.read(historyProvider).length, trips + 1);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('a closed place still gets directions; its status shows on the card and while walking', (tester) async {
+    final h = await pumpApp(tester);
+    await h.openMap();
+    await h.placeAt(spot(h.s.v, 0, 750, 350));
+    h.nav.stop();
+    final closed = h.s.v.places.firstWhere((p) => p.status == 'closed' && p.kind == 'store');
+    h.nav.pick(closed.id);
+    await h.step(30);
+    expect(find.text('You can still get directions.'), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('card-directions')));
+    await h.step(30);
+    expect(h.s.route!.placeId, closed.id);
+    expect(find.byKey(const ValueKey('nav-status')), findsOneWidget);
+    expect(find.text('Closed'), findsWidgets);
+    // and the chip lists show closed places too
+    final kind = closed.cat == 'food' ? 'food' : 'shops';
+    expect(h.s.v.places.where((p) => p.status != 'open').isNotEmpty, isTrue);
+    h.nav.stop();
+    h.nav.refineAt(closed.lv, closed.at[0], closed.at[1]);
+    h.nav.stop();
+    h.nav.showNearest(kind);
+    expect(h.s.near!.ids, contains(closed.id), reason: 'standing at it, it is the nearest');
   });
 
   testWidgets('Find another way: the options, and the chosen one has its own Go button', (tester) async {
@@ -321,6 +466,8 @@ void main() {
     await h.openMap();
     await h.placeAt(scenarioStart(h.s.v));
     h.nav.debugScrub(120 / h.s.route!.total * 1000);
+    await tester.pump();
+    await tester.tap(find.byKey(const ValueKey('nav-expand')));
     await tester.pump();
     await tester.tap(find.byKey(const ValueKey('reroute')));
     await tester.pump();
@@ -369,9 +516,12 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('more-emergency')));
     await h.step(30);
     expect(h.s.emergency, isTrue);
-    expect(find.text('Emergency: get out by the nearest exit'), findsOneWidget);
-    expect(find.text('Emergency evacuation'), findsOneWidget);
+    // the same look as walking, in red: the next step to the exit on top, the minutes to the exit below
+    expect(find.byKey(const ValueKey('nav-banner')), findsOneWidget);
     expect(find.text('Use the stairs, not the lifts'), findsOneWidget);
+    expect(find.textContaining(RegExp(r'^To ')), findsOneWidget);
+    expect(find.text('Get help'), findsOneWidget);
+    expect(find.byKey(const ValueKey('map-search')), findsNothing);
     expect(h.s.route!.seg.any((e) => isHop(e) && e!.ctype == 'lift'), isFalse);
     await tester.ensureVisible(find.text('Stop evacuation'));
     await tester.tap(find.text('Stop evacuation'));
@@ -380,7 +530,7 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('the screen reader: every map button is named; the map is summed up; level chips say where you are', (tester) async {
+  testWidgets('the screen reader: every map button is named; the map is summed up; the floor picker says where you are', (tester) async {
     final handle = tester.ensureSemantics();
     final h = await pumpApp(tester);
     await h.openMap();
@@ -388,15 +538,25 @@ void main() {
     h.mv.cam.zoom = 4 * h.s.v.ratio;
     h.map.notify();
     await h.step(5);
-    for (final label in ['Set my location', 'Centre on me', '3D view', 'Whole site', 'All levels', 'Hide map tools', 'Hide other levels', 'Where do you want to go?']) {
+    // walking: the buttons are named, the map is summed up, the floor picker says where you are
+    for (final label in ['My location', 'Layers', 'Start the walk', 'End the route', 'Show the details']) {
       expect(find.bySemanticsLabel(label), findsWidgets, reason: label);
     }
     expect(find.bySemanticsLabel(RegExp(r'^Map\. Showing ground floor\. You are on ground floor')), findsOneWidget);
     expect(find.bySemanticsLabel(RegExp(r'^Ground floor, you are here')), findsOneWidget);
-    expect(find.bySemanticsLabel(RegExp(r'^Mall: Bayview Grand')), findsOneWidget);
-    // the direction card says the whole sentence, not the metres
+    // the banner says the whole sentence, not the metres
     final next = h.s.nextDirection!;
     expect(find.bySemanticsLabel(h.c.read(navTextProvider).narrate(next.$1).text), findsOneWidget);
+    // browsing: the search bar and the mall; the Layers panel's tiles
+    h.nav.stop();
+    await h.step(5);
+    for (final label in ['Search in Bayview Grand', 'Mall: Bayview Grand. Change mall', 'Food & Dining']) {
+      expect(find.bySemanticsLabel(label), findsWidgets, reason: label);
+    }
+    await h.openLayers();
+    for (final label in ['3D view', 'Whole site', 'All floors']) {
+      expect(find.bySemanticsLabel(label), findsWidgets, reason: label);
+    }
     handle.dispose();
   });
 }

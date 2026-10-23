@@ -1,21 +1,17 @@
-// The map's bottom sheet (from the demo's sheet.dart): a place's card, the route
-// with its next direction, the nearest places of a kind, and the panels for
-// "Where are you?", other ways and the evacuation. The full list of directions
-// is its own page (Your Route, /route).
-import 'package:flutter/material.dart' hide Step;
+// The map's bottom sheet (from the demo's sheet.dart): a place's card, the
+// arrival, the nearest places of a kind, and the panels for "Where are you?",
+// other ways and the evacuation. Walking a route has its own banner and bottom
+// bar (nav_bar.dart); the full list of directions is its own page (/route).
+import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../core/clock.dart';
-import '../../../../core/engine/directions.dart';
-import '../../../../core/engine/graph.dart';
-import '../../../../core/engine/routing.dart';
 import '../../../../core/engine/venue.dart';
 import '../../../../core/theme.dart';
 import '../../../../shared/widgets/common.dart';
 import '../../../../shared/widgets/glyphs.dart';
 import '../../../navigation/models/nav_state.dart';
-import '../../../navigation/services/narration.dart';
 import '../../../places/models/category.dart';
 import '../../../places/services/place_info_catalog.dart';
 import '../../../places/services/place_status.dart';
@@ -26,21 +22,17 @@ import 'map_scope.dart';
 import 'reroute_panel.dart';
 
 /// What the sheet shows, to tell when it changes (a new kind opens at its summary).
-String? sheetKind(NavState s) => s.locSheet
-    ? 'loc'
-    : s.emergency
-        ? 'evac'
-        : s.reroute != null
-            ? 'reroute'
-            : s.wcError != null
-                ? 'wc'
-                : s.route != null
-                    ? 'route:${s.place}'
-                    : s.near != null
-                        ? 'near:${s.near!.type}'
-                        : s.place != null
-                            ? 'place:${s.place}'
-                            : null;
+String? sheetKind(NavState s) {
+  if (s.locSheet) return 'loc';
+  if (s.emergency) return 'evac';
+  if (s.reroute != null) return 'reroute';
+  if (s.wcError != null) return 'wc';
+  // a row of the list previewed is still the list
+  if (s.near != null && (s.route == null || s.preview)) return 'near:${s.near!.type}';
+  if (s.route != null) return 'route:${s.place}';
+  if (s.place != null) return 'place:${s.place}';
+  return null;
+}
 
 /// The sheet's content; null when it is empty.
 Widget? sheetBody(BuildContext context, {FocusNode? locFocus}) {
@@ -67,7 +59,8 @@ Widget? sheetBody(BuildContext context, {FocusNode? locFocus}) {
     ]);
   }
   final r = s.route;
-  if (r == null && s.near != null) return _nearBody(context);
+  // the list stays while one of its rows is previewed
+  if (s.near != null && (r == null || s.preview)) return _nearBody(context);
   final pl = s.place == null ? null : s.placeById(s.place!);
   if (pl == null) return null;
   if (r == null) return _PlaceCard(place: pl);
@@ -78,7 +71,8 @@ Widget? sheetBody(BuildContext context, {FocusNode? locFocus}) {
       btns([Btn(sc.tr('Done'), onTap: sc.nav.stop, primary: true)]),
     ]);
   }
-  return _RouteHead(place: pl, route: r);
+  // walking the route: the banner and the bottom bar take over (nav_bar.dart)
+  return null;
 }
 
 void _setWheel(BuildContext context, bool on) => ProviderScope.containerOf(context).read(settingsProvider.notifier).setWheelchair(on);
@@ -120,84 +114,25 @@ class _PlaceCard extends ConsumerWidget {
         if (u != null && pl.lv != u.lv) flChip(context, sc.tr('On ${t.levelLow(pl.lv)}')),
         if (u != null && u.out) flChip(context, sc.tr('You are outside')),
       ]),
-      if (status.blocksRouting) note(context, 'warn', Text(sc.tr('Not open, so you cannot go here yet.')))
-      else if (status.key == 'closedNow') note(context, 'warn', Text(status.line)),
+      // not open: the way is still given, the status chip above says why
+      if (!status.isOpen && pl.kind != 'zone' && pl.kind != 'conn') note(context, 'warn', Text(sc.tr('You can still get directions.'))),
       btns([
         if (pl.kind != 'conn') Btn(sc.tr('Details'), onTap: () => context.push('/place/${sc.mallId}/${pl.id}')),
-        Btn(sc.tr('Get directions'), primary: true, disabled: status.blocksRouting, onTap: () => sc.nav.startTo(pl.id)),
+        // Google Maps' Directions: the bent-arrow sign
+        Btn(sc.tr('Directions'), key: const ValueKey('card-directions'), icon: Icons.directions, primary: true, onTap: () => sc.nav.startTo(pl.id)),
       ]),
     ]);
   }
 }
 
-/// The route's summary: where to, how long, the next direction, start or pause, and other ways.
-class _RouteHead extends ConsumerWidget {
-  const _RouteHead({required this.place, required this.route});
-  final Place place;
-  final RouteT route;
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final sc = MapScope.of(context), s = sc.s, t = sc.t, p = context.pal, r = route, pl = place, m = context.mapPal;
-    final rem = r.total - r.progress, next = s.nextDirection, at = pointAt(r, r.progress);
-    final fav = ref.watch(favouritesProvider).any((f) => f.mallId == sc.mallId && f.placeId == pl.id);
-    final info = placeInfoFor(s.v, pl), status = placeStatus(pl, info, ref.watch(clockProvider)(), t.w);
-    return Column(crossAxisAlignment: CrossAxisAlignment.stretch, mainAxisSize: MainAxisSize.min, children: [
-      const Grab(),
-      Row(children: [
-        Expanded(
-          child: Text.rich(TextSpan(children: [
-            TextSpan(text: '${sc.tr('To ${pl.name} · ${s.levels[pl.lv].name}')}\n', style: ts(12.5, w: FontWeight.w500, color: p.muted)),
-            TextSpan(text: t.fmtEta(rem), style: ts(22, w: FontWeight.w700, ls: -.2, color: m['route-text'])),
-            TextSpan(text: ' (${t.fmtM(rem)})', style: ts(22, w: FontWeight.w500, ls: -.2, color: p.ink)),
-          ])),
-        ),
-        const SizedBox(width: 10),
-        if (pl.kind != 'conn') ...[
-          RoundBtn('i-star', on: fav, label: fav ? sc.tr('Remove from favourites') : sc.tr('Add to favourites'), onTap: () => ref.read(favouritesProvider.notifier).toggle(sc.mallId, pl.id)),
-          const SizedBox(width: 8),
-        ],
-        RoundBtn('i-up', label: sc.tr('All the steps'), onTap: () => context.push('/route')),
-        const SizedBox(width: 8),
-        RoundBtn('i-close', label: sc.tr('Close'), onTap: sc.nav.stop),
-      ]),
-      if (next != null) DirectionCard(i: next.$1, d: next.$2, progress: r.progress, transit: at.transit),
-      // start, pause or resume: a pill you cannot miss (at the end the pop-up asks for "I've arrived" instead)
-      if (s.prompt != 'end')
-        btns([
-          s.playing
-              ? Btn(sc.tr('Pause'), primary: true, onTap: sc.nav.pause, semantics: sc.tr('Pause the walk'))
-              : s.paused
-                  ? Btn(sc.tr('Resume'), primary: true, onTap: sc.nav.resume, semantics: sc.tr('Resume the walk'))
-                  : Btn(sc.tr('Start'), primary: true, onTap: sc.nav.start, semantics: sc.tr('Start the walk')),
-        ], top: 8),
-      if (status.key == 'closedNow') note(context, 'warn', Text(status.line)),
-      if (s.helpNote) helpNote(context),
-      // the shopper avoids stairs or escalators, but nothing else reaches the place
-      if (s.needsNote != null)
-        note(
-          context,
-          'warn',
-          Text(s.needsNote == 'stairs' ? sc.tr('This way needs stairs: no lift or ramp reaches this floor.') : sc.tr('This way needs an escalator: nothing else reaches this floor.')),
-        ),
-      findAnotherWayRow(context),
-    ]);
-  }
-}
-
+/// The nearest places of a kind. A tap draws a row's way and highlights its place while the list
+/// stays to try others; the chosen row's Directions makes it the trip (owner decisions 2026-10-23).
 Widget _nearBody(BuildContext context) {
-  final sc = MapScope.of(context), s = sc.s, p = context.pal, n = s.near!, t = sc.t;
+  final sc = MapScope.of(context), s = sc.s, p = context.pal, n = s.near!;
   final cat = categoryById(n.type);
   final rows = <Widget>[
     for (var i = 0; i < n.ids.length; i++)
-      if (s.placeById(n.ids[i]) case final pl?)
-        RowX(
-          onTap: () => sc.nav.startTo(pl.id),
-          lead: CatTile(pl.cat),
-          title: '${pl.name}${i == 0 ? ' · ${sc.tr('closest')}' : ''}',
-          sub: [t.placeSub(pl), if (s.distOf(pl) case final d?) t.fmtM(d)].join(' · '),
-          last: i == n.ids.length - 1,
-        ),
+      if (s.placeById(n.ids[i]) case final pl?) _NearRow(place: pl, closest: i == 0),
   ];
   return Column(crossAxisAlignment: CrossAxisAlignment.stretch, mainAxisSize: MainAxisSize.min, children: [
     const Grab(),
@@ -205,16 +140,88 @@ Widget _nearBody(BuildContext context) {
       Tile(nearGlyph(n.type), size: 48),
       Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Text(sc.tr('Nearest: ${sc.tr(cat.label)}'), style: ts(18, w: FontWeight.w700, color: p.ink)),
-        Text(sc.tr('By walking distance from you'), style: ts(12.5, color: p.muted)),
+        Text(s.hasPosition && rows.isNotEmpty ? sc.tr('Tap one to see the way there') : sc.tr('By walking distance from you'), style: ts(12.5, color: p.muted)),
       ]),
       trail: RoundBtn('i-close', label: sc.tr('Close'), onTap: sc.nav.clearNearest),
     ),
     if (!s.hasPosition) ...[
       iconNote(context, 'info', 'i-pin', sc.tr('Tell us where you are to see what is nearest.'), top: 2),
       btns([Btn(sc.tr('Where are you?'), primary: true, onTap: sc.nav.openLocation)], top: 8),
-    ] else
-      CardX(children: rows.isEmpty ? [RowX(title: sc.tr('None found'), last: true)] : rows),
+    ] else if (rows.isEmpty)
+      CardX(children: [RowX(title: sc.tr('None found'), last: true)])
+    else
+      ...rows,
   ]);
+}
+
+/// A row of the nearest list. Its border is its status (green open, red closed, amber being
+/// repaired, violet opening soon), with the status written under the name, so nothing crowds a
+/// narrow phone. The chosen row is filled, shows the walk's minutes and carries Directions.
+class _NearRow extends ConsumerWidget {
+  const _NearRow({required this.place, required this.closest});
+  final Place place;
+  final bool closest;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final sc = MapScope.of(context), s = sc.s, t = sc.t, p = context.pal, pl = place;
+    final status = placeStatus(pl, placeInfoFor(s.v, pl), ref.watch(clockProvider)(), t.w);
+    final chosen = s.preview && s.place == pl.id, r = chosen ? s.route : null, colour = statusColour(p, status.key);
+    final sub = [
+      t.placeSub(pl),
+      if (r != null) '${t.fmtEta(r.total)} · ${t.fmtM(r.total)}' else if (s.distOf(pl) case final d?) t.fmtM(d),
+    ].join(' · ');
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Semantics(
+        button: true,
+        selected: chosen,
+        child: Tap(
+          key: ValueKey('near-${pl.id}'),
+          onTap: () => sc.nav.previewNearest(pl.id),
+          child: Container(
+            padding: const EdgeInsets.fromLTRB(10, 10, 10, 10),
+            decoration: BoxDecoration(
+              color: chosen ? p.soft : p.panel,
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: colour, width: chosen ? 2.5 : 1.5),
+            ),
+            child: Row(children: [
+              CatTile(pl.cat),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Text('${pl.name}${closest ? ' · ${sc.tr('closest')}' : ''}', maxLines: 2, overflow: TextOverflow.ellipsis, style: ts(15, w: FontWeight.w700, color: p.ink)),
+                  Text(sub, style: ts(12.5, color: p.muted)),
+                  Text(status.line, style: ts(12.5, w: FontWeight.w700, color: colour)),
+                ]),
+              ),
+              if (chosen) ...[
+                const SizedBox(width: 8),
+                Semantics(
+                  button: true,
+                  label: sc.tr('Directions to ${pl.name}'),
+                  excludeSemantics: true,
+                  onTap: sc.nav.confirmPreview,
+                  child: Tap(
+                    key: ValueKey('near-go-${pl.id}'),
+                    onTap: sc.nav.confirmPreview,
+                    child: Container(
+                      width: 48,
+                      height: 48,
+                      decoration: BoxDecoration(color: p.brand, shape: BoxShape.circle, boxShadow: p.glow),
+                      alignment: Alignment.center,
+                      child: Icon(Icons.directions, size: 26, color: p.onBrand),
+                    ),
+                  ),
+                ),
+              ],
+            ]),
+          ),
+        ),
+      ),
+    );
+  }
 }
 
 /// The map glyph of a "nearest" type.
@@ -222,7 +229,7 @@ String nearGlyph(String type) => switch (type) { 'shops' => 'g-other', 'lift' =>
 
 /// The sheet swiped down to one line. A tap or a swipe up opens it again.
 Widget sheetMini(BuildContext context) {
-  final sc = MapScope.of(context), s = sc.s, p = context.pal, r = s.route, t = sc.t, m = context.mapPal;
+  final sc = MapScope.of(context), s = sc.s, p = context.pal, r = s.route, t = sc.t;
   final pl = s.place == null ? null : s.placeById(s.place!);
   final bold = ts(15, w: FontWeight.w700, color: p.ink), muted = ts(13.5, color: p.muted);
   Widget line(List<InlineSpan> spans, {String? icon, Color? iconColor}) => Row(children: [
@@ -235,22 +242,11 @@ Widget sheetMini(BuildContext context) {
   if (s.locSheet) {
     body = line([TextSpan(text: sc.tr('Where are you?'), style: bold)], icon: 'i-pin');
   } else if (s.emergency) {
-    final rem = r == null ? null : r.total - r.progress;
-    body = line([
-      TextSpan(text: sc.tr('Emergency'), style: bold.copyWith(color: p.danger)),
-      if (rem != null) TextSpan(text: ' · ${sc.tr('${t.fmtM(rem)} to the exit')}', style: muted),
-    ], icon: 'i-alert', iconColor: p.danger);
+    body = line([TextSpan(text: sc.tr('Emergency'), style: bold.copyWith(color: p.danger))], icon: 'i-alert', iconColor: p.danger);
   } else if (s.reroute != null) {
     body = line([TextSpan(text: sc.tr('Choosing another way'), style: bold)], icon: 'i-detour');
-  } else if (r != null && pl != null) {
-    final rem = r.total - r.progress;
-    body = s.arrived
-        ? line([TextSpan(text: sc.tr('You have arrived at ${pl.name}'), style: bold)], icon: 'i-check', iconColor: p.open)
-        : line([
-            TextSpan(text: t.fmtEta(rem), style: bold.copyWith(color: m['route-text'])),
-            TextSpan(text: ' (${t.fmtM(rem)})', style: bold.copyWith(fontWeight: FontWeight.w500)),
-            TextSpan(text: ' · ${sc.tr('To ${pl.name}')}', style: muted),
-          ]);
+  } else if (r != null && pl != null && !s.preview) {
+    body = line([TextSpan(text: sc.tr('You have arrived at ${pl.name}'), style: bold)], icon: 'i-check', iconColor: p.open);
   } else if (s.near != null) {
     body = line([TextSpan(text: sc.tr('Nearest: ${sc.tr(categoryById(s.near!.type).label)}'), style: bold)]);
   } else if (pl != null) {
@@ -267,70 +263,4 @@ Widget sheetMini(BuildContext context) {
       child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [const Grab(), body]),
     ),
   );
-}
-
-/// The next direction: a big arrow, the landmark, the metres counting down (or, just off a lift,
-/// escalator or stairs, what you should see, or a passing cue). The screen reader gets the full
-/// sentence, without the metres, so it is not re-read at every step.
-class DirectionCard extends StatelessWidget {
-  const DirectionCard({super.key, required this.i, required this.d, required this.progress, this.transit});
-  final int i;
-  final Direction d;
-  final double progress;
-  final Edge? transit;
-
-  @override
-  Widget build(BuildContext context) {
-    final sc = MapScope.of(context), s = sc.s, t = sc.t, p = context.pal, tr = transit;
-    // riding: the ride's own floor, not the next direction's
-    final title = tr != null ? sc.tr('Riding the ${hopName[tr.ctype]![0]} to ${t.levelLow(s.ridingTo ?? d.to)}') : t.dirTitle(d);
-    // under the title: a landing while riding, "Paused", the last cue, what to expect after a ride, or the metres
-    final sub = tr != null
-        ? (t.landingShown ?? '')
-        : s.paused
-            ? sc.tr('Paused · tap Resume to go on')
-            : s.cueShown ?? t.afterRideLine ?? (s.almostThere ? '' : t.dirSub(d, progress));
-    final tag = s.paused ? sc.tr('Paused') : s.almostThere ? sc.tr('Almost there') : null;
-    final spoken = tr != null ? title : t.narrate(i).text;
-    return Semantics(
-      liveRegion: true,
-      label: tag == null ? spoken : '$tag. $spoken',
-      child: ExcludeSemantics(
-        child: Container(
-          key: const ValueKey('direction-card'),
-          margin: const EdgeInsets.only(top: 8),
-          padding: const EdgeInsets.all(10),
-          decoration: BoxDecoration(color: p.raised, borderRadius: BorderRadius.circular(14)),
-          child: Row(children: [
-            Container(
-              width: 46,
-              height: 46,
-              decoration: BoxDecoration(color: s.paused ? p.muted : p.brand, shape: BoxShape.circle),
-              alignment: Alignment.center,
-              child: AppIcon(tr != null ? 'g-${tr.ctype}' : d.glyph, size: 28, color: p.onBrand),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Text(title, style: ts(16, w: FontWeight.w700, color: p.ink)),
-                if (sub.isNotEmpty) Text(sub, style: ts(13, color: p.muted)),
-              ]),
-            ),
-            if (tag != null) ...[
-              const SizedBox(width: 8),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                decoration: BoxDecoration(
-                  color: s.paused ? p.panel : p.brand,
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: s.paused ? p.line : p.brand, width: p.lineW),
-                ),
-                child: Text(tag, style: ts(12, w: FontWeight.w700, color: s.paused ? p.ink : p.onBrand)),
-              ),
-            ],
-          ]),
-        ),
-      ),
-    );
-  }
 }

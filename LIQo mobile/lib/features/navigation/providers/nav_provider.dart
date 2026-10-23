@@ -235,6 +235,7 @@ class NavController extends Notifier<NavState> {
     s.helpNote = false;
     s.reroute = null;
     s.pendingPlace = null;
+    s.preview = false;
   }
 
   // ===== The trip history =====
@@ -259,6 +260,7 @@ class NavController extends Notifier<NavState> {
 
   /// A new trip to [p] from where the shopper is.
   void _beginTrip(Place p) {
+    s.preview = false;
     _map.leaveStack();
     s.reroute = null;
     _endTrip(TripOutcome.stopped);
@@ -305,6 +307,7 @@ class NavController extends Notifier<NavState> {
     s.place = id;
     s.wcError = null;
     s.near = null;
+    s.preview = false;
     if (s.route != null) {
       _endTrip(TripOutcome.stopped);
       s.routes = [];
@@ -347,8 +350,43 @@ class NavController extends Notifier<NavState> {
   }
 
   void clearNearest() {
+    if (s.preview) _dropPreview();
     s.near = null;
     _notify();
+  }
+
+  /// Browsing a chip list: a row's way drawn on the map and its place highlighted, the list kept
+  /// open to try others. Not a trip yet: [confirmPreview] makes it one.
+  void previewNearest(String id) {
+    final n = s.near, p = s.placeById(id);
+    if (n == null || p == null || s.user == null || s.emergency) return;
+    startRoute(p);
+    s.near = n;
+    s.preview = true;
+    _map.leaveStack();
+    _map.showSpot(p.lv, p.at[0], p.at[1], zoom: 3.5);
+    _notify();
+  }
+
+  /// The chosen row's Directions: the previewed way becomes the trip (banner, Start and End).
+  void confirmPreview() {
+    final p = s.place == null ? null : s.placeById(s.place!);
+    if (!s.preview || p == null || s.route == null) return;
+    s.preview = false;
+    s.near = null;
+    _beginRecord(p);
+    final u = s.user!;
+    _map.m.level = u.lv;
+    _map.flyTo(u.x, u.y, math.max(_mv.cam.zoom, 3.5 * v.ratio));
+    _notify();
+  }
+
+  void _dropPreview() {
+    s.routes = [];
+    s.place = null;
+    s.preview = false;
+    s.wcError = null;
+    s.needsNote = null;
   }
 
   void stop() {
@@ -756,8 +794,9 @@ class NavController extends Notifier<NavState> {
       s.pendingPlace = null;
       if (p != null) _beginTrip(p);
     } else if (s.place != null && s.routes.isNotEmpty) {
-      final p = s.placeById(s.place!);
+      final p = s.placeById(s.place!), n = s.near;
       if (p != null) startRoute(p); // the same destination, from here
+      if (s.preview) s.near = n; // still browsing the list
     } else if (s.autoTripPending) {
       _startAutoTrip();
     }
@@ -806,6 +845,9 @@ class NavController extends Notifier<NavState> {
       s.refining = false;
     } else if (s.reroute != null) {
       _cancelReroute();
+    } else if (s.preview) {
+      // browsing a list: Back drops the drawn way, the list stays
+      _dropPreview();
     } else if (!s.emergency && (s.wcError != null || s.near != null || s.route != null || s.place != null)) {
       // Back never stops an evacuation
       stopRoute();
