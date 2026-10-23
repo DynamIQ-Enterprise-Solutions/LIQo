@@ -66,6 +66,7 @@ class MoreView extends ConsumerWidget {
         CardX(children: [
           item('more-settings', Icons.settings_outlined, w.tr('Settings'), () => context.push('/more/settings'), sub: w.tr('Language, look, text size, getting around')),
           item('more-mall', Icons.storefront_outlined, w.tr('Change mall'), () => context.push('/malls')),
+          item('more-saved-malls', Icons.download_done_outlined, w.tr('Saved malls'), () => context.push('/more/malls'), sub: w.tr('Malls on this phone, updates, storage')),
           item('more-help', Icons.help_outline, w.tr('Help & Support'), () => context.push('/more/help')),
           item('more-about', Icons.info_outline, w.tr('About LIQo'), () => context.push('/more/about'), last: true),
         ]),

@@ -1,5 +1,6 @@
-// The splash: the wordmark and "Smart Way Forward" while the malls are built,
-// at least one second (owner decision 2026-10-22).
+// The splash: the wordmark and "Smart Way Forward" while the malls on the
+// phone are read, at least one second (owner decision 2026-10-22). Then the
+// server is asked what's new, in the background (owner decision 2026-10-23).
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -7,8 +8,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/theme.dart';
 import '../../../shared/widgets/brand.dart';
-import '../../malls/data/registry.dart';
 import '../../malls/providers/mall_provider.dart';
+import '../../malls/providers/malls_provider.dart';
 import '../providers/boot_provider.dart';
 
 class SplashView extends ConsumerStatefulWidget {
@@ -28,12 +29,16 @@ class _SplashViewState extends ConsumerState<SplashView> {
   void initState() {
     super.initState();
     final started = DateTime.now();
-    // after the first frame, so the splash is on screen while the malls are built
-    WidgetsBinding.instance.addPostFrameCallback((_) {
+    // after the first frame, so the splash is on screen while the malls are read
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
       if (!mounted) return;
-      for (final e in venueRegistry) {
-        ref.read(venueProvider(e.id));
-      }
+      final malls = ref.read(mallsProvider.notifier);
+      await malls.boot();
+      if (!mounted) return;
+      // the remembered mall could not be read: back to the picker
+      final id = ref.read(mallProvider);
+      if (id != null && !ref.read(mallsProvider).isSaved(id)) ref.read(mallProvider.notifier).clear();
+      malls.checkForUpdates();
       final left = SplashView.minimum - DateTime.now().difference(started);
       _timer = Timer(left.isNegative ? Duration.zero : left, () {
         if (mounted) ref.read(bootProvider.notifier).splashDone();

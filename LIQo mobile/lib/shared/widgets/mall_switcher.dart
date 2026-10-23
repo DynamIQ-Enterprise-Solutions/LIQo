@@ -1,12 +1,14 @@
 // The mall dropdown in the header (the board's "Northpoint Mall ∨"), on Home
-// and on the map. Picking another mall switches to it.
+// and on the map. It lists the malls on the phone; 'More malls' opens the
+// picker, where others download.
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../core/theme.dart';
 import '../../features/malls/data/mall_info.dart';
-import '../../features/malls/data/registry.dart';
 import '../../features/malls/providers/mall_provider.dart';
+import '../../features/malls/providers/malls_provider.dart';
 import '../../features/malls/providers/switch_mall.dart';
 import '../../features/settings/providers/words_provider.dart';
 
@@ -60,9 +62,9 @@ class MallSwitcher extends ConsumerWidget {
   }
 }
 
-/// The list of malls in a bottom sheet; picking one switches to it.
+/// The malls on the phone in a bottom sheet; picking one switches to it, 'More malls' opens the picker.
 Future<void> pickMall(BuildContext context, WidgetRef ref) async {
-  final p = context.pal, w = ref.read(wordsProvider), current = ref.read(mallProvider);
+  final p = context.pal, w = ref.read(wordsProvider), current = ref.read(mallProvider), saved = ref.read(mallsProvider).venues;
   final id = await showModalBottomSheet<String>(
     context: context,
     backgroundColor: p.panel,
@@ -77,31 +79,35 @@ Future<void> pickMall(BuildContext context, WidgetRef ref) async {
             style: ts(18, w: FontWeight.w700, color: p.ink),
           ),
           const SizedBox(height: 8),
-          for (final e in venueRegistry)
-            Consumer(
-              builder: (context, ref, _) {
-                final v = ref.watch(venueProvider(e.id));
-                return ListTile(
-                  key: ValueKey('switch-${e.id}'),
-                  contentPadding: EdgeInsets.zero,
-                  leading: Icon(e.id == current ? Icons.radio_button_checked : Icons.radio_button_unchecked, color: e.id == current ? p.brand : p.muted),
-                  title: Text(
-                    v.name,
-                    style: ts(15, w: FontWeight.w600, color: p.ink),
-                  ),
-                  subtitle: Text(
-                    mallInfos[e.id]?.about.of(w.lang) ?? v.tagline,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: ts(12.5, color: p.muted),
-                  ),
-                  onTap: () => Navigator.of(context).pop(e.id),
-                );
-              },
+          for (final MapEntry(key: id, value: v) in saved.entries)
+            ListTile(
+              key: ValueKey('switch-$id'),
+              contentPadding: EdgeInsets.zero,
+              leading: Icon(id == current ? Icons.radio_button_checked : Icons.radio_button_unchecked, color: id == current ? p.brand : p.muted),
+              title: Text(v.name, style: ts(15, w: FontWeight.w600, color: p.ink)),
+              subtitle: Text(
+                mallInfos[id]?.about.of(w.lang) ?? v.tagline,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: ts(12.5, color: p.muted),
+              ),
+              onTap: () => Navigator.of(context).pop(id),
             ),
+          ListTile(
+            key: const ValueKey('switch-more'),
+            contentPadding: EdgeInsets.zero,
+            leading: Icon(Icons.add_location_alt_outlined, color: p.brand2),
+            title: Text(w.tr('More malls'), style: ts(15, w: FontWeight.w700, color: p.brand2)),
+            onTap: () => Navigator.of(context).pop(''),
+          ),
         ],
       ),
     ),
   );
-  if (id != null) switchMall(ref, id);
+  if (id == null || !context.mounted) return;
+  if (id.isEmpty) {
+    context.push('/malls');
+  } else {
+    switchMall(ref, id);
+  }
 }

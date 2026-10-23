@@ -1,16 +1,22 @@
 // The layout sweep: every screen, and every state of the Map tab, at phone and
 // tablet widths, with long names, in light and in dark high contrast with the
-// largest text, and once in Tagalog. Any overflow or exception fails it.
+// largest text, and once in Tagalog; the malls are downloaded packages. Any
+// overflow or exception fails it.
+import 'dart:convert';
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:liqo_mobile/core/engine/kit/kit_spec.dart';
+import 'package:liqo_mobile/core/data/net.dart';
 import 'package:liqo_mobile/core/engine/kit/kit_venue.dart';
+import 'package:liqo_mobile/core/engine/package/package_export.dart';
 import 'package:liqo_mobile/core/engine/routing.dart';
 import 'package:liqo_mobile/core/router.dart';
 import 'package:liqo_mobile/features/malls/data/bayview.dart';
 import 'package:liqo_mobile/features/malls/data/meridian.dart';
 import 'package:liqo_mobile/features/malls/data/spire.dart';
-import 'package:liqo_mobile/features/malls/providers/mall_provider.dart';
+import 'package:liqo_mobile/features/malls/providers/malls_provider.dart';
 import 'package:liqo_mobile/features/map/providers/map_provider.dart';
 import 'package:liqo_mobile/features/navigation/models/route_options.dart';
 import 'package:liqo_mobile/features/navigation/providers/nav_provider.dart';
@@ -18,9 +24,13 @@ import 'package:liqo_mobile/features/saved/providers/saved_providers.dart';
 import 'package:liqo_mobile/features/search/providers/search_providers.dart';
 
 import '../support/app.dart';
+import '../support/fake_server.dart';
 import '../support/spots.dart';
 
 const widths = [320.0, 360.0, 390.0, 412.0, 480.0, 800.0, 1024.0];
+
+/// The sample malls' packages, with very long names for the mall and its big stores.
+final longPackages = {for (final id in ['bayview', 'meridian', 'spire']) id: Uint8List.fromList(utf8.encode(jsonEncode(exportPackage(longVenue(id)))))};
 
 /// The malls again, with very long names for the mall and its big stores.
 KitVenue longVenue(String id) {
@@ -57,7 +67,8 @@ void main() {
   for (final v in variants) {
     for (final w in widths) {
       testWidgets('every screen at $w px, ${v.name}', (tester) async {
-        final h = await pumpApp(tester, size: Size(w, w >= 800 ? 1180 : 780), textScale: v.textScale, prefs: v.prefs, overrides: [venueProvider.overrideWith((ref, id) => longVenue(id))]);
+        final api = FakeShopperApi();
+        final h = await pumpApp(tester, size: Size(w, w >= 800 ? 1180 : 780), textScale: v.textScale, prefs: v.prefs, api: api, packages: longPackages);
         final router = h.c.read(routerProvider);
         final nav = h.c.read(navProvider.notifier), map = h.c.read(mapProvider.notifier);
         // long names everywhere: saved places, routes and history from two malls
@@ -76,11 +87,25 @@ void main() {
         for (final loc in ['/home', '/home/category/shops', '/home/category/lift', '/home/category/parking', '/saved?tab=places', '/saved?tab=routes', '/more']) {
           await page(loc);
         }
-        for (final loc in ['/search', '/place/bayview/G-WDS', '/place/bayview/CONN:M-L1', '/place/bayview/NP-GA', '/route', '/route-options', '/post/bay-1', '/login', '/signup', '/more/settings', '/more/help', '/more/about', '/malls']) {
+        for (final loc in ['/search', '/place/bayview/G-WDS', '/place/bayview/CONN:M-L1', '/place/bayview/NP-GA', '/route', '/route-options', '/post/bay-1', '/login', '/signup', '/more/settings', '/more/help', '/more/about', '/malls', '/more/malls']) {
           await page(loc, push: true);
           router.pop();
           await h.step(4);
         }
+        // a map update waiting on mobile data: Home's card and Saved malls' Update button; a mall
+        // no longer offered; a deleted mall's saved place, greyed
+        h.net.value = NetKind.mobile;
+        api
+          ..publish('bayview', 2)
+          ..switchOff('meridian');
+        await h.c.read(mallsProvider.notifier).checkForUpdates();
+        await page('/home');
+        await page('/more/malls', push: true);
+        router.pop();
+        await h.step(4);
+        await h.c.read(mallsProvider.notifier).delete('spire');
+        await page('/saved?tab=places');
+        h.net.value = NetKind.wifi;
         // search with results
         router.push('/search');
         await h.step(12);
@@ -175,6 +200,22 @@ void main() {
   }
 
   for (final w in widths) {
+    testWidgets('no connection and no mall at $w px: "Connect once"; a retired app version', (tester) async {
+      final api = FakeShopperApi()..offline = true;
+      final h = await pumpApp(tester, mall: null, api: api, net: NetKind.none, size: Size(w, w >= 800 ? 1180 : 640), textScale: 1.5, prefs: {'settings': '{"textSize":1.4}'});
+      await h.step(10);
+      expect(find.byKey(const ValueKey('connect-once')), findsOneWidget);
+      await check(tester, 'connect once');
+      api
+        ..offline = false
+        ..mustUpdateBelow = '99.0.0';
+      h.net.value = NetKind.wifi;
+      await h.c.read(mallsProvider.notifier).checkForUpdates();
+      await h.step(10);
+      expect(find.byKey(const ValueKey('update-app')), findsOneWidget);
+      await check(tester, 'update the app');
+    });
+
     testWidgets('the first launch at $w px: the splash, the slides and the picker', (tester) async {
       final h = await pumpApp(tester, onboarded: false, mall: null, size: Size(w, w >= 800 ? 1180 : 640), textScale: 1.5, prefs: {'settings': '{"textSize":1.4}'});
       await check(tester, 'onboarding 1');

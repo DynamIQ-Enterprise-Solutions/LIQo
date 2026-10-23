@@ -1,5 +1,6 @@
 // A navigation session without screens: the providers in a container, a memory
-// store, recorded haptics and a fixed clock.
+// store, recorded haptics, a fixed clock, and the sample malls on the phone (read
+// back from their packages, as downloads are).
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:liqo_mobile/core/clock.dart';
@@ -8,12 +9,15 @@ import 'package:liqo_mobile/core/engine/venue.dart';
 import 'package:liqo_mobile/core/haptics.dart';
 import 'package:liqo_mobile/core/storage/keys.dart';
 import 'package:liqo_mobile/core/storage/store.dart';
+import 'package:liqo_mobile/features/malls/providers/malls_provider.dart';
 import 'package:liqo_mobile/features/map/providers/map_provider.dart';
 import 'package:liqo_mobile/features/navigation/models/nav_state.dart';
 import 'package:liqo_mobile/features/navigation/providers/nav_provider.dart';
 import 'package:liqo_mobile/features/navigation/providers/route_options_provider.dart';
 import 'package:liqo_mobile/features/navigation/services/nav_text.dart';
 import 'package:liqo_mobile/features/settings/providers/settings_provider.dart';
+
+import 'samples.dart';
 
 /// Records the vibration cues instead of buzzing.
 class FakeHaptics extends Haptics {
@@ -36,12 +40,13 @@ final fixedNow = DateTime(2026, 10, 22, 14, 30);
 
 class Harness {
   Harness({String mall = 'bayview', Map<String, String>? prefs, DateTime? now})
-      : store = MemoryStore({Keys.mall: mall, Keys.onboardingSeen: '1', ...?prefs}),
+      : store = MemoryStore({Keys.mall: mall, Keys.onboardingSeen: '1', ...sampleSavedPrefs(fixedNow), ...?prefs}),
         haptics = FakeHaptics() {
     c = ProviderContainer(overrides: [
       storeProvider.overrideWithValue(store),
       hapticsProvider.overrideWithValue(haptics),
       clockProvider.overrideWithValue(() => now ?? fixedNow),
+      preloadedVenuesProvider.overrideWithValue(sampleVenues()),
     ]);
     addTearDown(c.dispose);
   }

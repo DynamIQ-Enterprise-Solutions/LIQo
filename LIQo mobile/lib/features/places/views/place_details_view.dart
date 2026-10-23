@@ -12,6 +12,7 @@ import '../../../shared/widgets/common.dart' show statusColour;
 import '../../../shared/widgets/page.dart';
 import '../../../shared/widgets/placeholders.dart';
 import '../../malls/providers/mall_provider.dart';
+import '../../malls/providers/malls_provider.dart';
 import '../../malls/providers/switch_mall.dart';
 import '../../navigation/providers/nav_provider.dart';
 import '../../saved/providers/saved_providers.dart';
@@ -49,7 +50,16 @@ class _PlaceDetailsViewState extends ConsumerState<PlaceDetailsView> {
 
   @override
   Widget build(BuildContext context) {
-    final p = context.pal, w = ref.watch(wordsProvider), venue = ref.watch(venueProvider(widget.mallId));
+    final p = context.pal, w = ref.watch(wordsProvider), maybe = ref.watch(mallsProvider.select((x) => x.venues[widget.mallId]));
+    // the mall is no longer on the phone (opened from Saved): offer it again
+    if (maybe == null) {
+      return AppPage(title: w.tr('Place'), children: [
+        Text(w.tr('This mall is not on your phone any more.'), style: ts(15, color: p.muted)),
+        const SizedBox(height: 16),
+        PrimaryButton(key: const ValueKey('download-mall'), label: w.tr('Download this mall'), icon: Icons.download_rounded, onPressed: () => openMall(context, ref, widget.mallId)),
+      ]);
+    }
+    final venue = maybe;
     final sameMall = ref.watch(mallProvider) == widget.mallId;
     final s = sameMall ? ref.watch(navProvider) : null, t = sameMall ? ref.watch(navTextProvider) : null;
     final place = s?.placeById(widget.placeId) ?? venue.placeById(widget.placeId);

@@ -21,6 +21,11 @@ dependencies:
   share_plus: 13.3.1
   # the icon font some Flutter widgets use on iOS (the template's own package)
   cupertino_icons: 1.0.9
+  # the shopper server: requests, saved packages, download checksums, Wi-Fi or mobile data
+  http: 1.6.0
+  path_provider: 2.1.6
+  crypto: 3.0.7
+  connectivity_plus: 7.3.2
 
 dev_dependencies:
   flutter_test:

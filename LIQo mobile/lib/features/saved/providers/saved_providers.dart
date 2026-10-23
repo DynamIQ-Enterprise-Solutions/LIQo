@@ -1,14 +1,29 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/clock.dart';
+import '../../../core/engine/package/package_venue.dart';
+import '../../../core/engine/venue.dart';
 import '../../../core/storage/keys.dart';
 import '../../../core/storage/store.dart';
+import '../../malls/providers/malls_provider.dart';
 import '../../navigation/models/route_options.dart';
 import '../models/saved_items.dart';
 
 List<T> _readList<T>(Store store, String key, T? Function(Object?) parse) {
   final j = store.json(key);
   return j is List ? j.map(parse).whereType<T>().toList() : <T>[];
+}
+
+/// A saved item's place now: its mall's venue (null when the mall is not on the phone) and the place
+/// (null when it is no longer on the map). A store is found by its store id first, so it follows a move.
+({Venue? venue, Place? place}) resolveSaved(MallsState s, String mallId, String placeId, [String? storeId]) {
+  final v = s.venues[mallId];
+  if (v == null) return (venue: null, place: null);
+  if (storeId != null && v is PackageVenue) {
+    final pid = v.storeOf.entries.where((e) => e.value == storeId).map((e) => e.key).firstOrNull;
+    if (pid != null) return (venue: v, place: v.placeById(pid));
+  }
+  return (venue: v, place: v.placeById(placeId));
 }
 
 /// Starred places, in every mall.
@@ -19,7 +34,8 @@ class FavouritesNotifier extends Notifier<List<FavPlace>> {
   bool isFav(String mallId, String placeId) => state.contains(FavPlace(mallId, placeId));
 
   void toggle(String mallId, String placeId) {
-    final f = FavPlace(mallId, placeId);
+    final v = ref.read(mallsProvider).venues[mallId];
+    final f = FavPlace(mallId, placeId, name: v?.placeById(placeId)?.name, mallName: v?.name, storeId: v is PackageVenue ? v.storeOf[placeId] : null);
     state = state.contains(f) ? [for (final x in state) if (x != f) x] : [...state, f];
     ref.read(storeProvider).setJson(Keys.favourites, [for (final x in state) x.toJson()]);
   }

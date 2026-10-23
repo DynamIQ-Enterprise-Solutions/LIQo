@@ -1,8 +1,9 @@
 // The bottom nav (Home / Map / Saved / More, as on the board) around the four
 // tabs. It also runs the clock of the simulated walk, so the walk goes on while
 // another tab is shown (owner decision 2026-10-22), buzzes on arrival, tells the
-// navigation when the Map tab is on screen, and handles Back on the tabs' first
-// screens: to Home, then out.
+// navigation when the Map tab is on screen, handles Back on the tabs' first
+// screens (to Home, then out), and holds a mall's map update back while a trip
+// is going there, switching it in (position kept) once the trip ends.
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter/services.dart';
@@ -11,10 +12,14 @@ import 'package:go_router/go_router.dart';
 
 import '../../core/haptics.dart';
 import '../../core/theme.dart';
+import '../../features/malls/providers/mall_provider.dart';
+import '../../features/malls/providers/malls_provider.dart';
 import '../../features/map/providers/map_provider.dart';
+import '../../features/navigation/models/nav_state.dart';
 import '../../features/navigation/providers/nav_provider.dart';
 import '../../features/settings/providers/settings_provider.dart';
 import '../../features/settings/providers/words_provider.dart';
+import 'toast.dart';
 
 class AppShell extends ConsumerStatefulWidget {
   const AppShell({super.key, required this.shell});
@@ -66,6 +71,19 @@ class _AppShellState extends ConsumerState<AppShell> with SingleTickerProviderSt
     });
   }
 
+  /// A trip or an evacuation is going on.
+  static bool _tripOn(NavState s) => s.emergency || (s.route != null && !s.arrived);
+
+  /// The trip ended: an update that waited for it is switched in, the shopper's spot kept.
+  Future<void> _applyPending() async {
+    final id = ref.read(mallProvider);
+    if (id == null || ref.read(mallsProvider).saved[id]?.pending == null) return;
+    final u = ref.read(navProvider).user, w = ref.read(wordsProvider);
+    if (!await ref.read(mallsProvider.notifier).applyPending(id) || !mounted) return;
+    if (u != null) ref.read(navProvider.notifier).refineAt(u.lv, u.x, u.y);
+    showToast(context, w.tr('Map updated'));
+  }
+
   void _back() {
     final i = widget.shell.currentIndex;
     if (i == AppShell.mapTab && ref.read(navProvider.notifier).handleBack()) return;
@@ -80,6 +98,14 @@ class _AppShellState extends ConsumerState<AppShell> with SingleTickerProviderSt
   Widget build(BuildContext context) {
     ref.listen(navProvider, (_, _) => _maybeStartTicker());
     ref.listen(mapProvider, (_, _) => _maybeStartTicker());
+    // map updates wait while a trip is going in this mall
+    ref.listen(navProvider.select(_tripOn), (_, on) {
+      ref.read(mallsProvider.notifier).tripIn = on ? ref.read(mallProvider) : null;
+      if (!on) _applyPending();
+    });
+    ref.listen(mallsProvider.select((m) => m.saved[ref.read(mallProvider)]?.pending), (_, pending) {
+      if (pending != null && !_tripOn(ref.read(navProvider))) _applyPending();
+    });
     // arriving: a buzz, on whichever tab is shown
     ref.listen(navProvider.select((s) => s.arrivalSeq), (a, b) {
       if (b > (a ?? 0) && ref.read(settingsProvider).vibration) ref.read(hapticsProvider).arrive();

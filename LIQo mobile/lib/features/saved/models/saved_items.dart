@@ -4,14 +4,19 @@ import 'package:flutter/foundation.dart';
 
 import '../../navigation/models/route_options.dart';
 
-/// A starred place.
+/// A starred place. Its names are remembered so it can still be listed (greyed) when its mall is
+/// no longer on the phone; a store is found again by [storeId] when it moves to another unit
+/// (owner decisions 2026-10-23).
 @immutable
 class FavPlace {
-  const FavPlace(this.mallId, this.placeId);
+  const FavPlace(this.mallId, this.placeId, {this.name, this.mallName, this.storeId});
   final String mallId, placeId;
+  final String? name, mallName, storeId;
 
-  Map<String, Object> toJson() => {'mall': mallId, 'place': placeId};
-  static FavPlace? fromJson(Object? j) => j is Map && j['mall'] is String && j['place'] is String ? FavPlace(j['mall'] as String, j['place'] as String) : null;
+  Map<String, Object> toJson() => {'mall': mallId, 'place': placeId, 'name': ?name, 'mallName': ?mallName, 'store': ?storeId};
+  static FavPlace? fromJson(Object? j) => j is Map && j['mall'] is String && j['place'] is String
+      ? FavPlace(j['mall'] as String, j['place'] as String, name: j['name'] as String?, mallName: j['mallName'] as String?, storeId: j['store'] as String?)
+      : null;
 
   @override
   bool operator ==(Object other) => other is FavPlace && other.mallId == mallId && other.placeId == placeId;

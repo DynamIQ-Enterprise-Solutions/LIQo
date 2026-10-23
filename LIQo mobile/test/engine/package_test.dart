@@ -70,10 +70,23 @@ void main() {
           final c = pkg.levelCentre(lv);
           expect(pkg.graph.nearestNodeAt(lv, c.x, c.y), isNotNull);
         }
-        expect(pkg.tripTarget, '', reason: 'no demo trip in published malls');
+        expect(pkg.tripTarget, kit.tripTarget, reason: 'samples keep their demo trip');
+        expect((pkg.basePx, pkg.pad.length, pkg.sizeText), (kit.basePx, kit.pad.length, kit.sizeText), reason: 'and their own presets');
       });
     });
   }
+
+  test('a published map (no presets) gets no demo trip and works out its own camera presets', () {
+    final j = exportPackage(KitVenue(meridianSpec))..remove('presets');
+    final v = PackageVenue(j);
+    expect(v.tripTarget, '');
+    expect(v.basePx, greaterThan(0));
+    expect(v.pad.map((b) => b.key), containsAll(['A', 'B']));
+    expect(v.pad.where((b) => b.main), hasLength(1));
+    expect(v.stack.gapM, greaterThan(0));
+    final c = v.levelCentre(v.ground);
+    expect(v.graph.nearestNodeAt(v.ground, c.x, c.y), isNotNull);
+  });
 
   test('a newer format is refused as "update the app"; a broken one as unreadable', () {
     final j = exportPackage(KitVenue(spireSpec))..['formatVersion'] = packageFormatVersion + 1;

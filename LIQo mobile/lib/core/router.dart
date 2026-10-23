@@ -12,7 +12,10 @@ import '../features/auth/views/signup_view.dart';
 import '../features/home/views/home_view.dart';
 import '../features/home/views/post_view.dart';
 import '../features/malls/providers/mall_provider.dart';
+import '../features/malls/providers/malls_provider.dart';
 import '../features/malls/views/mall_picker_view.dart';
+import '../features/malls/views/saved_malls_view.dart';
+import '../features/malls/views/update_app_view.dart';
 import '../features/map/views/map_screen.dart';
 import '../features/navigation/views/route_guidance_view.dart';
 import '../features/navigation/views/route_options_view.dart';
@@ -32,7 +35,9 @@ import '../shared/widgets/app_shell.dart';
 final rootNavigatorKey = GlobalKey<NavigatorState>(debugLabel: 'root');
 
 /// Where the first-launch flow sends someone, or null to stay.
-String? bootRedirect(Boot boot, String? mall, String loc) {
+String? bootRedirect(Boot boot, String? mall, String loc, {bool mustUpdate = false}) {
+  // the server retired this app version: nothing else until it is updated
+  if (mustUpdate) return loc == '/update-app' ? null : '/update-app';
   if (!boot.splashDone) return loc == '/splash' ? null : '/splash';
   if (!boot.onboardingSeen) return loc == '/onboarding' ? null : '/onboarding';
   if (mall == null) return loc == '/malls' ? null : '/malls';
@@ -44,16 +49,18 @@ final routerProvider = Provider<GoRouter>((ref) {
   final refresh = ValueNotifier(0);
   ref.listen(bootProvider, (_, _) => refresh.value++);
   ref.listen(mallProvider, (_, _) => refresh.value++);
+  ref.listen(mallsProvider.select((m) => m.mustUpdate), (_, _) => refresh.value++);
   ref.onDispose(refresh.dispose);
   final router = GoRouter(
     navigatorKey: rootNavigatorKey,
     initialLocation: '/splash',
     refreshListenable: refresh,
-    redirect: (context, state) => bootRedirect(ref.read(bootProvider), ref.read(mallProvider), state.matchedLocation),
+    redirect: (context, state) => bootRedirect(ref.read(bootProvider), ref.read(mallProvider), state.matchedLocation, mustUpdate: ref.read(mallsProvider).mustUpdate),
     routes: [
       GoRoute(path: '/splash', builder: (context, state) => const SplashView()),
       GoRoute(path: '/onboarding', builder: (context, state) => const OnboardingView()),
       GoRoute(path: '/malls', builder: (context, state) => const MallPickerView()),
+      GoRoute(path: '/update-app', builder: (context, state) => const UpdateAppView()),
       StatefulShellRoute.indexedStack(
         builder: (context, state, shell) => AppShell(shell: shell),
         branches: [
@@ -83,6 +90,7 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(parentNavigatorKey: rootNavigatorKey, path: '/login', builder: (context, state) => const LoginView()),
       GoRoute(parentNavigatorKey: rootNavigatorKey, path: '/signup', builder: (context, state) => const SignupView()),
       GoRoute(parentNavigatorKey: rootNavigatorKey, path: '/more/settings', builder: (context, state) => const SettingsView()),
+      GoRoute(parentNavigatorKey: rootNavigatorKey, path: '/more/malls', builder: (context, state) => const SavedMallsView()),
       GoRoute(parentNavigatorKey: rootNavigatorKey, path: '/more/help', builder: (context, state) => const HelpView()),
       GoRoute(parentNavigatorKey: rootNavigatorKey, path: '/more/about', builder: (context, state) => const AboutView()),
     ],

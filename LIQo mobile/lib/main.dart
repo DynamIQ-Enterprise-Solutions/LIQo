@@ -1,12 +1,18 @@
-// LIQo: the shopper app. Indoor wayfinding for LIQo malls; works offline with
-// three sample malls until admin-published maps and beacons arrive.
+// LIQo: the shopper app. Indoor wayfinding for LIQo malls: a mall downloads
+// once from the shopper server and then works offline (owner decisions
+// 2026-10-23). Debug builds with no server address use the stand-in server and
+// its three sample malls; release builds never show the samples.
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'app.dart';
+import 'core/data/blob_store.dart';
+import 'core/data/net.dart';
+import 'core/data/shopper_api.dart';
 import 'core/storage/store.dart';
+import 'features/malls/data/sample_server.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -29,5 +35,21 @@ Future<void> main() async {
     debugPrint('LIQo: saved settings unavailable, keeping them in memory: $e');
     store = MemoryStore();
   }
-  runApp(ProviderScope(overrides: [storeProvider.overrideWithValue(store)], child: const LiqoApp()));
+  BlobStore blobs;
+  try {
+    blobs = await FileBlobStore.open();
+  } catch (e) {
+    debugPrint('LIQo: phone storage unavailable, malls are kept in memory: $e');
+    blobs = MemoryBlobStore();
+  }
+  final ShopperApi api = shopperApiBase.isEmpty && kDebugMode ? SampleShopperApi() : HttpShopperApi(shopperApiBase);
+  runApp(ProviderScope(
+    overrides: [
+      storeProvider.overrideWithValue(store),
+      blobStoreProvider.overrideWithValue(blobs),
+      shopperApiProvider.overrideWithValue(api),
+      netProvider.overrideWithValue(DeviceNet()),
+    ],
+    child: const LiqoApp(),
+  ));
 }

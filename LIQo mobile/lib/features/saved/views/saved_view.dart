@@ -1,7 +1,9 @@
 // Saved (the board's Saved / Favorites): Places (starred), Routes (a destination
 // and its route options) and History (every trip started: arrived or stopped).
 // Everything from every mall in one list, each with its mall; opening one
-// switches to that mall (owner decisions 2026-10-22).
+// switches to that mall (owner decisions 2026-10-22). An item whose mall is no
+// longer on the phone, or whose place left the map, stays greyed and says why
+// (owner decisions 2026-10-23).
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -11,8 +13,8 @@ import '../../../core/theme.dart';
 import '../../../shared/widgets/common.dart';
 import '../../../shared/widgets/page.dart';
 import '../../../shared/widgets/placeholders.dart';
-import '../../malls/data/registry.dart';
-import '../../malls/providers/mall_provider.dart';
+import '../../../shared/widgets/toast.dart';
+import '../../malls/providers/malls_provider.dart';
 import '../../malls/providers/switch_mall.dart';
 import '../../navigation/models/route_options.dart';
 import '../../navigation/providers/nav_provider.dart';
@@ -34,15 +36,38 @@ class SavedView extends ConsumerStatefulWidget {
 class _SavedViewState extends ConsumerState<SavedView> {
   late String _tab = const ['places', 'routes', 'history'].contains(widget.tab) ? widget.tab! : 'places';
 
-  String _mallName(String id) => venueRegistry.any((e) => e.id == id) ? ref.read(venueProvider(id)).name : id;
+  String _mallName(String id, [String? remembered]) {
+    final s = ref.read(mallsProvider);
+    return s.venues[id]?.name ?? s.saved[id]?.name ?? s.directory?.branch(id)?.name ?? remembered ?? id;
+  }
 
-  void _openPlace(String mallId, String placeId) => context.push('/place/$mallId/$placeId');
+  /// Makes sure the item's mall is on the phone (downloading it if needed) and its place is still on
+  /// the map; says why not otherwise. Returns the place's id now (a store may have moved).
+  Future<String?> _ready(String mallId, String placeId, [String? storeId]) async {
+    final w = ref.read(wordsProvider);
+    if (!ref.read(mallsProvider).isSaved(mallId)) {
+      if (!await openMall(context, ref, mallId)) return null;
+    }
+    final place = resolveSaved(ref.read(mallsProvider), mallId, placeId, storeId).place;
+    if (place == null) {
+      if (mounted) showToast(context, w.tr('This place is no longer on the map.'));
+      return null;
+    }
+    return place.id;
+  }
 
-  void _goRoute(SavedRoute r) {
+  Future<void> _openPlace(String mallId, String placeId, [String? storeId]) async {
+    final id = await _ready(mallId, placeId, storeId);
+    if (id != null && mounted) context.push('/place/$mallId/$id');
+  }
+
+  Future<void> _goRoute(SavedRoute r) async {
+    final id = await _ready(r.mallId, r.placeId);
+    if (id == null || !mounted) return;
     switchMall(ref, r.mallId);
     ref.read(routeOptionsProvider.notifier).set(r.options);
     ref.read(settingsProvider.notifier).setWheelchair(r.wheelchair);
-    ref.read(navProvider.notifier).startTo(r.placeId);
+    ref.read(navProvider.notifier).startTo(id);
     context.go('/map');
   }
 
@@ -78,18 +103,22 @@ class _SavedViewState extends ConsumerState<SavedView> {
       };
 
   List<Widget> _places(BuildContext context, Words w) {
-    final p = context.pal, favs = ref.watch(favouritesProvider);
+    final p = context.pal, favs = ref.watch(favouritesProvider), malls = ref.watch(mallsProvider);
     final rows = <Widget>[];
     for (final (i, f) in favs.indexed) {
-      if (!venueRegistry.any((e) => e.id == f.mallId)) continue;
-      final v = ref.watch(venueProvider(f.mallId)), place = v.placeById(f.placeId);
-      if (place == null) continue;
+      final r = resolveSaved(malls, f.mallId, f.placeId, f.storeId), v = r.venue, place = r.place;
+      final name = place?.name ?? f.name ?? f.placeId, mall = _mallName(f.mallId, f.mallName);
       rows.add(_SavedRow(
         key: ValueKey('fav-${f.mallId}-${f.placeId}'),
-        lead: InitialsTile(place.name, size: 44),
-        title: place.name,
-        sub: '${w.tr(v.levels[place.lv].name)} · ${v.name}',
-        onTap: () => _openPlace(f.mallId, f.placeId),
+        lead: InitialsTile(name, size: 44),
+        title: name,
+        sub: v == null
+            ? '$mall · ${w.tr('Download this mall to use it')}'
+            : place == null
+                ? '$mall · ${w.tr('No longer on the map')}'
+                : '${w.tr(v.levels[place.lv].name)} · ${v.name}',
+        greyed: place == null,
+        onTap: () => _openPlace(f.mallId, f.placeId, f.storeId),
         trail: IconButton(
           tooltip: w.tr('Remove from favourites'),
           onPressed: () => ref.read(favouritesProvider.notifier).toggle(f.mallId, f.placeId),
@@ -102,8 +131,12 @@ class _SavedViewState extends ConsumerState<SavedView> {
   }
 
   List<Widget> _routes(BuildContext context, Words w) {
-    final p = context.pal, routes = ref.watch(savedRoutesProvider);
+    final p = context.pal, routes = ref.watch(savedRoutesProvider), malls = ref.watch(mallsProvider);
     if (routes.isEmpty) return const [];
+    String? why(String mallId, String placeId) {
+      final r = resolveSaved(malls, mallId, placeId);
+      return r.venue == null ? w.tr('Download this mall to use it') : r.place == null ? w.tr('No longer on the map') : null;
+    }
     String how(RouteOptions o, bool wheel) => [
           o.metric == 'shortest' ? w.tr('Shortest') : w.tr('Fastest'),
           if (o.avoidStairs) w.tr('No stairs'),
@@ -122,7 +155,8 @@ class _SavedViewState extends ConsumerState<SavedView> {
               child: Icon(Icons.route, color: p.brand2),
             ),
             title: r.placeName,
-            sub: '${_mallName(r.mallId)} · ${how(r.options, r.wheelchair)}',
+            sub: [_mallName(r.mallId), why(r.mallId, r.placeId) ?? how(r.options, r.wheelchair)].join(' · '),
+            greyed: why(r.mallId, r.placeId) != null,
             onTap: () => _goRoute(r),
             trail: IconButton(tooltip: w.tr('Remove this saved route'), onPressed: () => ref.read(savedRoutesProvider.notifier).remove(r.id), icon: Icon(Icons.bookmark, color: p.brand)),
             last: i == routes.length - 1,
@@ -134,7 +168,7 @@ class _SavedViewState extends ConsumerState<SavedView> {
   }
 
   List<Widget> _history(BuildContext context, Words w) {
-    final p = context.pal, trips = ref.watch(historyProvider);
+    final p = context.pal, trips = ref.watch(historyProvider), malls = ref.watch(mallsProvider);
     if (trips.isEmpty) return const [];
     final loc = MaterialLocalizations.of(context);
     // 12-hour clock (owner decision 2026-10-22)
@@ -152,6 +186,7 @@ class _SavedViewState extends ConsumerState<SavedView> {
             ),
             title: tr.placeName,
             sub: '${_mallName(tr.mallId)} · ${fmt(tr.startedAt)}',
+            greyed: resolveSaved(malls, tr.mallId, tr.placeId).place == null,
             onTap: () => _openPlace(tr.mallId, tr.placeId),
             trail: _OutcomeChip(outcome: tr.outcome, w: w),
             last: i == trips.length - 1,
@@ -178,11 +213,14 @@ class _OutcomeChip extends StatelessWidget {
 }
 
 class _SavedRow extends StatelessWidget {
-  const _SavedRow({super.key, required this.lead, required this.title, required this.sub, required this.onTap, required this.trail, this.last = false});
+  const _SavedRow({super.key, required this.lead, required this.title, required this.sub, required this.onTap, required this.trail, this.last = false, this.greyed = false});
   final Widget lead, trail;
   final String title, sub;
   final VoidCallback onTap;
   final bool last;
+
+  /// Its mall is not on the phone, or its place left the map: dimmed (the remove button stays bright).
+  final bool greyed;
 
   @override
   Widget build(BuildContext context) {
@@ -193,11 +231,11 @@ class _SavedRow extends StatelessWidget {
         padding: const EdgeInsets.fromLTRB(14, 10, 6, 10),
         decoration: BoxDecoration(border: last ? null : Border(bottom: BorderSide(color: p.line, width: p.lineW))),
         child: Row(children: [
-          lead,
+          Opacity(opacity: greyed ? .45 : 1, child: lead),
           const SizedBox(width: 12),
           Expanded(
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text(title, maxLines: 1, overflow: TextOverflow.ellipsis, style: ts(15, w: FontWeight.w700, color: p.ink)),
+              Text(title, maxLines: 1, overflow: TextOverflow.ellipsis, style: ts(15, w: FontWeight.w700, color: greyed ? p.muted : p.ink)),
               Text(sub, style: ts(12.5, color: p.muted)),
             ]),
           ),

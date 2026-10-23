@@ -31,6 +31,9 @@ Everything works offline for a downloaded mall. The internet only brings new mal
   - A store on a space the phone's map doesn't have yet is listed with "Directions come with the next map update · Update now" (any network).
 - Storage and first launch:
   - More › Saved malls lists each branch with its size, last update and Delete. Nothing is cleaned up on its own.
+  - Deleting a mall frees only its map. Its saved places, routes and history stay, greyed with "Download this mall to use it", and work again once it is downloaded.
+  - A map update waiting on mobile data shows as a slim card at the top of Home ("Map update available · 3 MB · Update", can be hidden for the day) and as an Update button in Saved malls.
+  - A **first** download on mobile data asks first ("Download on mobile data?", with the size).
   - First launch offline shows "Connect once to download your mall", with Try again and an automatic retry.
   - An app that can't read a newer package format keeps its saved copy and asks to update. The server can mark an app version "must update".
 - Offline notice: shown on Home's feed and the directory only, never on the map.

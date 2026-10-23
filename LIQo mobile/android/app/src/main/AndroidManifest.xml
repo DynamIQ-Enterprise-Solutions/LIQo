@@ -1,4 +1,8 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- the shopper server: new malls, map updates, store info and posts -->
+    <uses-permission android:name="android.permission.INTERNET"/>
+    <!-- telling Wi-Fi from mobile data (map updates download by themselves only on Wi-Fi) -->
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"/>
     <application
         android:label="LIQo"
         android:name="${applicationName}"

@@ -116,6 +116,13 @@ class PackageVenue extends Venue {
   /// Store ids by place id, for the live store info.
   final storeOf = <String, String>{};
 
+  /// Hand-tuned presets: only the sample malls carry them (published maps get them worked out).
+  Map<String, Object?> _presets = const {};
+  View _viewOf(Object? v) {
+    final l = _pt(v);
+    return View(l[0], l[1], l[2]);
+  }
+
   void _read(Map<String, Object?> j, {String? id, String? name, String? mallName}) {
     formatVersion = j['formatVersion']! as int;
     version = (j['version'] as num?)?.toInt() ?? 0;
@@ -123,6 +130,7 @@ class PackageVenue extends Venue {
     _name = name ?? _s(j['branchName']) ?? _id;
     _mallName = mallName ?? _s(j['mallName']) ?? '';
     bounds = _pt(j['bounds']);
+    if (j['presets'] is Map) _presets = (j['presets']! as Map).cast<String, Object?>();
 
     // levels, lowest first
     final lvs = (j['levels']! as List).cast<Map<String, Object?>>();
@@ -239,19 +247,23 @@ class PackageVenue extends Venue {
   @override
   String get name => _name;
   @override
-  String get tagline => _mallName;
+  String get tagline => _presets['tagline']?.toString() ?? _mallName;
+  @override
+  String get keywords => _presets['keywords']?.toString() ?? '';
   @override
   List<LevelDef> get levels => _levels;
   @override
   int get ground => _ground;
   @override
-  late final Map<String, String> wingNames = {for (final b in buildings) b.id: b.name, 'O': 'Outdoors'};
+  late final Map<String, String> wingNames = _presets['wingNames'] is Map
+      ? (_presets['wingNames']! as Map).map((k, v) => MapEntry(k.toString(), v.toString()))
+      : {for (final b in buildings) b.id: b.name, 'O': 'Outdoors'};
 
   @override
   late final List<ExitDef> exits;
 
   @override
-  String get tripTarget => ''; // real malls: no demo trip (owner, 2026-10-23)
+  String get tripTarget => _presets['demoTrip']?.toString() ?? ''; // published malls: no demo trip (owner, 2026-10-23)
 
   double get _w => math.max(1, bounds[2] - bounds[0]);
   double get _h => math.max(1, bounds[3] - bounds[1]);
@@ -260,9 +272,9 @@ class PackageVenue extends Venue {
 
   /// px per metre at zoom 1: the whole site fills the phone's width, like the sample malls.
   @override
-  late final double basePx = 300 / math.max(_w, _h * .8);
+  late final double basePx = _presets['basePx'] is num ? (_presets['basePx']! as num).toDouble() : 300 / math.max(_w, _h * .8);
   @override
-  late final View siteView = View(_cx, _cy, 1);
+  late final View siteView = _presets['siteView'] != null ? _viewOf(_presets['siteView']) : View(_cx, _cy, 1);
   @override
   List<double> get siteRect => bounds;
 
@@ -270,13 +282,20 @@ class PackageVenue extends Venue {
   double _zoomFor(double width, {double min = 2, double max = 8}) => (545 / math.max(1, width)).clamp(min, max) * ratio;
 
   @override
-  late final Map<String, View> buildingViews = {
+  late final Map<String, View> buildingViews = _presets['buildingViews'] is Map
+      ? {for (final e in (_presets['buildingViews']! as Map).entries) e.key.toString(): _viewOf(e.value)}
+      : {
     for (final b in buildings) b.id: View((b.bounds[0] + b.bounds[2]) / 2, (b.bounds[1] + b.bounds[3]) / 2, _zoomFor(math.max(b.bounds[2] - b.bounds[0], b.bounds[3] - b.bounds[1]))),
   };
 
   /// "Go to": one button per building, the biggest one first in the brand colour.
   @override
-  late final List<PadBtn> pad = () {
+  late final List<PadBtn> pad = _presets['pad'] is List
+      ? [
+          for (final b in (_presets['pad']! as List).cast<Map<String, Object?>>())
+            PadBtn(b['key']!.toString(), b['simple']!.toString(), b['tech']!.toString(), _viewOf(b['view']), main: b['main'] == true),
+        ]
+      : () {
     final sorted = [...buildings]..sort((a, b) => _area(b.bounds).compareTo(_area(a.bounds)));
     return [
       for (final (i, b) in sorted.indexed)
@@ -288,17 +307,30 @@ class PackageVenue extends Venue {
 
   /// The stacked view: about 340 px of levels on screen, whatever the count.
   @override
-  late final StackParams stack = () {
+  late final StackParams stack = _presets['stack'] is Map
+      ? () {
+          final st = (_presets['stack']! as Map).cast<String, Object?>();
+          return StackParams(cx: _d(st['cx']), cy: _d(st['cy']), s: _d(st['s']), gapM: _d(st['gapM']), yaw: _d(st['yaw']), ky: _d(st['ky']), kz: _d(st['kz']), mid: _d(st['mid']), labelAt: _pt(st['labelAt']));
+        }()
+      : () {
     final n = math.max(1, levelCount), s = basePx * .85;
     return StackParams(cx: _cx, cy: _cy, s: s, gapM: 340 / (n * s), yaw: stackYaw, ky: stackKy, kz: stackKz, mid: (n - 1) / 2, labelAt: [_cx, _cy + _h * .25]);
   }();
 
   @override
-  List<(String, double, double)> wingLabels(int lv) => const [];
+  List<(String, double, double)> wingLabels(int lv) => [
+        for (final w in (_presets['wingLabels'] as List? ?? const []).cast<List>())
+          if ((w[3] as List).contains(lv)) (w[0].toString(), _d(w[1]), _d(w[2])),
+      ];
 
   /// Where "I'm on this floor" puts the dot: the walkway point nearest the middle of that floor.
   @override
   Pos levelCentre(int lv) {
+    if (_presets['centres'] is Map || _presets['siteView'] != null) {
+      final c = (_presets['centres'] as Map?)?['$lv'];
+      final p = c == null ? [(bounds[0] + bounds[2]) / 2, (bounds[1] + bounds[3]) / 2] : _pt(c);
+      return Pos(lv, p[0], p[1], false);
+    }
     final pts = [for (final o in outlines[lv]) ...o.outer];
     final c = pts.isEmpty
         ? [_cx, _cy]
@@ -309,7 +341,7 @@ class PackageVenue extends Venue {
   }
 
   @override
-  int get buildingCount => buildings.length;
+  int get buildingCount => (_presets['buildingCount'] as num?)?.toInt() ?? buildings.length;
   @override
-  String get sizeText => '${buildings.length} ${buildings.length == 1 ? 'building' : 'buildings'} · $levelCount ${levelCount == 1 ? 'level' : 'levels'}';
+  String get sizeText => _presets['sizeText']?.toString() ?? '${buildings.length} ${buildings.length == 1 ? 'building' : 'buildings'} · $levelCount ${levelCount == 1 ? 'level' : 'levels'}';
 }

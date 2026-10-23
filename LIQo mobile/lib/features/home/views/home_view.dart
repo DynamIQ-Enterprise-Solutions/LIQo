@@ -12,6 +12,7 @@ import '../../../shared/widgets/brand.dart';
 import '../../../shared/widgets/mall_switcher.dart';
 import '../../../shared/widgets/placeholders.dart';
 import '../../malls/providers/mall_provider.dart';
+import '../../malls/views/update_card.dart';
 import '../../places/models/category.dart';
 import '../../places/services/place_info_catalog.dart' show stableHash;
 import '../../settings/providers/words_provider.dart';
@@ -38,6 +39,7 @@ class HomeView extends ConsumerWidget {
               Spacer(),
               Flexible(flex: 4, child: Align(alignment: Alignment.centerRight, child: MallSwitcher())),
             ]),
+            const MallUpdateCard(),
             const SizedBox(height: 16),
             Semantics(
               button: true,

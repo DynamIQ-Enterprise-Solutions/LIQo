@@ -312,7 +312,8 @@ Active entries only. Done entries are in §6.
 - [ ] Run the main flows on an Android emulator or phone (this machine has no emulator image yet); iOS is checked on paper only (no Mac)
 - [ ] Owner: have a fluent speaker review the Tagalog added for the new screens
 - [x] Owner: decide how the app works offline and online (2026-10-23)
-- [ ] Offline core: downloads, Saved malls, directory, updates, "Connect once", greyed places, sample malls out of the release
+- [x] Offline core, part 1: malls read from shopper packages (same routes as before, proven), downloads checked and saved whole, the directory picker grouped by mall, Saved malls, updates (Wi-Fi automatic, mobile data asks, after a trip), "Connect once", greyed saved places, "Update LIQo", sample malls only in debug builds and tests (207 tests pass)
+- [ ] Offline core, part 2: live store info (hours, status, out of service) from the server
 - [ ] Home and Map without a mall; being in a mall (confirm, location, 200 m area, leaving); Get there; search across malls
 - [ ] Posts from announcements with offline rules and picture cache
 - [ ] Anonymous counts and the privacy note (owner: the company's privacy text)

@@ -155,6 +155,21 @@ Publishing is refused, with each problem listed in plain words, when:
 
 Publishing **warns, without blocking,** when a space or store from the previous published version is missing ("3 places shoppers may have saved will be gone: …").
 
+## 4a. Optional fields the app also reads
+
+None are required; a package without them works.
+- **Envelope:** `branchName` and `mallName` (otherwise the directory's).
+- **Node:** `label` (an exit or entrance name, used in directions).
+- **Edge:** `tech` (technical wording for a bridge).
+- **Place:**
+  - `rect` `[x1,y1,x2,y2]`, its bounding box, for highlighting;
+  - `door`, the main door point, otherwise the first of `doors`;
+  - `w`, the door width in metres (narrow doors are avoided by wheelchair routes);
+  - `status`, used only until `/live` says otherwise.
+- **`presets`:** hand-tuned camera presets and a demo trip. Only the built-in sample malls carry them; for a published map the app works them out from `bounds` and `buildings`, and there is no demo trip.
+
+**Distinct positions.** The app keys walkway points by their position rounded to 0.1 m, so two nodes on the same level must not sit within 0.1 m of each other.
+
 ## 5. Size
 
 A large branch is expected to be a few MB gzipped. Publishing is refused above **20 MB uncompressed**, with a clear message.

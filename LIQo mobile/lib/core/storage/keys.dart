@@ -8,6 +8,12 @@ abstract final class Keys {
   static const savedRoutes = 'savedRoutes';
   static const history = 'history';
 
+  /// The malls kept on the phone (their package versions and what is waiting for them).
+  static const savedMalls = 'savedMalls';
+
+  /// Home's map-update card, hidden for the day: mall id -> the day it was hidden.
+  static const updateCardHidden = 'updateCardHidden';
+
   /// Places picked from search, per mall.
   static String recent(String mallId) => 'recent:$mallId';
 

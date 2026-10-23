@@ -4,9 +4,11 @@
 // written in the order it was built (Graph.linkLog), so routes come out the same.
 import '../kit/kit_spec.dart';
 import '../kit/kit_venue.dart';
+import '../venue.dart';
 import 'package_venue.dart';
 
 List<List<double>> _rect(List<double> r) => [[r[0], r[1]], [r[2], r[1]], [r[2], r[3]], [r[0], r[3]]];
+List<double> _view(View v) => [v.cx, v.cy, v.zoom];
 List<double> _r1(List<double> p) => [for (final v in p) double.parse(v.toStringAsFixed(2))];
 
 Map<String, Object?> exportPackage(KitVenue v, {int version = 1}) {
@@ -116,6 +118,18 @@ Map<String, Object?> exportPackage(KitVenue v, {int version = 1}) {
         if (b.tappable) {'id': b.id, 'name': b.name, 'short': b.name, 'levels': b.lvs, 'bounds': b.rect},
     ],
     'bounds': s.site,
+    // the sample's own hand-tuned presets (published maps have none; the app works them out)
+    'presets': {
+      'tagline': s.tagline, 'keywords': s.keywords, 'sizeText': s.sizeText, 'basePx': s.basePx, 'demoTrip': s.tripTarget,
+      'buildingCount': v.buildingCount,
+      'wingNames': v.wingNames,
+      'siteView': _view(s.siteView),
+      'buildingViews': {for (final e in s.buildingViews.entries) e.key: _view(e.value)},
+      'pad': [for (final b in s.pad) {'key': b.key, 'simple': b.simple, 'tech': b.tech, 'view': _view(b.view), 'main': b.main}],
+      'stack': {'cx': s.stack.cx, 'cy': s.stack.cy, 's': s.stack.s, 'gapM': s.stack.gapM, 'yaw': s.stack.yaw, 'ky': s.stack.ky, 'kz': s.stack.kz, 'mid': s.stack.mid, 'labelAt': s.stack.labelAt},
+      'centres': {for (final e in s.centres.entries) '${e.key}': e.value},
+      'wingLabels': [for (final w in s.wingLabels) [w.$1, w.$2, w.$3, w.$4]],
+    },
   };
 }
 
