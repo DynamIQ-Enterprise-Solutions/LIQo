@@ -3,9 +3,10 @@
 // through a Cloudflare quick tunnel until a domain gives it a fixed address.
 //
 //   npm run serve:internal          start the API (Firestore, port 3100) and the tunnel;
-//                                   when the tunnel's address changed, rebuild and
-//                                   redeploy the web app so it points at it
-//   npm run deploy:internal         rebuild and redeploy the web app (same address)
+//                                   publish the tunnel's address in /config/api.json on
+//                                   Firebase Hosting (the web app and the shopper app read
+//                                   it; owner decision 2026-10-23, until a domain exists)
+//   npm run deploy:internal         rebuild and redeploy the web app (after web code changes)
 //   npm run deploy:internal -- --rules   also deploy the Firestore rules and indexes
 //   npm run seed:internal           create the first superadmin on Firestore
 //
@@ -64,14 +65,36 @@ export function deployRules() {
   firebase('Deploying the Firestore rules and indexes', ['deploy', '--only', 'firestore:rules,firestore:indexes']);
 }
 
-/** Builds the web app against [apiBase] and puts it on Firebase Hosting. */
-export function deployWeb(apiBase) {
-  // flutter is a .bat on Windows, so it runs through the shell; the arguments are fixed or a checked https URL.
+const BUILD = path.join(WEB, 'build', 'web');
+const CONFIG_FILE = path.join(BUILD, 'config', 'api.json');
+/** The web build that reads the address file (the build mode recorded in the state). */
+const WEB_MODE = 'config-file-1';
+
+/** Writes the server's current address where the apps read it (/config/api.json). */
+function writeAddress(apiBase) {
   if (!/^https:\/\/[a-z0-9.-]+$/i.test(apiBase)) fail(`Refusing an unexpected API address: ${apiBase}`);
-  run('Building the web app', 'flutter', ['build', 'web', '--release', `--dart-define=API_BASE=${apiBase}`], { cwd: WEB, shell: true });
+  fs.mkdirSync(path.dirname(CONFIG_FILE), { recursive: true });
+  const now = new Date(Date.now() + 8 * 3600 * 1000).toISOString().slice(0, 19) + '+08:00';
+  fs.writeFileSync(CONFIG_FILE, `${JSON.stringify({ apiBase, updatedAt: now })}\n`);
+}
+
+/** Builds the web app (it reads the server's address from /config/api.json at run time) and puts it on Firebase Hosting with [apiBase]. */
+export function deployWeb(apiBase) {
+  // flutter is a .bat on Windows, so it runs through the shell; the arguments are fixed.
+  run('Building the web app', 'flutter', ['build', 'web', '--release', '--dart-define=API_CONFIG_URL=/config/api.json'], { cwd: WEB, shell: true });
+  writeAddress(apiBase);
   firebase('Deploying the web app to Firebase Hosting', ['deploy', '--only', 'hosting']);
-  writeState({ ...readState(), apiBase, deployedAt: new Date().toISOString() });
-  console.log(`\nThe web app at ${WEB_ORIGINS[0]} now talks to ${apiBase}`);
+  writeState({ ...readState(), apiBase, webMode: WEB_MODE, deployedAt: new Date().toISOString() });
+  console.log(`\nThe web app at ${WEB_ORIGINS[0]} is deployed; the server address is ${apiBase}`);
+}
+
+/** Publishes only the new address (seconds; the web app is not rebuilt). */
+function publishAddress(apiBase) {
+  if (readState().webMode !== WEB_MODE || !fs.existsSync(path.join(BUILD, 'index.html'))) return deployWeb(apiBase);
+  writeAddress(apiBase);
+  firebase('Publishing the server address', ['deploy', '--only', 'hosting']);
+  writeState({ ...readState(), apiBase, addressAt: new Date().toISOString() });
+  console.log(`\nThe apps now find the server at ${apiBase} (${WEB_ORIGINS[0]}/config/api.json)`);
 }
 
 function portFree(port) {
@@ -148,8 +171,9 @@ async function serve({ redeploy }) {
     for (const c of children) c.once('exit', () => fail2(c === api.child ? 'The API stopped.' : 'The tunnel stopped.'));
     if (!(await reachable(address, 90_000))) throw new Error(`The tunnel address ${address} does not answer.`);
     console.log(`\nThe API answers at ${address}`);
-    if (redeploy || readState().apiBase !== address) deployWeb(address);
-    else console.log(`The web app already points at ${address}.`);
+    if (redeploy) deployWeb(address);
+    else if (readState().apiBase !== address || readState().webMode !== WEB_MODE) publishAddress(address);
+    else console.log(`The apps already find the server at ${address}.`);
     console.log(`\nLIQo is live at ${WEB_ORIGINS[0]}. Keep this window open; Ctrl+C stops the API and the tunnel.\n`);
   } catch (err) {
     console.error(`\n${err.message}`);

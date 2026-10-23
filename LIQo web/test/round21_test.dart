@@ -14,6 +14,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'package:gabay_admin/core/api_address.dart';
 import 'package:gabay_admin/core/api_client.dart';
 import 'package:gabay_admin/core/router.dart';
 import 'package:gabay_admin/core/session.dart';
@@ -74,6 +75,17 @@ Future<void> _tap(WidgetTester tester, Finder f) async {
 }
 
 void main() {
+  test('the server address file: plain https addresses only (local http for development)', () {
+    expect(apiBaseFromConfig({'apiBase': 'https://dialog-agent.trycloudflare.com'}), 'https://dialog-agent.trycloudflare.com');
+    expect(apiBaseFromConfig({'apiBase': 'https://dialog-agent.trycloudflare.com/'}), 'https://dialog-agent.trycloudflare.com');
+    expect(apiBaseFromConfig({'apiBase': 'http://localhost:3100'}), 'http://localhost:3100');
+    expect(apiBaseFromConfig({'apiBase': 'http://evil.example'}), isNull);
+    expect(apiBaseFromConfig({'apiBase': 'javascript:alert(1)'}), isNull);
+    expect(apiBaseFromConfig({'apiBase': 'https://x.example/?a=1'}), isNull);
+    expect(apiBaseFromConfig({'nothing': true}), isNull);
+    expect(apiBaseFromConfig('not json'), isNull);
+  });
+
   test('hours lines group equal days, mark overnight closes and list special days', () {
     final h = OpeningHours.fromJson(longHours)!;
     expect(weekLines(h), ['Mon–Wed 10:00–21:00', 'Thu Closed', 'Fri 10:00–24:00', 'Sat 22:00–02:00 (next day)', 'Sun Closed']);

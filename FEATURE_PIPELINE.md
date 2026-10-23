@@ -321,7 +321,8 @@ Active entries only. Done entries are in §6.
 - [x] Owner: choose the hosting (Firebase Hosting on Spark; the API on a PC behind Cloudflare Tunnel; files on that PC) (2026-10-23)
 - [x] Internal test live: https://liqo-12a80.web.app, the API on this PC through a Cloudflare quick tunnel (`npm run serve:internal`; owner chose to start without a domain, 2026-10-23)
 - [ ] Owner: sign in as the first superadmin and change its password; run the end-to-end check (mall, branch, admin, credits, plan, AI reading, publish, restart)
-- [ ] Owner: a domain on a free Cloudflare account, for the fixed address phones need (before the shopper service ships)
+- [x] Phones and the web app find the server through `https://liqo-12a80.web.app/config/api.json`, published at every server start (owner chose this workaround, 2026-10-23; format doc §12)
+- [ ] Owner, when ready: a domain on a free Cloudflare account for a fixed address (no longer blocking)
 - [ ] ODA File Converter on this PC, for DWG plans
 - [ ] Later, with real users: Firebase Storage (Blaze) for files
 - [ ] Deployment runbook and a deploy plan per release

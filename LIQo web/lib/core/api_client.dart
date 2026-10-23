@@ -14,6 +14,18 @@ class ApiClient {
   String? Function() tokenProvider = () => null;
   void Function()? onUnauthenticated;
 
+  /// When the server cannot be reached: reads the server's address again and
+  /// says whether it changed (set by `api_address.dart` for the internal deployment).
+  Future<bool> Function()? onUnreachable;
+
+  /// The server's address without `/api`.
+  String get base {
+    final url = dio.options.baseUrl;
+    return url.endsWith('/api') ? url.substring(0, url.length - 4) : url;
+  }
+
+  void setBase(String base) => dio.options.baseUrl = '$base/api';
+
   late final Dio dio = Dio(
     BaseOptions(
       baseUrl: '${AppConfig.apiBase}/api',
@@ -30,11 +42,24 @@ class ApiClient {
           }
           handler.next(options);
         },
-        onError: (err, handler) {
+        onError: (err, handler) async {
           final path = err.requestOptions.path;
           final isLogin = path.endsWith('/auth/login');
           if (err.response?.statusCode == 401 && !isLogin) {
             onUnauthenticated?.call();
+          }
+          // The server moved (a restart of the internal deployment): read its address again and try once more.
+          final unreachable = err.type == DioExceptionType.connectionError || err.type == DioExceptionType.connectionTimeout;
+          final again = onUnreachable;
+          if (unreachable && again != null && err.requestOptions.extra['retried'] != true && await again()) {
+            final o = err.requestOptions
+              ..baseUrl = dio.options.baseUrl
+              ..extra['retried'] = true;
+            try {
+              return handler.resolve(await dio.fetch<dynamic>(o));
+            } on DioException catch (e) {
+              return handler.next(e);
+            }
           }
           handler.next(err);
         },

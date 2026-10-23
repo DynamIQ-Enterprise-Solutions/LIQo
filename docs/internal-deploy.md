@@ -21,9 +21,9 @@ In `LIQo backend`:
 npm run serve:internal
 ```
 
-It starts the API on Firestore, opens the tunnel, checks the API answers through it, and, when the tunnel's address is new, rebuilds the web app with that address and deploys it to Hosting (a few minutes). It ends with "LIQo is live at https://liqo-12a80.web.app". **Keep that window open.** Ctrl+C stops the API and the tunnel.
+It starts the API on Firestore, opens the tunnel, checks the API answers through it, and publishes the tunnel's address in `https://liqo-12a80.web.app/config/api.json` (owner decision 2026-10-23: a workaround until there is a domain). The web app and the shopper app read that file when they open, and again when the server stops answering, so a restart takes seconds and nothing is rebuilt. The first start after a web change builds and deploys the web app (a few minutes). It ends with "LIQo is live at https://liqo-12a80.web.app". **Keep that window open.** Ctrl+C stops the API and the tunnel.
 
-- The tunnel's address changes every time it starts, so every start redeploys the web app. During those minutes the web app cannot reach the API.
+- The tunnel's address changes every time it starts; the address file follows it within seconds. An open web page finds the new address on its next request.
 - Only one internal API may run (it refuses to start when port 3100 is taken). Two API processes on one Firestore database break map saving and AI credits (Blueprint trap 14).
 - If the API or the tunnel stops, the script stops both. Start it again.
 - The PC must stay on and awake. Turn off sleep while the system is in use.
@@ -51,7 +51,7 @@ Firestore holds the records; this PC holds the files. Back up `LIQo backend/uplo
 
 ## Later: a fixed address
 
-Phones (the shopper service, P1-07/P1-08) need an address that never changes. When the owner has a domain on a free Cloudflare account: `cloudflared tunnel login`, `cloudflared tunnel create liqo`, `cloudflared tunnel route dns liqo api.<domain>`, a `config.yml` sending it to `http://localhost:3100`, and `serve:internal` runs that tunnel instead of the quick one. The web app is then deployed once with `https://api.<domain>`.
+Until then the address file above lets phones and the web app follow the changing address (owner decision 2026-10-23). A fixed address is still better: no dependence on quick tunnels, and the file can then simply hold it. When the owner has a domain on a free Cloudflare account: `cloudflared tunnel login`, `cloudflared tunnel create liqo`, `cloudflared tunnel route dns liqo api.<domain>`, a `config.yml` sending it to `http://localhost:3100`, and `serve:internal` runs that tunnel instead of the quick one. The web app is then deployed once with `https://api.<domain>`.
 
 ## Going back
 

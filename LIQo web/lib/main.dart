@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_web_plugins/url_strategy.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'core/api_address.dart';
 import 'core/router.dart';
 import 'core/session.dart';
 import 'core/theme.dart';
@@ -19,6 +20,8 @@ Future<void> main() async {
   usePathUrlStrategy();
   // Restore the session before the first frame so there is no login flash.
   final prefs = await SharedPreferences.getInstance();
+  // Internal deployment: the server's current address comes from /config/api.json (owner decision 2026-10-23).
+  await ApiAddress.resolve(prefs);
 
   // On the web the browser can hand the tab focus before the first frame is laid
   // out. Flutter's focus pass then trips on widgets that have no size yet and, in

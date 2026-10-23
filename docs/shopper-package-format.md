@@ -306,3 +306,17 @@ GET /api/shopper/app-config
 - **`mustUpdateBelow`** is an app **build number** (the `+N` of the app's version), set by a superadmin; 0 or none means `null`. An app whose build number is below it shows only "Please update LIQo" (rare, for serious problems).
 - **`serverTime`** lets the app correct the phone's clock (differences under a minute are ignored) for opening hours and post end dates.
 - **`formatVersion`** is the newest package format the server builds.
+
+## 12. Finding the server (internal deployment)
+
+Owner decision 2026-10-23: until a domain gives the server a fixed address, the server's address changes at every restart (a Cloudflare quick tunnel). The apps find it through a small file on the web app's own fixed address, which every server start updates:
+
+```
+GET https://liqo-12a80.web.app/config/api.json        Cache-Control: no-cache
+{ "apiBase": "https://<random words>.trycloudflare.com", "updatedAt": "2026-10-23T18:30:00+08:00" }
+```
+
+- The shopper routes are at `<apiBase>/api/shopper/…`. The admin web app reads the same file.
+- `apiBase` is a plain `https://host` with no path, query or trailing slash. Anything else is ignored.
+- **When to read it:** when the app opens. Read it again whenever the server cannot be reached, then retry once. Remember the last good `apiBase` for when the file cannot be read.
+- **When a domain exists,** the file will simply hold the fixed address, so nothing changes in the apps.
