@@ -193,15 +193,15 @@ GET /api/shopper/branches/:id/live        ETag; answers 304 to If-None-Match
   "generatedAt": "2026-10-23T10:15:00+08:00",
   "branchHours": <Hours> | null,
   "stores": [
-    { "storeId": "345", "spaceIds": ["sp_abc"], "name": "Uniqlo", "category": "fashion",
+    { "storeId": 345, "spaceIds": ["sp_abc"], "name": "Uniqlo", "category": "fashion",
       "status": "open|temporarily_closed|being_repaired|opening_soon",
-      "hours": <Hours> | null, "phone": "+63 2 ...", "website": "https://...", "description": "..." }
+      "hours": <Hours> | null, "phone": "+63 2 ...", "website": "https://...", "description": "...", "logoUrl": "https://..." }
   ],
   "outOfService": [ { "connectorId": "cn_1", "since": "2026-10-23T08:00:00+08:00" } ]
 }
 
 <Hours> = {
-  "week":     [ { "day": 1, "open": "10:00", "close": "21:00" }, ... ],   // day 1 = Monday … 7 = Sunday; a missing day = closed that day
+  "week":     [ { "day": 1, "open": "10:00", "close": "21:00" }, ... ],   // day 1 = Monday … 7 = Sunday; a missing day = closed that day; one range per day
   "specials": [ { "date": "2026-12-25", "closed": true, "note": "Holiday" },
                 { "date": "2026-11-11", "open": "10:00", "close": "24:00", "note": "Midnight sale" } ]   // note optional, short
 }
@@ -222,4 +222,13 @@ GET /api/shopper/branches/:id/live        ETag; answers 304 to If-None-Match
   - A store whose space isn't in the phone's package yet is listed with "Directions come with the next map update".
   - A store with no space at all is not sent.
 - **`outOfService`** lists connector ids from the published map. Routes avoid them, and the map draws them crossed out.
-- **No people, emails or drafts.** Only active stores of an active, published branch.
+- **No people, emails or drafts.** Only active stores of an active, published branch of an active mall.
+- **** is a number, the same as the package's `places[].storeId`, so saved stores match by plain equality.
+- **** are `store_spaces.space_key`, the layout space ids, so they match the package's `places[].id`.
+- **One open/close range per day** (no split days such as a lunch break), the same on the web and in the app.
+- **ETag:** a hash of the body without `generatedAt`, so an unchanged store list answers 304.
+- **An inactive, unpublished or unknown branch** answers `404 {error}`. The app keeps its last copy and asks again only after the next directory refresh.
+- **Optional fields:**
+  - `website`, until the owner decides on a website field;
+  - `logoUrl`, used from step 4 (the picture cache);
+  - `hoursNote`, waiting for the owner (the old free-text hours, shown only when `hours` and `branchHours` are both null).
