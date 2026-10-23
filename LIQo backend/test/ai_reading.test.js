@@ -7,10 +7,11 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { PNG } from 'pngjs';
-import { startServer, stopServer, api, makeFixtures, cleanFixtures, PASSWORD } from './helpers.js';
+import { startServer, stopServer, api, makeFixtures, cleanFixtures, giveTestCredits, PASSWORD } from './helpers.js';
 import { config } from '../src/config.js';
 import { query, sql } from '../src/db/pool.js';
 import * as settings from '../src/repos/settings.js';
+import * as gateway from '../src/ai/gateway.js';
 
 const tag = `ai${Date.now().toString(36)}`;
 const KEY = 'gws_test_only_not_a_real_key';
@@ -23,6 +24,7 @@ let fx;
 const tokens = {};
 let saved;
 let previousModel;
+let previousWallet;
 let uploadKey;
 let levelId;
 
@@ -111,11 +113,16 @@ before(async () => {
   base = s.base;
   call = api(base);
   fx = await makeFixtures(tag);
+  // Owner decision 2026-10-23 (Round 19): a mall admin reads plans only with AI credits.
+  await giveTestCredits(fx.mallAdminId, 100);
   for (const role of ['superadmin', 'supervisor', 'mall_admin']) {
     const r = await call('POST', '/auth/login', { body: { email: `${role}.${tag}@test.local`, password: PASSWORD } });
     tokens[role] = r.body.token;
   }
   previousModel = await settings.getText('ai_model');
+  // The credit bar's full mark lives in the real settings; keep the owner's and start clean.
+  previousWallet = { ai_wallet_full: await settings.getText('ai_wallet_full'), ai_wallet_last: await settings.getText('ai_wallet_last') };
+  await settings.setMany({ ai_wallet_full: '', ai_wallet_last: '' }, null);
 
   // A map, a lock, an uploaded plan placed on the level at 1 cm per pixel.
   const created = await call('POST', `/maps/${fx.branchA}`, { token: tokens.mall_admin, body: { buildingName: 'Main', levelName: 'Ground', width: 20, depth: 14 } });
@@ -141,6 +148,7 @@ before(async () => {
 
 after(async () => {
   await settings.setMany({ ai_model: previousModel ?? '' }, fx?.superadminId ?? 0);
+  if (previousWallet) await settings.setMany(previousWallet, null);
   Object.assign(config.ai, saved);
   if (uploadKey) for (const ext of ['png', 'jpg']) fs.rmSync(path.join(UPLOADS, `${uploadKey}.${ext}`), { force: true });
   await cleanFixtures(tag);
@@ -187,14 +195,50 @@ test('model list is for superadmins; choosing a model checks it against the gate
   assert.ok(seen.every((r) => r.auth === `Bearer ${KEY}`), 'every gateway call carries the server key');
 });
 
-test('status: mall admins see readiness and the wallet; owners do not', async () => {
+// Owner decisions 2026-10-23: the wallet carries `full` (the last top-up) for the
+// credit bar, and given/free/overGiven (Round 19). Mall admins never see the
+// wallet's numbers, only their own credits.
+test('status: superadmins see the wallet; mall admins only their own credits; owners nothing', async () => {
   reply = (e) => (e.url === '/v1/quota' ? { status: 200, body: { enforced: true, blocked: false, reason: null, balance: 120.5, daily: { usedTokens: 900, limitTokens: 0, usedCredits: 3.5, limitCredits: 50 } } } : { status: 404, body: {} });
-  const r = await call('GET', '/ai/status', { token: tokens.mall_admin });
+  const r = await call('GET', '/ai/status', { token: tokens.superadmin });
   assert.equal(r.status, 200);
   assert.equal(r.body.configured, true);
   assert.equal(r.body.model, 'test-vision-1');
-  assert.deepEqual(r.body.quota, { balance: 120.5, usedToday: 3.5, dailyCap: 50, blocked: false, reason: null });
+  const { given, free, overGiven, ...rest } = r.body.quota;
+  assert.deepEqual(rest, { balance: 120.5, usedToday: 3.5, dailyCap: 50, blocked: false, reason: null, full: 120.5 });
+  assert.ok(given >= 100, 'the fixture admin holds 100');
+  assert.equal(free, Math.max(0, Math.round((120.5 - given) * 10000) / 10000));
+  assert.ok(overGiven >= 0);
+  const mine = await call('GET', '/ai/status', { token: tokens.mall_admin });
+  assert.equal(mine.status, 200);
+  assert.equal(mine.body.quota, null, 'no wallet numbers for mall admins');
+  assert.equal(mine.body.mine.balance, 100);
+  assert.equal(mine.body.gatewayBlocked, false);
   assert.equal((await call('GET', '/ai/status', { token: tokens.supervisor })).status, 403);
+});
+
+test('credit bar: the full mark is the balance after the last top-up', async () => {
+  const wallet = async (balance) => {
+    reply = (e) => (e.url === '/v1/quota' ? { status: 200, body: { blocked: false, balance, daily: {} } } : { status: 404, body: {} });
+    // Round 19: only superadmins see the wallet.
+    const r = await call('GET', '/ai/status', { token: tokens.superadmin });
+    assert.equal(r.status, 200);
+    return r.body.quota.full;
+  };
+  await settings.setMany({ ai_wallet_full: '', ai_wallet_last: '' }, null);
+  assert.equal(await wallet(80), 80, 'the first balance seen counts as full');
+  assert.equal(await wallet(60), 80, 'spending keeps the mark');
+  assert.equal(await wallet(30), 80);
+  assert.equal(await wallet(90), 90, 'a rise is a top-up: full again');
+  assert.equal(await wallet(85), 90);
+});
+
+test('credit bar: walletMark rules', () => {
+  assert.equal(gateway.walletMark(null, null), null);
+  assert.deepEqual(gateway.walletMark(null, 10), { full: 10, last: 10 });
+  assert.deepEqual(gateway.walletMark({ full: 10, last: 4 }, 3), { full: 10, last: 3 });
+  assert.deepEqual(gateway.walletMark({ full: 10, last: 4 }, 6), { full: 6, last: 6 });
+  assert.deepEqual(gateway.walletMark({ full: 10, last: 4 }, null), { full: 10, last: 4 });
 });
 
 test('reading a plan: the picture and schema go to the gateway; a tidy proposal comes back', async () => {
@@ -378,4 +422,17 @@ test('without a chosen model, or without a key, reading is refused with a clear 
   } finally {
     config.ai.key = KEY;
   }
+});
+
+test("Round 19: each paid reading came off the mall admin's credits, linked to its record", async () => {
+  const r = await query(
+    `SELECT l.delta, l.conversion_id, mc.credits FROM ai_credit_ledger l JOIN map_conversions mc ON mc.id = l.conversion_id
+      WHERE l.user_id = @u AND l.kind = 'reading'`,
+    { u: { type: sql.Int, value: fx.mallAdminId } },
+  );
+  assert.ok(r.recordset.length > 0, 'readings were charged');
+  for (const x of r.recordset) assert.equal(Number(x.delta), -Number(x.credits));
+  const left = await query(`SELECT balance FROM ai_credit_balances WHERE user_id = @u`, { u: { type: sql.Int, value: fx.mallAdminId } });
+  const spent = r.recordset.reduce((a, x) => a + Number(x.credits), 0);
+  assert.equal(Math.round(Number(left.recordset[0].balance) * 10000), Math.round((100 - spent) * 10000));
 });

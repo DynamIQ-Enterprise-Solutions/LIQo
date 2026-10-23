@@ -16,6 +16,7 @@ import * as settings from '../repos/settings.js';
 import { resolveScope, assertBranchInScope } from '../utils/scope.js';
 import * as stores from '../repos/stores.js';
 import * as gateway from '../ai/gateway.js';
+import * as creditOps from '../ai/creditOps.js';
 import { preparePicture, buildMessages, responseFormats, parseAnswer, toProposal, matchStores, cadHints, mergeMeasured, shapeRooms, scaleFromDimension } from '../ai/floorplan.js';
 import { sniffMime, imageSize, decodeImage } from '../maps/image.js';
 import { measurePlan } from '../maps/measure.js';
@@ -322,6 +323,8 @@ backdropsRouter.post('/:key/convert', requireRole('mall_admin'), validate(conver
     if (!gateway.aiConfigured()) throw new AppError(503, 'AI reading is not set up. A superadmin must add the IQGateway key on the server.');
     const model = await settings.getText('ai_model');
     if (!model) throw new AppError(409, 'No AI model is chosen yet. A superadmin chooses it in Settings.');
+    // Round 19: a mall admin needs credits left; a superadmin reads from the wallet's free part.
+    await creditOps.assertCanRead(req.user);
 
     const map = await maps.findByBranch(branch.id);
     if (!map?.draft) throw new AppError(404, 'This branch has no draft map.');
@@ -364,7 +367,7 @@ backdropsRouter.post('/:key/convert', requireRole('mall_admin'), validate(conver
     let truncated = false;
     const record = async (walls, spaces, details, action = 'map_converted') => {
       const cost = { model: usedModel, credits: Math.round(spent.credits * 10000) / 10000, usd: Math.round(spent.usd * 1e6) / 1e6 };
-      await backdrops.recordConversion({
+      const conversionId = await backdrops.recordConversion({
         branchId: branch.id,
         key: row.id,
         levelId: level.id,
@@ -377,7 +380,9 @@ backdropsRouter.post('/:key/convert', requireRole('mall_admin'), validate(conver
         usd: cost.usd,
         crop: crop ? crop.map((n) => n.toFixed(4)).join(',') : null,
       });
-      await recordAudit(req, res, { action, entityType: 'map', entityId: map.id, details: { branchId: branch.id, levelId: level.id, crop, ...cost, ...details } });
+      // Round 19: the paid cost (also of a failed run) comes off the mall admin's credits.
+      const balanceAfter = await creditOps.chargeReading(req.user, cost.credits, conversionId);
+      await recordAudit(req, res, { action, entityType: 'map', entityId: map.id, details: { branchId: branch.id, levelId: level.id, crop, ...cost, ...details, ...(balanceAfter == null ? {} : { balanceAfter }) } });
       return cost;
     };
     // The answer format the provider accepts; refused formats fall back to the next.

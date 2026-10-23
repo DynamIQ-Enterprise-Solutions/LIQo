@@ -10,7 +10,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { PNG } from 'pngjs';
-import { startServer, stopServer, api, makeFixtures, cleanFixtures, PASSWORD } from './helpers.js';
+import { startServer, stopServer, api, makeFixtures, cleanFixtures, giveTestCredits, PASSWORD } from './helpers.js';
 import { config } from '../src/config.js';
 import * as settings from '../src/repos/settings.js';
 import { readDxf, looksLikeDxf, plainMText } from '../src/maps/vector/dxf.js';
@@ -114,6 +114,8 @@ fs.copyFileSync(${JSON.stringify(path.join(tmp, 'plan.dxf'))}, path.join(outDir,
   call = api(base);
   const tag = `pf${Date.now().toString(36)}`;
   fx = await makeFixtures(tag);
+  // Owner decision 2026-10-23 (Round 19): a mall admin reads plans only with AI credits.
+  await giveTestCredits(fx.mallAdminId, 100);
   fx.tag = tag;
   for (const role of ['superadmin', 'mall_admin']) {
     const r = await call('POST', '/auth/login', { body: { email: `${role}.${tag}@test.local`, password: PASSWORD } });

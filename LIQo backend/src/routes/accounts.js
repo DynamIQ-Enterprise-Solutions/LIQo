@@ -12,6 +12,7 @@ import { resolveScope, assertBranchInScope } from '../utils/scope.js';
 import { parsePaging, pageEnvelope } from '../utils/pagination.js';
 import { hashPassword, generateTempPassword } from '../utils/password.js';
 import { applyReportsToRule } from '../utils/ownership.js';
+import * as creditOps from '../ai/creditOps.js';
 
 export const accountsRouter = Router();
 
@@ -184,9 +185,15 @@ accountsRouter.post('/', requireRole('supervisor'), validate(createSchema), asyn
       details: { email, role, assignments: req.body.assignments ?? null, createdByRole: req.user.role },
     });
     if (role !== 'superadmin') await applyReportsToRule(req, res, 'account created');
+    // Round 19: a new mall admin starts with AI credits, as far as the wallet has free ones.
+    let start = null;
+    if (role === 'mall_admin') {
+      start = await creditOps.grantStartCredits(id, req.user.id);
+      if (start.amount > 0) await recordAudit(req, res, { action: 'ai_credits_started', entityType: 'user', entityId: id, details: { amount: start.amount } });
+    }
     const user = users.toPublic(await users.findById(id));
     // The temporary password is returned once and never stored in clear.
-    res.status(201).json({ user, tempPassword });
+    res.status(201).json({ user, tempPassword, ...(start ? { startCredits: start.amount, startNote: start.note } : {}) });
   } catch (err) {
     next(err);
   }
@@ -253,6 +260,11 @@ accountsRouter.post('/:id/deactivate', requireRole('supervisor'), async (req, re
     await recordAudit(req, res, { action: target.role === 'superadmin' ? 'superadmin_deactivated' : 'account_deactivated', entityType: 'user', entityId: target.id });
     // An inactive owner is skipped by the rule: their admins move to the next owner.
     if (target.role === 'supervisor') await applyReportsToRule(req, res, 'owner deactivated');
+    // Round 19: unused AI credits go back to the wallet's free part; an open request closes.
+    if (target.role === 'mall_admin') {
+      const back = await creditOps.returnCredits(target.id, req.user.id);
+      if (back.returned !== 0 || back.cancelledRequest) await recordAudit(req, res, { action: 'ai_credits_returned', entityType: 'user', entityId: target.id, details: back });
+    }
     res.json({ user: users.toPublic(updated) });
   } catch (err) {
     next(err);
@@ -265,7 +277,13 @@ accountsRouter.post('/:id/reactivate', requireRole('supervisor'), async (req, re
     const updated = await users.setActive(target.id, true);
     await recordAudit(req, res, { action: target.role === 'superadmin' ? 'superadmin_reactivated' : 'account_reactivated', entityType: 'user', entityId: target.id });
     if (target.role === 'supervisor') await applyReportsToRule(req, res, 'owner reactivated');
-    res.json({ user: users.toPublic(updated) });
+    // Round 19: a reactivated mall admin starts again with the starting credits, if free.
+    let start = null;
+    if (target.role === 'mall_admin' && !target.is_active) {
+      start = await creditOps.grantStartCredits(target.id, req.user.id);
+      if (start.amount > 0) await recordAudit(req, res, { action: 'ai_credits_started', entityType: 'user', entityId: target.id, details: { amount: start.amount, reactivated: true } });
+    }
+    res.json({ user: users.toPublic(updated), ...(start ? { startCredits: start.amount, startNote: start.note } : {}) });
   } catch (err) {
     next(err);
   }

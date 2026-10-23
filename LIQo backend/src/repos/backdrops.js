@@ -74,11 +74,11 @@ export async function remove(key) {
   await query('DELETE FROM map_backdrops WHERE backdrop_key = @k', { k: key });
 }
 
-/** One AI reading, with the model and what it cost (Round 15). Also written for failed paid runs. */
+/** One AI reading, with the model and what it cost (Round 15). Also written for failed paid runs. Returns its id. */
 export async function recordConversion({ branchId, key, levelId, usedAi, wallCount, spaceCount, userId, model = null, credits = null, usd = null, crop = null }) {
-  await query(
+  const r = await query(
     `INSERT INTO map_conversions (branch_id, backdrop_key, level_id, used_ai, wall_count, space_count, requested_by, model, credits, usd, crop)
-     VALUES (@b, @k, @l, @ai, @w, @s, @u, @m, @c, @d, @cr)`,
+     OUTPUT inserted.id VALUES (@b, @k, @l, @ai, @w, @s, @u, @m, @c, @d, @cr)`,
     {
       b: { type: sql.Int, value: branchId },
       k: key,
@@ -93,4 +93,5 @@ export async function recordConversion({ branchId, key, levelId, usedAi, wallCou
       cr: crop,
     },
   );
+  return r.recordset[0].id;
 }

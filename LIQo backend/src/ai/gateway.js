@@ -176,6 +176,21 @@ export async function quota() {
   return normaliseQuota(json);
 }
 
+/**
+ * The credit bar's full mark (owner decision 2026-10-23: a full bar is the
+ * wallet right after the last top-up). [prev] is what was remembered,
+ * [balance] what the gateway reports now. A rise in the balance is a top-up and
+ * makes the new balance the full mark; otherwise the mark never falls below the
+ * balance. The first balance ever seen counts as full.
+ */
+export function walletMark(prev, balance) {
+  if (balance == null || !Number.isFinite(balance)) return prev;
+  const full = prev?.full;
+  const last = prev?.last;
+  if (full == null || last == null || balance > last + 1e-9) return { full: balance, last: balance };
+  return { full: Math.max(full, balance), last: balance };
+}
+
 export function normaliseQuota(json) {
   const num = (v) => (v == null || v === '' || !Number.isFinite(Number(v)) ? null : Number(v));
   const daily = json?.daily && typeof json.daily === 'object' ? json.daily : {};

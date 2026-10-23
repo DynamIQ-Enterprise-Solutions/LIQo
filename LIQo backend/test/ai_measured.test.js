@@ -7,7 +7,7 @@ import http from 'node:http';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { startServer, stopServer, api, makeFixtures, cleanFixtures, PASSWORD } from './helpers.js';
+import { startServer, stopServer, api, makeFixtures, cleanFixtures, giveTestCredits, PASSWORD } from './helpers.js';
 import { drawnPlan } from './plan_fixtures.js';
 import { config } from '../src/config.js';
 import * as settings from '../src/repos/settings.js';
@@ -63,6 +63,8 @@ before(async () => {
   base = s.base;
   call = api(base);
   fx = await makeFixtures(tag);
+  // Owner decision 2026-10-23 (Round 19): a mall admin reads plans only with AI credits.
+  await giveTestCredits(fx.mallAdminId, 100);
   token = (await call('POST', '/auth/login', { body: { email: `mall_admin.${tag}@test.local`, password: PASSWORD } })).body.token;
   previousModel = await settings.getText('ai_model');
   await settings.setMany({ ai_model: 'test-vision-1' }, fx.superadminId);

@@ -22,6 +22,8 @@ import { ownersRouter } from './routes/owners.js';
 import { profileRouter, profileRequestsRouter } from './routes/profile.js';
 import { mapsRouter } from './routes/maps.js';
 import { aiRouter } from './routes/ai.js';
+import { creditsRouter } from './routes/credits.js';
+import { reportsRouter, requestsRouter } from './routes/reports.js';
 
 export function createApp() {
   const app = express();
@@ -75,6 +77,7 @@ export function createApp() {
   api.use('/branches', branchesRouter);
   api.use('/assignments', assignmentsRouter);
   api.use('/settings', settingsRouter);
+  api.use('/ai/credits', creditsRouter);
   api.use('/ai', aiRouter);
   api.use('/audit', auditRouter);
   api.use('/lookups', lookupsRouter);
@@ -85,6 +88,8 @@ export function createApp() {
   api.use('/maps', mapsRouter);
   api.use('/profile', profileRouter);
   api.use('/profile-requests', profileRequestsRouter);
+  api.use('/reports', reportsRouter);
+  api.use('/requests', requestsRouter);
   app.use('/api', api);
 
   app.use(notFound);

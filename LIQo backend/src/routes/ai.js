@@ -6,6 +6,8 @@ import { AppError } from '../middleware/errors.js';
 import { recordAudit } from '../middleware/audit.js';
 import * as settings from '../repos/settings.js';
 import * as gateway from '../ai/gateway.js';
+import * as credits from '../repos/credits.js';
+import { walletSplit } from '../ai/credits.js';
 
 // AI reading through IQGateway (Round 15). The browser only ever talks to these
 // routes; the gateway key stays on the server.
@@ -21,15 +23,38 @@ aiRouter.get('/status', requireRole('mall_admin'), async (req, res, next) => {
     if (configured) {
       try {
         quota = await gateway.quota();
+        quota.full = await rememberWallet(quota.balance);
       } catch (err) {
         quotaError = err instanceof AppError ? err.message : 'The credit balance could not be read.';
       }
+    }
+    // Round 19: a mall admin sees only their own credits, never the wallet's numbers.
+    if (req.user.role === 'mall_admin') {
+      const mine = await credits.balanceOf(req.user.id);
+      return res.json({ configured, model: model || null, quota: null, quotaError: null, gatewayBlocked: quota?.blocked === true, mine });
+    }
+    if (quota) {
+      const split = walletSplit({ wallet: quota.balance, given: await credits.givenTotal() });
+      quota.given = split.given;
+      quota.free = split.free;
+      quota.overGiven = split.overGiven;
     }
     res.json({ configured, model: model || null, quota, quotaError });
   } catch (err) {
     next(err);
   }
 });
+
+/** Keeps the credit bar's full mark (the balance after the last top-up) and returns it. */
+async function rememberWallet(balance) {
+  const num = (v) => (v === '' || v == null || !Number.isFinite(Number(v)) ? null : Number(v));
+  const prev = { full: num(await settings.getText('ai_wallet_full')), last: num(await settings.getText('ai_wallet_last')) };
+  const next = gateway.walletMark(prev, balance);
+  if (next && (next.full !== prev.full || next.last !== prev.last)) {
+    await settings.setMany({ ai_wallet_full: next.full, ai_wallet_last: next.last }, null);
+  }
+  return next?.full ?? null;
+}
 
 /** The models that can read plans, from the gateway's own list (a superadmin picks one). */
 aiRouter.get('/models', requireRole('superadmin'), async (req, res, next) => {

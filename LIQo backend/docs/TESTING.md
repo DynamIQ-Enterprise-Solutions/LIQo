@@ -438,6 +438,23 @@ As superadmin, create a second mall owner who owns **one branch** of SM Prime (C
 - [ ] **3D.** The 3D preview sits beside the canvas: drag to turn, wheel to zoom, right-drag to slide, Reset view. Draw a wall in 2D: it appears in 3D at once. Add a level: levels stack, the current one solid. An AI proposal shows teal (unsure amber) and rises in. Drag the divider; Collapse, reload, it stays collapsed; expand again.
 - [ ] **Width.** At 900 px the editor still fits (3D collapsed to its strip).
 
+## Phase 19 — Round 20: record pages like My account
+
+- [ ] **Wide window.** Open an account, a mall, a branch, a store, a store owner, an option value, an announcement, a profile change, an AI credit request and a problem report: each starts with a header card (initials, logo or icon; name; pills; one line of facts), then the short cards side by side in pairs, every list full width, and the danger zone (when there is one) last, full width.
+- [ ] **Narrow window** (tablet or phone): one column, the main cards first.
+
+## Phase 18 — Round 19: AI credits, Requests & reports, problem reports
+
+- [ ] **Settings.** As `admin@liqo.local`: two columns, AI floor-plan reading on the left, one card with Sign-in & security and General on the right (one column on a narrow window, AI first). The model list opens under its field. "Given to mall admins · Free to give" shows; Starting credits 3 and Most credits per admin 20 can be changed and saved.
+- [ ] **Give credits.** Analytics › AI credits: the split bar shows Wallet, Given, Free and Used. Add 5 to `ma@liqo.local`: Given rises, Free falls, History shows it. Try more than 20 or more than Free: refused in words. Remove 1: back to Free.
+- [ ] **Admin view.** As `ma@liqo.local`: My account › AI credits shows the balance (no wallet numbers). Request credits 3; the open request shows with Cancel.
+- [ ] **Decide.** As superadmin: the sidebar count on Requests & reports; the AI credits tab lists the request; open it, approve 2. The admin's balance rises by 2; the audit log has the approval.
+- [ ] **Reading** (needs credits and the owner's OK): as the mall admin, read a plan; the balance drops by the cost. At 0, Read with AI is refused with Request credits.
+- [ ] **New admin.** Create a mall admin: the Done step says "Starts with 3 AI credits".
+- [ ] **Deactivate.** Deactivate that admin: their credits return to Free; reactivate: they start again with 3.
+- [ ] **Report a problem.** As a mall admin, press Report a problem in the top bar, send one. As superadmin: Requests & reports › Problem reports lists it; open it, reply, Mark in progress, Resolve. As the mall admin: My account › My reports shows it with the reply; no reply box once resolved.
+- [ ] **My account loading.** Reload My account: a skeleton of its own shape shows briefly, never a spinner.
+
 ## Phase 17 — Round 18: accurate AI maps, 3D look, the easy editor
 
 - [ ] **Easy editor by default.** As `ma@liqo.local`, open a map: the step bar shows Plan, Scale, Read with AI, Rooms, Publish, with Undo, Redo and Advanced editing; there is no icon rail. Back and Next move between steps.

@@ -7,6 +7,7 @@ import { runMigrations } from '../src/db/migrate.js';
 import { query, sql, getPool } from '../src/db/pool.js';
 import * as users from '../src/repos/users.js';
 import { hashPassword } from '../src/utils/password.js';
+import * as credits from '../src/repos/credits.js';
 
 export const PASSWORD = 'TestPass123';
 
@@ -79,6 +80,14 @@ export async function makeFixtures(tag) {
   return { superadminId, supervisorId, mallAdminId, ownerId, tempUserId, mallA, mallB, branchA, branchB, storeA };
 }
 
+/**
+ * Gives a fixture mall admin AI credits directly (no wallet or cap check), so
+ * tests about reading plans can read (Round 19: a mall admin needs credits).
+ */
+export async function giveTestCredits(userId, amount) {
+  return credits.withCreditsLock((tx) => credits.change(tx, { userId, delta: amount, kind: 'grant', note: 'test setup' }));
+}
+
 export async function cleanFixtures(tag) {
   const like = `%${tag}%`;
   await query(`DELETE ab FROM announcement_branches ab JOIN announcements a ON a.id = ab.announcement_id JOIN users u ON u.id = a.created_by WHERE u.email LIKE @l`, { l: like });
@@ -89,6 +98,13 @@ export async function cleanFixtures(tag) {
   // Maps hang off branches: versions first (the pointer on maps blocks the delete), then maps.
   await query(`UPDATE mp SET published_version_id = NULL FROM maps mp JOIN branches b ON b.id = mp.branch_id WHERE b.name LIKE @l`, { l: like });
   await query(`DELETE v FROM map_versions v JOIN maps mp ON mp.id = v.map_id JOIN branches b ON b.id = mp.branch_id WHERE b.name LIKE @l`, { l: like });
+  // Round 19: AI credits and problem reports hang off users (and the ledger off readings).
+  await query(`DELETE l FROM ai_credit_ledger l JOIN users u ON u.id = l.user_id WHERE u.email LIKE @l`, { l: like });
+  await query(`DELETE l FROM ai_credit_ledger l JOIN map_conversions mc ON mc.id = l.conversion_id JOIN branches b ON b.id = mc.branch_id WHERE b.name LIKE @l`, { l: like });
+  await query(`DELETE r FROM ai_credit_requests r JOIN users u ON u.id = r.user_id WHERE u.email LIKE @l`, { l: like });
+  await query(`DELETE cb FROM ai_credit_balances cb JOIN users u ON u.id = cb.user_id WHERE u.email LIKE @l`, { l: like });
+  await query(`DELETE m FROM problem_report_messages m JOIN problem_reports r ON r.id = m.report_id JOIN users u ON u.id = r.reporter_id WHERE u.email LIKE @l`, { l: like });
+  await query(`DELETE r FROM problem_reports r JOIN users u ON u.id = r.reporter_id WHERE u.email LIKE @l`, { l: like });
   await query(`DELETE mc FROM map_conversions mc JOIN branches b ON b.id = mc.branch_id WHERE b.name LIKE @l`, { l: like });
   await query(`DELETE bd FROM map_backdrops bd JOIN branches b ON b.id = bd.branch_id WHERE b.name LIKE @l`, { l: like });
   await query(`DELETE mp FROM maps mp JOIN branches b ON b.id = mp.branch_id WHERE b.name LIKE @l`, { l: like });
