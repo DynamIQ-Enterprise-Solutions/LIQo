@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import * as stores from '../repos/stores.js';
 import { z } from 'zod';
 import { validate } from '../middleware/validate.js';
 import { requireRole } from '../middleware/requireRole.js';
@@ -6,7 +7,6 @@ import { AppError } from '../middleware/errors.js';
 import { recordAudit } from '../middleware/audit.js';
 import * as announcements from '../repos/announcements.js';
 import * as settings from '../repos/settings.js';
-import { query, sql } from '../db/pool.js';
 import { resolveScope } from '../utils/scope.js';
 import { parsePaging, pageEnvelope } from '../utils/pagination.js';
 import { todayDateOnly } from '../utils/dates.js';
@@ -141,12 +141,8 @@ announcementsRouter.post('/', async (req, res, next) => {
 
     if (role === 'store_owner') {
       const body = ownerSchema.parse(req.body);
-      const r = await query(
-        `SELECT s.branch_id FROM store_owner_assignments soa JOIN stores s ON s.id = soa.store_id
-          WHERE soa.user_id = @uid AND soa.store_id = @sid AND s.is_active = 1`,
-        { uid: { type: sql.Int, value: req.user.id }, sid: { type: sql.Int, value: body.storeId } },
-      );
-      if (!r.recordset[0]) throw new AppError(403, 'That store is not assigned to you.');
+      const ownedBranchId = await stores.branchOfOwnedActiveStore(req.user.id, body.storeId);
+      if (ownedBranchId == null) throw new AppError(403, 'That store is not assigned to you.');
       checkDates(body.startsOn, body.endsOn, { isNew: true });
       created = await announcements.create({
         ...body,
@@ -155,7 +151,7 @@ announcementsRouter.post('/', async (req, res, next) => {
         storeId: body.storeId,
         createdBy: req.user.id,
         createdRole: role,
-        branchIds: [r.recordset[0].branch_id],
+        branchIds: [ownedBranchId],
       });
       await recordAudit(req, res, { action: 'announcement_submitted', entityType: 'announcement', entityId: created.id, details: { storeId: body.storeId } });
       return res.status(201).json({ announcement: created });

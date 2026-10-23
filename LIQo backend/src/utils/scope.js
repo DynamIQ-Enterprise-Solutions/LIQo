@@ -5,7 +5,7 @@
 //   mall_admin  → assigned branches
 //   store_owner → assigned stores (and, read-only, the branches those stores are in)
 
-import { query, sql } from '../db/pool.js';
+import * as assigned from '../repos/scope.js';
 import { AppError } from '../middleware/errors.js';
 
 /**
@@ -20,79 +20,39 @@ export async function resolveScope(user, { includeInactive = false } = {}) {
   }
 
   if (user.role === 'supervisor') {
-    const activeOnly = includeInactive
-      ? ''
-      : `AND (sa.mall_id IS NULL OR m.is_active = 1)
-          AND (sa.branch_id IS NULL OR (b.is_active = 1 AND bm.is_active = 1))`;
-    const r = await query(
-      `SELECT sa.mall_id, sa.branch_id, b.mall_id AS branch_mall_id
-         FROM supervisor_assignments sa
-         LEFT JOIN malls m ON m.id = sa.mall_id
-         LEFT JOIN branches b ON b.id = sa.branch_id
-         LEFT JOIN malls bm ON bm.id = b.mall_id
-        WHERE sa.user_id = @uid ${activeOnly}`,
-      { uid: { type: sql.Int, value: user.id } },
-    );
+    const rows = await assigned.supervisorAssignments(user.id, includeInactive);
     const mallIds = new Set();
     const directBranchIds = new Set();
-    for (const row of r.recordset) {
-      if (row.mall_id != null) mallIds.add(row.mall_id);
-      if (row.branch_id != null) directBranchIds.add(row.branch_id);
+    for (const row of rows) {
+      if (row.mallId != null) mallIds.add(row.mallId);
+      if (row.branchId != null) directBranchIds.add(row.branchId);
     }
     // Malls owned whole (not just one of their branches): only these may be changed by the owner.
     const wholeMallIds = [...mallIds];
     let branchIds = [...directBranchIds];
-    if (mallIds.size > 0) {
-      const { clause, params } = inList('mall_id', [...mallIds], 'm');
-      const br = await query(`SELECT id FROM branches WHERE ${clause} ${includeInactive ? '' : 'AND is_active = 1'}`, params);
-      branchIds = [...new Set([...branchIds, ...br.recordset.map((x) => x.id)])];
-    }
+    if (mallIds.size > 0) branchIds = [...new Set([...branchIds, ...(await assigned.branchIdsOfMalls([...mallIds], includeInactive))])];
     // Malls visible = assigned malls + malls of directly assigned branches.
-    for (const row of r.recordset) if (row.branch_mall_id != null) mallIds.add(row.branch_mall_id);
+    for (const row of rows) if (row.branchMallId != null) mallIds.add(row.branchMallId);
     return { all: false, mallIds: [...mallIds], branchIds, storeIds: null, wholeMallIds };
   }
 
   if (user.role === 'mall_admin') {
-    const r = await query(
-      `SELECT ma.branch_id, b.mall_id FROM mall_admin_assignments ma
-         JOIN branches b ON b.id = ma.branch_id
-         JOIN malls m ON m.id = b.mall_id
-        WHERE ma.user_id = @uid AND b.is_active = 1 AND m.is_active = 1`,
-      { uid: { type: sql.Int, value: user.id } },
-    );
-    return {
-      all: false,
-      mallIds: [...new Set(r.recordset.map((x) => x.mall_id))],
-      branchIds: r.recordset.map((x) => x.branch_id),
-      storeIds: null,
-    };
+    const rows = await assigned.mallAdminBranches(user.id);
+    return { all: false, mallIds: [...new Set(rows.map((x) => x.mallId))], branchIds: rows.map((x) => x.branchId), storeIds: null };
   }
 
   // store_owner
-  const r = await query(
-    `SELECT soa.store_id, s.branch_id, b.mall_id
-       FROM store_owner_assignments soa
-       JOIN stores s ON s.id = soa.store_id
-       JOIN branches b ON b.id = s.branch_id
-       JOIN malls m ON m.id = b.mall_id
-      WHERE soa.user_id = @uid AND s.is_active = 1 AND b.is_active = 1 AND m.is_active = 1`,
-    { uid: { type: sql.Int, value: user.id } },
-  );
+  const rows = await assigned.storeOwnerStores(user.id);
   return {
     all: false,
-    mallIds: [...new Set(r.recordset.map((x) => x.mall_id))],
-    branchIds: [...new Set(r.recordset.map((x) => x.branch_id))],
-    storeIds: r.recordset.map((x) => x.store_id),
+    mallIds: [...new Set(rows.map((x) => x.mallId))],
+    branchIds: [...new Set(rows.map((x) => x.branchId))],
+    storeIds: rows.map((x) => x.storeId),
   };
 }
 
-/** Builds "col IN (@p0,@p1,...)" plus the params object. Empty list → "1=0". */
-export function inList(column, ids, prefix = 'p') {
-  if (!ids || ids.length === 0) return { clause: '1=0', params: {} };
-  const names = ids.map((_, i) => `@${prefix}${i}`);
-  const params = Object.fromEntries(ids.map((id, i) => [`${prefix}${i}`, { type: sql.Int, value: id }]));
-  return { clause: `${column} IN (${names.join(',')})`, params };
-}
+// SQL helper kept here for older imports; new code imports it from db/sqlHelpers.js.
+export { inList } from '../db/sqlHelpers.js';
 
 export function assertBranchInScope(scope, branchId) {
   if (scope.all) return;

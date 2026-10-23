@@ -6,7 +6,6 @@ import { AppError } from '../middleware/errors.js';
 import { recordAudit } from '../middleware/audit.js';
 import * as branches from '../repos/branches.js';
 import * as malls from '../repos/malls.js';
-import { query, sql } from '../db/pool.js';
 import { resolveScope, assertBranchInScope, assertMallInScope } from '../utils/scope.js';
 import { parsePaging, pageEnvelope } from '../utils/pagination.js';
 
@@ -99,13 +98,7 @@ branchesRouter.get('/:id/impact', requireRole('supervisor'), async (req, res, ne
   try {
     const scope = await resolveScope(req.user, { includeInactive: true });
     assertBranchInScope(scope, req.params.id);
-    const r = await query(
-      `SELECT (SELECT COUNT(*) FROM stores s WHERE s.branch_id = @id AND s.is_active = 1) AS stores,
-              (SELECT COUNT(DISTINCT soa.user_id) FROM store_owner_assignments soa JOIN stores s ON s.id = soa.store_id WHERE s.branch_id = @id) AS storeOwners,
-              (SELECT COUNT(*) FROM mall_admin_assignments ma WHERE ma.branch_id = @id) AS mallAdmins`,
-      { id: { type: sql.Int, value: Number(req.params.id) } },
-    );
-    res.json(r.recordset[0]);
+    res.json(await branches.impact(Number(req.params.id)));
   } catch (err) {
     next(err);
   }

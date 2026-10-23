@@ -8,7 +8,6 @@ import * as malls from '../repos/malls.js';
 import * as users from '../repos/users.js';
 import * as assignments from '../repos/assignments.js';
 import { applyReportsToRule } from '../utils/ownership.js';
-import { query, sql } from '../db/pool.js';
 import { resolveScope, assertMallInScope, assertWholeMallOwner } from '../utils/scope.js';
 import { parsePaging, pageEnvelope } from '../utils/pagination.js';
 
@@ -69,13 +68,7 @@ mallsRouter.get('/:id/impact', requireRole('supervisor'), async (req, res, next)
   try {
     const scope = await resolveScope(req.user, { includeInactive: true });
     assertMallInScope(scope, req.params.id);
-    const r = await query(
-      `SELECT (SELECT COUNT(*) FROM branches b WHERE b.mall_id = @id AND b.is_active = 1) AS branches,
-              (SELECT COUNT(*) FROM stores s JOIN branches b ON b.id = s.branch_id WHERE b.mall_id = @id AND s.is_active = 1) AS stores,
-              (SELECT COUNT(DISTINCT ma.user_id) FROM mall_admin_assignments ma JOIN branches b ON b.id = ma.branch_id WHERE b.mall_id = @id) AS mallAdmins`,
-      { id: { type: sql.Int, value: Number(req.params.id) } },
-    );
-    res.json(r.recordset[0]);
+    res.json(await malls.impact(Number(req.params.id)));
   } catch (err) {
     next(err);
   }

@@ -3,8 +3,9 @@
 .env.*
 !.env.example
 
-# Client data: uploaded floor plans.
+# Client data: uploaded floor plans, and map files kept on disk under the Firestore driver (P1-06A).
 LIQo backend/uploads/
+LIQo backend/data/
 
 # Dependencies and build output.
 node_modules/

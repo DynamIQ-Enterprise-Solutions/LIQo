@@ -14,6 +14,8 @@ if (!env.DATABASE_SERVER || !env.DATABASE_NAME || !env.DATABASE_USER) {
 
 export const config = {
   db: {
+    // P1-06A: 'mssql' (local SQL Server, the default) or 'firestore' (the internal deployment).
+    driver: env.DB_DRIVER === 'firestore' ? 'firestore' : 'mssql',
     server: env.DATABASE_SERVER,
     database: env.DATABASE_NAME,
     user: env.DATABASE_USER,

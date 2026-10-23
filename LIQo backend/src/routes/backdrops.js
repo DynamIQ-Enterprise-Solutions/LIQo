@@ -1,8 +1,5 @@
 import { Router } from 'express';
 import crypto from 'node:crypto';
-import fs from 'node:fs';
-import path from 'node:path';
-import { fileURLToPath } from 'node:url';
 import multer from 'multer';
 import { z } from 'zod';
 import { validate } from '../middleware/validate.js';
@@ -17,6 +14,7 @@ import { resolveScope, assertBranchInScope } from '../utils/scope.js';
 import * as stores from '../repos/stores.js';
 import * as gateway from '../ai/gateway.js';
 import * as creditOps from '../ai/creditOps.js';
+import { plans } from '../storage/files.js';
 import { preparePicture, buildMessages, responseFormats, parseAnswer, toProposal, matchStores, cadHints, mergeMeasured, shapeRooms, scaleFromDimension } from '../ai/floorplan.js';
 import { sniffMime, imageSize, decodeImage } from '../maps/image.js';
 import { measurePlan } from '../maps/measure.js';
@@ -28,9 +26,8 @@ import { readSvg, looksLikeSvg, SvgError } from '../maps/vector/svg.js';
 import { dwgToDxf, looksLikeDwg, DwgError } from '../maps/vector/dwg.js';
 import { layoutFor, renderVector, toPx } from '../maps/vector/render.js';
 
-// Files live outside any static mount; the only read path is the authenticated route below.
-const UPLOAD_DIR = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../uploads/backdrops');
-fs.mkdirSync(UPLOAD_DIR, { recursive: true });
+// Files live on the server's disk (src/storage/files.js), outside any static
+// mount; the only read path is the authenticated route below.
 
 const HARD_LIMIT_MB = 50;
 const MAX_SIDE = 10000;
@@ -53,19 +50,8 @@ async function branchInScope(req) {
   return branch;
 }
 
-function filePathFor(key, mime) {
-  return path.join(UPLOAD_DIR, `${key}.${mime === 'image/png' ? 'png' : 'jpg'}`);
-}
-
 // Vector plans (Round 16) also keep the original drawing and its parsed lines.
-const sourcePathFor = (key, kind) => path.join(UPLOAD_DIR, `${key}.${kind}`);
-const vectorPathFor = (key) => path.join(UPLOAD_DIR, `${key}.vector.json`);
-
-function loadVector(key) {
-  const file = vectorPathFor(key);
-  if (!fs.existsSync(file)) return null;
-  return JSON.parse(fs.readFileSync(file, 'utf8'));
-}
+const loadVector = (key) => plans.loadVector(key);
 
 /** What kind of plan the bytes are, never trusting the file name. */
 function sniffKind(buf) {
@@ -149,11 +135,10 @@ backdropsRouter.post('/', requireRole('mall_admin'), multerGuard, async (req, re
       size = { width: layout.width, height: layout.height };
     }
 
-    const target = filePathFor(key, mime);
-    fs.writeFileSync(target, picture);
+    plans.savePicture(key, mime, picture);
     let mpp = null;
     if (vector) {
-      fs.writeFileSync(sourcePathFor(key, kind), file.buffer);
+      plans.saveSource(key, kind, file.buffer);
       // Lines and texts in picture pixels, kept for exact walls at reading time.
       const seg = [];
       const s = vector.segments;
@@ -166,13 +151,13 @@ backdropsRouter.post('/', requireRole('mall_admin'), multerGuard, async (req, re
         const [x, y] = toPx(layout, t.x, t.y);
         return { x: r4(x), y: r4(y), text: t.text, layer: t.layer };
       });
-      fs.writeFileSync(vectorPathFor(key), JSON.stringify({ kind, k: layout.k, layers: vector.layers, segments: seg, texts }));
+      plans.saveVector(key, { kind, k: layout.k, layers: vector.layers, segments: seg, texts });
       if (vector.unitToM) mpp = vector.unitToM / layout.k;
     }
     const row = await backdrops.insert({
       key,
       branchId: branch.id,
-      fileName: path.basename(target),
+      fileName: plans.pictureName(key, mime),
       originalName: (file.originalname || '').slice(0, 255),
       mimeType: mime,
       sizeBytes: file.size,
@@ -180,7 +165,7 @@ backdropsRouter.post('/', requireRole('mall_admin'), multerGuard, async (req, re
       height: size.height,
       uploadedBy: req.user.id,
       kind,
-      sourceFile: vector ? path.basename(sourcePathFor(key, kind)) : null,
+      sourceFile: vector ? `${key}.${kind}` : null,
       units: vector?.units ?? null,
       mpp,
     });
@@ -201,11 +186,10 @@ backdropsRouter.get('/:key', async (req, res, next) => {
     const branch = await branchInScope(req);
     const row = await backdrops.find(req.params.key);
     if (!row || row.branchId !== branch.id) throw new AppError(404, 'Plan not found.');
-    const file = filePathFor(row.id, row.mimeType);
-    if (!fs.existsSync(file)) throw new AppError(404, 'The image file is missing on the server.');
+    if (!plans.hasPicture(row.id, row.mimeType)) throw new AppError(404, 'The image file is missing on the server.');
     res.set('Content-Type', row.mimeType);
     res.set('Cache-Control', 'private, max-age=86400');
-    fs.createReadStream(file).pipe(res);
+    plans.streamPicture(row.id, row.mimeType).pipe(res);
   } catch (err) {
     next(err);
   }
@@ -219,9 +203,7 @@ backdropsRouter.delete('/:key', requireRole('mall_admin'), async (req, res, next
     const map = await maps.findByBranch(branch.id);
     const inUse = (map?.draft?.buildings ?? []).some((b) => (b.levels ?? []).some((l) => l.backdrop?.id === row.id));
     if (inUse) throw new AppError(409, 'This plan is still placed on a level. Remove it from the level first.');
-    for (const file of [filePathFor(row.id, row.mimeType), vectorPathFor(row.id), ...(row.kind !== 'image' ? [sourcePathFor(row.id, row.kind)] : [])]) {
-      if (fs.existsSync(file)) fs.unlinkSync(file);
-    }
+    plans.remove(row.id, row.mimeType, row.kind);
     await backdrops.remove(row.id);
     await recordAudit(req, res, { action: 'backdrop_deleted', entityType: 'backdrop', entityId: row.id, details: { branchId: branch.id } });
     res.status(204).end();
@@ -335,9 +317,8 @@ backdropsRouter.post('/:key/convert', requireRole('mall_admin'), validate(conver
       throw new AppError(400, 'Place and calibrate this plan on the level, and save, before reading it.');
     }
 
-    const file = filePathFor(row.id, row.mimeType);
-    if (!fs.existsSync(file)) throw new AppError(404, 'The image file is missing on the server.');
-    const img = decodeImage(fs.readFileSync(file), row.mimeType);
+    if (!plans.hasPicture(row.id, row.mimeType)) throw new AppError(404, 'The image file is missing on the server.');
+    const img = decodeImage(plans.readPicture(row.id, row.mimeType), row.mimeType);
 
     const crop = req.body.crop ?? null;
     const picture = preparePicture(img, crop);
