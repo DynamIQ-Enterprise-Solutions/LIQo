@@ -12,7 +12,6 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/clock.dart';
-import '../../../core/config.dart';
 import '../../../core/data/blob_store.dart';
 import '../../../core/data/net.dart';
 import '../../../core/data/shopper_api.dart';
@@ -184,8 +183,8 @@ class MallsController extends Notifier<MallsState> {
     try {
       final cfg = await _api.appConfig();
       if (cfg.serverTime != null) ref.read(clockSkewProvider.notifier).seen(cfg.serverTime!, DateTime.now());
-      final below = cfg.mustUpdateBelow;
-      state = state.copyWith(mustUpdate: below != null && versionOlder(appVersion, below));
+      final below = cfg.mustUpdateBelow, build = await ref.read(appBuildProvider);
+      state = state.copyWith(mustUpdate: below != null && below > 0 && build > 0 && build < below);
     } catch (_) {} // no config: carry on
     try {
       await _blobs.write(_directoryKey, Uint8List.fromList(utf8.encode(jsonEncode(dir.toJson()))));
@@ -332,16 +331,6 @@ class MallsController extends Notifier<MallsState> {
 
 final mallsProvider = NotifierProvider<MallsController, MallsState>(MallsController.new);
 
-/// "1.2.0" is older than "1.10": numbers compared part by part, missing parts as 0.
-bool versionOlder(String a, String b) {
-  List<int> parts(String v) => [for (final x in v.split(RegExp(r'[.+-]'))) int.tryParse(x) ?? 0];
-  final pa = parts(a), pb = parts(b);
-  for (var i = 0; i < 3; i++) {
-    final x = i < pa.length ? pa[i] : 0, y = i < pb.length ? pb[i] : 0;
-    if (x != y) return x < y;
-  }
-  return false;
-}
 
 /// Venues already built, used at start for the saved malls they match: tests (the app reads its
 /// packages from the phone at start instead, MallsController.boot).

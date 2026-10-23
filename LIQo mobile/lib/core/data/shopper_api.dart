@@ -8,6 +8,7 @@ import 'dart:typed_data';
 import 'package:crypto/crypto.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:http/http.dart' as http;
+import 'package:package_info_plus/package_info_plus.dart';
 
 /// No connection, or the server could not be reached.
 class OfflineException implements Exception {
@@ -81,18 +82,28 @@ class DirectoryData {
   Map<String, Object?> toJson() => {'branches': [for (final b in branches) b.toJson()]};
 }
 
-/// What the server says about app versions: below [mustUpdateBelow] the app must be updated.
+/// The server's app settings (§11): an app whose build number is below [mustUpdateBelow] must be
+/// updated; the server's time (to correct the phone's clock); the newest package format.
 class AppConfig {
-  const AppConfig({this.minAppVersion, this.mustUpdateBelow, this.serverTime});
-  final String? minAppVersion, mustUpdateBelow;
+  const AppConfig({this.mustUpdateBelow, this.serverTime, this.formatVersion});
+  final int? mustUpdateBelow, formatVersion;
   final DateTime? serverTime;
 
   factory AppConfig.fromJson(Map<String, Object?> j) => AppConfig(
-        minAppVersion: j['minAppVersion']?.toString(),
-        mustUpdateBelow: j['mustUpdateBelow']?.toString(),
+        mustUpdateBelow: (j['mustUpdateBelow'] as num?)?.toInt(),
         serverTime: j['serverTime'] == null ? null : DateTime.tryParse(j['serverTime'].toString()),
+        formatVersion: (j['formatVersion'] as num?)?.toInt(),
       );
 }
+
+/// This app's build number (the +N of its version), for the "must update" rule.
+final appBuildProvider = Provider<Future<int>>((ref) async {
+  try {
+    return int.tryParse((await PackageInfo.fromPlatform()).buildNumber) ?? 0;
+  } catch (_) {
+    return 0; // unknown: never blocked by the rule
+  }
+});
 
 abstract class ShopperApi {
   /// Every branch, with its published package's metadata.

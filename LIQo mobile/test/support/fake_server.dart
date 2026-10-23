@@ -18,7 +18,7 @@ class FakeShopperApi implements ShopperApi {
   }
 
   bool offline = false;
-  String? mustUpdateBelow;
+  int? mustUpdateBelow;
   final calls = <String>[];
   final _bytes = <String, Uint8List>{};
   final _meta = <String, PackageMeta>{};

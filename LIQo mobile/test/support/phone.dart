@@ -25,6 +25,7 @@ class Phone {
       blobStoreProvider.overrideWithValue(this.blobs),
       shopperApiProvider.overrideWithValue(this.api),
       netProvider.overrideWithValue(this.net),
+      appBuildProvider.overrideWithValue(Future.value(1)),
       clockProvider.overrideWithValue(() => fixedNow),
     ]);
     addTearDown(c.dispose);

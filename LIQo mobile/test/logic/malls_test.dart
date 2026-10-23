@@ -129,15 +129,12 @@ void main() {
       expect(ph.s.saved['meridian']!.retired, isFalse);
     });
 
-    test('the server can retire this app version', () async {
+    test('the server can retire this app version (by build number)', () async {
       final ph = Phone(installed: ['spire']);
       await ph.boot();
-      ph.api.mustUpdateBelow = '99.0.0';
+      ph.api.mustUpdateBelow = 99;
       await ph.malls.checkForUpdates();
       expect(ph.s.mustUpdate, isTrue);
-      expect(versionOlder('1.2.0', '1.10'), isTrue);
-      expect(versionOlder('1.10.0', '1.9.9'), isFalse);
-      expect(versionOlder('2.0', '2.0.0'), isFalse);
     });
   });
 

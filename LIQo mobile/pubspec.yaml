@@ -26,6 +26,8 @@ dependencies:
   path_provider: 2.1.6
   crypto: 3.0.7
   connectivity_plus: 7.3.2
+  # the app's own build number, for the server's "must update" rule
+  package_info_plus: 10.2.2
 
 dev_dependencies:
   flutter_test:

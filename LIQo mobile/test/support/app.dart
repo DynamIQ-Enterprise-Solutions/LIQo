@@ -109,6 +109,7 @@ Future<AppHarness> pumpApp(
       blobStoreProvider.overrideWithValue(h.blobs),
       shopperApiProvider.overrideWithValue(api ?? h.api),
       netProvider.overrideWithValue(h.net),
+      appBuildProvider.overrideWithValue(Future.value(1)),
       // no network in tests: pictures fall back to the drawn art
       pictureFetchProvider.overrideWithValue((url) async => throw Exception('no network in tests')),
       ...overrides,

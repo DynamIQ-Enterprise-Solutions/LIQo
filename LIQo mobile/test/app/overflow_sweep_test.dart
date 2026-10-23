@@ -231,7 +231,7 @@ void main() {
       await check(tester, 'connect once');
       api
         ..offline = false
-        ..mustUpdateBelow = '99.0.0';
+        ..mustUpdateBelow = 99;
       h.net.value = NetKind.wifi;
       await h.c.read(mallsProvider.notifier).checkForUpdates();
       await h.step(10);

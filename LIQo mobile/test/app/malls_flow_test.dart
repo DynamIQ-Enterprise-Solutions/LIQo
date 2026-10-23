@@ -114,7 +114,7 @@ void main() {
   });
 
   testWidgets('a retired app version shows only "Please update LIQo"', (tester) async {
-    final api = FakeShopperApi()..mustUpdateBelow = '99.0.0';
+    final api = FakeShopperApi()..mustUpdateBelow = 99;
     final h = await pumpApp(tester, api: api);
     await h.step(10);
     expect(find.byKey(const ValueKey('update-app')), findsOneWidget);
