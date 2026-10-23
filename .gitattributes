@@ -1,0 +1,2 @@
+# Shopper package fixtures are byte-exact (their checksums and the freshness test compare bytes).
+"LIQo mobile/test/fixtures/published/**" -text
