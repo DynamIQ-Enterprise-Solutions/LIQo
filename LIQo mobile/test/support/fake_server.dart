@@ -27,6 +27,15 @@ class FakeShopperApi implements ShopperApi {
   /// Branches the next download serves broken (wrong checksum).
   final corrupt = <String>{};
 
+  final _live = <String, Map<String, Object?>>{}, _liveTag = <String, String>{};
+  var _tags = 0;
+
+  /// Sets a branch's live store info (a new ETag each time).
+  void setLive(String id, Map<String, Object?> json) {
+    _live[id] = json;
+    _liveTag[id] = 'e${++_tags}';
+  }
+
   /// Publishes [id] at [version], optionally edited (e.g. a store moved) and in another format.
   void publish(String id, int version, {void Function(Map<String, Object?> pkg)? edit, int format = packageFormatVersion}) {
     final pkg = (jsonDecode(utf8.decode(samplePackageBytes(id))) as Map).cast<String, Object?>()
@@ -61,6 +70,15 @@ class FakeShopperApi implements ShopperApi {
     _net();
     final b = _bytes[branchId]!;
     return corrupt.remove(branchId) ? Uint8List.fromList([...b, 32]) : b;
+  }
+
+  @override
+  Future<({Map<String, Object?> json, String? etag})?> live(String branchId, {String? etag}) async {
+    calls.add('live:$branchId');
+    _net();
+    final j = _live[branchId];
+    if (j == null || etag == _liveTag[branchId]) return null;
+    return (json: j, etag: _liveTag[branchId]);
   }
 
   @override

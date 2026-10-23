@@ -450,7 +450,7 @@ void main() {
     await h.step(30);
     expect(h.s.route!.placeId, closed.id);
     expect(find.byKey(const ValueKey('nav-status')), findsOneWidget);
-    expect(find.text('Closed'), findsWidgets);
+    expect(find.text('Temporarily closed'), findsWidgets);
     // and the chip lists show closed places too
     final kind = closed.cat == 'food' ? 'food' : 'shops';
     expect(h.s.v.places.where((p) => p.status != 'open').isNotEmpty, isTrue);

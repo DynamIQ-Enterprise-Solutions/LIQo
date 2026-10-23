@@ -12,11 +12,13 @@ import '../../../shared/widgets/common.dart';
 import '../../../shared/widgets/page.dart';
 import '../../../shared/widgets/placeholders.dart';
 import '../../malls/providers/mall_provider.dart';
+import '../../malls/providers/malls_provider.dart';
 import '../../navigation/providers/nav_provider.dart';
 import '../../settings/providers/words_provider.dart';
 import '../models/category.dart';
 import '../services/place_info_catalog.dart';
 import '../services/place_status.dart';
+import 'not_on_map.dart';
 
 /// The words for a place's kind ("Fashion", "Food", "Cinema").
 const catLabels = {
@@ -70,6 +72,9 @@ class _PlaceListViewState extends ConsumerState<PlaceListView> {
     // the search: every word typed must appear in the place's name, kind, level or wing
     final q = _q.text.trim();
     final shown = all.where((x) => (_filter == 'all' || x.cat == _filter) && s.matches(x, q)).toList();
+    // stores the map doesn't have yet (they come with the next map update)
+    bool hit(String text) => q.isEmpty || q.toLowerCase().split(RegExp(r'\s+')).every(text.toLowerCase().contains);
+    final later = storesNotOnMap(ref.watch(mallsProvider), mallId, (st) => storeInCategory(st, widget.category) && (_filter == 'all' || st.category == _filter) && hit(st.name));
     return AppPage(
       title: w.tr(cat.label),
       children: [
@@ -147,6 +152,7 @@ class _PlaceListViewState extends ConsumerState<PlaceListView> {
                 ),
             ],
           ),
+        NotOnMapSection(mallId: mallId, stores: later),
       ],
     );
   }
@@ -195,10 +201,10 @@ class _PlaceRow extends StatelessWidget {
                       style: ts(15, w: FontWeight.w700, color: p.ink),
                     ),
                     Text(sub, style: ts(12.5, color: p.muted)),
-                    if (showStatus)
+                    if (showStatus && status.known)
                       Text(
                         status.line,
-                        style: ts(12.5, w: FontWeight.w600, color: status.isOpen ? p.open : p.closed),
+                        style: ts(12.5, w: FontWeight.w600, color: statusColour(p, status.key)),
                       ),
                   ],
                 ),

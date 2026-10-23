@@ -7,6 +7,7 @@ import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:path_drawing/path_drawing.dart';
 
+import '../../../core/engine/package/package_venue.dart';
 import '../../../core/engine/routing.dart';
 import '../../../core/engine/util.dart';
 import '../../../core/engine/venue.dart';
@@ -444,13 +445,17 @@ class MapPainter extends CustomPainter {
     }
     // connector pins appear once the plan is readable
     if (lod >= 1 && v.connectorPinsOn(lv)) {
+      final out = v is PackageVenue ? (v as PackageVenue).outOfService : const <String>{};
       for (final cn in v.connectors) {
         final k = cn.at[lv];
         if (k == null) continue;
         final n = v.graph.nodes[k]!, q = P(n.x, n.y, 1.2);
         if (q.dx < -20 || q.dx > rx(390) || q.dy < -20 || q.dy > by(860)) continue;
-        circle(q, 7.5, fill: c('conn'), stroke: c('surface'), sw: 1.8);
+        // out of service: in the warning colour, crossed out
+        final off = out.contains(cn.id);
+        circle(q, 7.5, fill: off ? c('bad') : c('conn'), stroke: c('surface'), sw: 1.8);
         glyph('g-${cn.type}', q.dx - 5, q.dy - 5, 10, c('surface'));
+        if (off) line(Offset(q.dx - 6, q.dy + 6), Offset(q.dx + 6, q.dy - 6), c('surface'), 2);
       }
     }
     // wing names on the corridors

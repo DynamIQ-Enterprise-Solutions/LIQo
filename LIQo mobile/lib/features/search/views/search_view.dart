@@ -15,12 +15,14 @@ import '../../../core/theme.dart';
 import '../../../shared/widgets/common.dart';
 import '../../../shared/widgets/page.dart';
 import '../../malls/providers/mall_provider.dart';
+import '../../malls/providers/malls_provider.dart';
 import '../../navigation/models/nav_state.dart';
 import '../../navigation/providers/nav_provider.dart';
 import '../../navigation/services/nav_text.dart';
 import '../../places/models/category.dart';
 import '../../places/services/place_info_catalog.dart';
 import '../../places/services/place_status.dart';
+import '../../places/views/not_on_map.dart';
 import '../../places/views/place_list_view.dart' show catLabels;
 import '../../settings/providers/words_provider.dart';
 import '../providers/search_providers.dart';
@@ -97,6 +99,12 @@ class _SearchViewState extends ConsumerState<SearchView> {
       final found = s.byDistance(s.v.places.where((x) => !x.exitNode && inFilter(x) && s.matches(x, q))).take(60).toList();
       rows.add(SectionLabel(found.isEmpty ? w.tr('Nothing found') : w.tr('Results')));
       if (found.isNotEmpty) rows.add(CardX(children: [for (var i = 0; i < found.length; i++) row(found[i], last: i == found.length - 1)]));
+      // stores the map doesn't have yet (they come with the next map update)
+      bool hit(String text) => q.toLowerCase().split(RegExp(r'\s+')).every(text.toLowerCase().contains);
+      rows.add(NotOnMapSection(
+        mallId: mallId,
+        stores: storesNotOnMap(ref.watch(mallsProvider), mallId, (st) => (_filter == 'all' || storeInCategory(st, _filter)) && hit(st.name)),
+      ));
     }
     return Scaffold(
       backgroundColor: p.bg,
@@ -243,10 +251,10 @@ class _ResultRow extends StatelessWidget {
                       style: ts(15, w: FontWeight.w700, color: p.ink),
                     ),
                     Text(sub, style: ts(12.5, color: p.muted)),
-                    if (hasStatus)
+                    if (hasStatus && status.known)
                       Text(
                         status.line,
-                        style: ts(12.5, w: FontWeight.w600, color: status.isOpen ? p.open : p.closed),
+                        style: ts(12.5, w: FontWeight.w600, color: statusColour(p, status.key)),
                       ),
                   ],
                 ),

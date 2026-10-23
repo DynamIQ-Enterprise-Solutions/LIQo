@@ -103,6 +103,8 @@ class _AppShellState extends ConsumerState<AppShell> with SingleTickerProviderSt
       ref.read(mallsProvider.notifier).tripIn = on ? ref.read(mallProvider) : null;
       if (!on) _applyPending();
     });
+    // new live store info: a lift on the route in progress may have gone out of service
+    ref.listen(mallsProvider.select((m) => m.liveSeq), (_, _) => ref.read(navProvider.notifier).outOfServiceChanged());
     ref.listen(mallsProvider.select((m) => m.saved[ref.read(mallProvider)]?.pending), (_, pending) {
       if (pending != null && !_tripOn(ref.read(navProvider))) _applyPending();
     });

@@ -102,6 +102,10 @@ abstract class ShopperApi {
   Future<Uint8List> package(String branchId, int version);
 
   Future<AppConfig> appConfig();
+
+  /// A branch's live store info (docs/shopper-package-format.md §7), or null when it hasn't
+  /// changed since [etag].
+  Future<({Map<String, Object?> json, String? etag})?> live(String branchId, {String? etag});
 }
 
 /// SHA-256 of [bytes], as lowercase hex (the package checksum).
@@ -115,11 +119,11 @@ class HttpShopperApi implements ShopperApi {
   final http.Client _client;
   static const _timeout = Duration(seconds: 20);
 
-  Future<http.Response> _get(String path) async {
+  Future<http.Response> _get(String path, {Map<String, String>? headers, bool allow304 = false}) async {
     if (base.isEmpty) throw const OfflineException('no server address');
     try {
-      final r = await _client.get(Uri.parse('$base/api/shopper$path')).timeout(_timeout);
-      if (r.statusCode != 200) throw ServerException(r.statusCode, r.reasonPhrase ?? '');
+      final r = await _client.get(Uri.parse('$base/api/shopper$path'), headers: headers).timeout(_timeout);
+      if (r.statusCode != 200 && !(allow304 && r.statusCode == 304)) throw ServerException(r.statusCode, r.reasonPhrase ?? '');
       return r;
     } on ServerException {
       rethrow;
@@ -138,6 +142,13 @@ class HttpShopperApi implements ShopperApi {
 
   @override
   Future<AppConfig> appConfig() async => AppConfig.fromJson(_json(await _get('/app-config')));
+
+  @override
+  Future<({Map<String, Object?> json, String? etag})?> live(String branchId, {String? etag}) async {
+    final r = await _get('/branches/$branchId/live', headers: {'If-None-Match': ?etag}, allow304: true);
+    if (r.statusCode == 304) return null;
+    return (json: _json(r), etag: r.headers['etag']);
+  }
 }
 
 /// The server address, set at build time: --dart-define=SHOPPER_API=https://...

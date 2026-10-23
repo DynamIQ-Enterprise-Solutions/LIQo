@@ -10,6 +10,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/engine/constants.dart';
 import '../../../core/engine/directions.dart';
 import '../../../core/engine/graph.dart';
+import '../../../core/engine/package/package_venue.dart';
 import '../../../core/engine/reroute.dart';
 import '../../../core/engine/routing.dart';
 import '../../../core/engine/util.dart';
@@ -42,6 +43,9 @@ class NavController extends Notifier<NavState> {
   NavState get s => state;
   Graph get gr => s.gr;
   Venue get v => s.v;
+
+  /// Lifts, escalators and stairs out of service now (a published mall's live store info): no route uses them.
+  Set<String> get _out => v is PackageVenue ? (v as PackageVenue).outOfService : const {};
   MapController get _map => ref.read(mapProvider.notifier);
   MapView get _mv => ref.read(mapProvider);
   String get _mode => _mv.mode;
@@ -123,23 +127,24 @@ class NavController extends Notifier<NavState> {
   void startRoute(Place p) {
     final u = s.user;
     if (u == null) return;
+    s.outNote = null;
     s.wcError = null;
     s.helpNote = false;
     s.place = p.id;
     s.near = null;
     s.needsNote = null;
     final o = s.routeOpts = _opts();
-    var rs = routesTo(gr, p.id, p.nodes, u.pos, o.wheel, throughStores: true, avoid: o.avoid, metric: o.metric);
+    var rs = routesTo(gr, p.id, p.nodes, u.pos, o.wheel, throughStores: true, avoid: o.avoid, metric: o.metric, banConn: _out);
     // stairs only when they save about two minutes (Fastest only); the stairs way stays as another way
     if (rs.isNotEmpty && !o.wheel && !o.avoid.contains('stairs') && o.metric == RouteOpts.fastest && s.evac == null && usesStairs(rs.first)) {
-      final noStairs = routesTo(gr, p.id, p.nodes, u.pos, o.wheel, throughStores: true, avoid: {...o.avoid, 'stairs'}, metric: o.metric);
+      final noStairs = routesTo(gr, p.id, p.nodes, u.pos, o.wheel, throughStores: true, avoid: {...o.avoid, 'stairs'}, metric: o.metric, banConn: _out);
       if (noStairs.isNotEmpty && noStairs.first.total < rs.first.total + stairsSaveM) {
         rs = [noStairs.first, ...rs.where((x) => (x.total - noStairs.first.total).abs() > .01)];
       }
     }
     if (rs.isEmpty && o.avoid.isNotEmpty && !o.wheel) {
       // strictly avoided, but nothing else reaches the place: use them, and say so
-      rs = routesTo(gr, p.id, p.nodes, u.pos, o.wheel, throughStores: true, metric: o.metric);
+      rs = routesTo(gr, p.id, p.nodes, u.pos, o.wheel, throughStores: true, metric: o.metric, banConn: _out);
       if (rs.isNotEmpty) {
         final used = {for (final e in rs.first.seg) if (isHop(e)) e!.ctype!};
         s.needsNote = o.avoid.firstWhere(used.contains, orElse: () => o.avoid.first);
@@ -216,6 +221,7 @@ class NavController extends Notifier<NavState> {
   }
 
   void stopRoute() {
+    s.outNote = null;
     _endTrip(TripOutcome.stopped);
     s.routes = [];
     s.place = null;
@@ -534,6 +540,18 @@ class NavController extends Notifier<NavState> {
   // ahead, and the current way.
   int _problemSeq = 0;
 
+  /// The live store info changed: says so when a lift, escalator or stairs on the route in progress
+  /// is now out of service; the route doesn't change by itself (owner decision 2026-10-23).
+  void outOfServiceChanged() {
+    final r = s.route;
+    if (r == null || s.arrived) return;
+    final hit = r.conns.where(_out.contains).firstOrNull;
+    final name = hit == null ? null : v.connectors.where((c) => c.id == hit).firstOrNull?.name;
+    if (name == s.outNote) return;
+    s.outNote = name;
+    _notify();
+  }
+
   void findAnotherWay() {
     if (s.emergency) return;
     final r = s.route;
@@ -552,7 +570,7 @@ class NavController extends Notifier<NavState> {
     final from = u.pos, o = s.routeOpts;
     final original = buildRoute(gr, p.id, p.nodes, from, o);
     final avoid = rr.avoid;
-    var arounds = waysAround(gr, p.id, p.nodes, from, RouteOpts(wheel: o.wheel, throughStores: true, metric: o.metric, banEdges: avoid?.edges, banConn: avoid?.conns));
+    var arounds = waysAround(gr, p.id, p.nodes, from, RouteOpts(wheel: o.wheel, throughStores: true, metric: o.metric, banEdges: avoid?.edges, banConn: {...?avoid?.conns, ..._out}));
     final opts = <RouteOption>[];
     if (original != null) {
       // nothing ahead to go around: offer only ways that really differ
@@ -583,6 +601,7 @@ class NavController extends Notifier<NavState> {
   }
 
   void _confirmReroute() {
+    s.outNote = null;
     final rr = s.reroute;
     if (rr == null) return;
     if (rr.options.isNotEmpty) {
@@ -682,7 +701,7 @@ class NavController extends Notifier<NavState> {
   void _evacuate() {
     final u = s.user;
     if (u == null) return;
-    final e = evacuate(v, u.pos, wheel: s.routeOpts.wheel, banEdges: const {}, banConn: const {}, blockedExits: const {});
+    final e = evacuate(v, u.pos, wheel: s.routeOpts.wheel, banEdges: const {}, banConn: _out, blockedExits: const {});
     s.evac = e;
     s.place = null;
     s.wcError = null;

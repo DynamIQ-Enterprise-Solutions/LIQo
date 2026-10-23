@@ -106,6 +106,14 @@ void main() {
         await h.c.read(mallsProvider.notifier).delete('spire');
         await page('/saved?tab=places');
         h.net.value = NetKind.wifi;
+        // live store info: a long-named store the map doesn't have yet
+        api.setLive('bayview', {
+          'stores': [
+            {'storeId': 9, 'spaceIds': ['sp_new'], 'name': 'Bayview Department Store International Flagship Super Centre Annex', 'category': 'fashion'},
+          ],
+        });
+        await h.c.read(mallsProvider.notifier).checkForUpdates();
+        await page('/home/category/shops');
         // search with results
         router.push('/search');
         await h.step(12);
@@ -134,6 +142,16 @@ void main() {
         await state('nearest, a row previewed', () => nav.previewNearest(h.c.read(navProvider).near!.ids.first));
         await state('a route', () => nav.startTo('3-M1'));
         await state('walking', nav.start);
+        // a lift or escalator on the way goes out of service
+        api.setLive('bayview', {
+          'stores': const [],
+          'outOfService': [
+            {'connectorId': h.c.read(navProvider).route!.conns.first},
+          ],
+        });
+        await h.c.read(mallsProvider.notifier).checkForUpdates();
+        await h.step(12);
+        await check(tester, 'map: out of service on the way');
         final s = h.c.read(navProvider), steps = stepsOf(s.route!);
         final hopAt = steps.firstWhere((x) => x.kind == 'hop').endAt;
         await state('the pause question', nav.pause);

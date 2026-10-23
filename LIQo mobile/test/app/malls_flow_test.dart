@@ -11,10 +11,12 @@ import 'package:liqo_mobile/core/data/net.dart';
 import 'package:liqo_mobile/core/router.dart';
 import 'package:liqo_mobile/features/malls/providers/mall_provider.dart';
 import 'package:liqo_mobile/features/malls/providers/malls_provider.dart';
+import 'package:liqo_mobile/features/navigation/providers/nav_provider.dart';
 import 'package:liqo_mobile/features/saved/providers/saved_providers.dart';
 
 import '../support/app.dart';
 import '../support/fake_server.dart';
+import '../support/spots.dart';
 
 extension on AppHarness {
   MallsState get malls => c.read(mallsProvider);
@@ -117,5 +119,51 @@ void main() {
     await h.step(10);
     expect(find.byKey(const ValueKey('update-app')), findsOneWidget);
     expect(h.path, '/update-app');
+  });
+
+  testWidgets('out of service: a mid-trip mark shows a note with Find another way; new routes avoid it', (tester) async {
+    final api = FakeShopperApi();
+    final h = await pumpApp(tester, api: api);
+    await tester.tap(find.byKey(const ValueKey('tab-1')));
+    await h.step(20);
+    final nav = h.c.read(navProvider.notifier);
+    final st = scenarioStart(h.c.read(navProvider).v);
+    nav.refineAt(st.lv, st.x, st.y);
+    nav.startTo('3-M1');
+    await h.step(10);
+    final conn = h.c.read(navProvider).route!.conns.first;
+    api.setLive('bayview', {
+      'stores': const [],
+      'outOfService': [
+        {'connectorId': conn},
+      ],
+    });
+    await h.c.read(mallsProvider.notifier).checkForUpdates();
+    await h.step(10);
+    expect(find.byKey(const ValueKey('out-note')), findsOneWidget);
+    expect(h.c.read(navProvider).route!.conns, contains(conn), reason: 'the route does not change by itself');
+    await h.tapKey('out-reroute');
+    expect(h.c.read(navProvider).reroute, isNotNull);
+    nav.stop();
+    nav.startTo('3-M1');
+    await h.step(10);
+    expect(h.c.read(navProvider).route!.conns, isNot(contains(conn)), reason: 'new routes avoid it');
+    expect(find.byKey(const ValueKey('out-note')), findsNothing);
+  });
+
+  testWidgets('a store not on the map yet is listed with Update now', (tester) async {
+    final api = FakeShopperApi();
+    final h = await pumpApp(tester, api: api);
+    api.setLive('bayview', {
+      'stores': [
+        {'storeId': 9, 'spaceIds': ['sp_new'], 'name': 'Taco Stop', 'category': 'food'},
+      ],
+    });
+    await h.c.read(mallsProvider.notifier).checkForUpdates();
+    h.c.read(routerProvider).push('/home/category/food');
+    await h.step(30);
+    await tester.scrollUntilVisible(find.byKey(const ValueKey('not-on-map-9')), 300, scrollable: find.byWidgetPredicate((w) => w is Scrollable && w.axisDirection == AxisDirection.down).first);
+    expect(find.text('Directions come with the next map update'), findsOneWidget);
+    expect(find.byKey(const ValueKey('not-on-map-update-9')), findsOneWidget);
   });
 }

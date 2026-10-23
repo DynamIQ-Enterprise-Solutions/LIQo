@@ -195,7 +195,7 @@ GET /api/shopper/branches/:id/live        ETag; answers 304 to If-None-Match
   "stores": [
     { "storeId": 345, "spaceIds": ["sp_abc"], "name": "Uniqlo", "category": "fashion",
       "status": "open|temporarily_closed|being_repaired|opening_soon",
-      "hours": <Hours> | null, "phone": "+63 2 ...", "website": "https://...", "description": "...", "logoUrl": "https://..." }
+      "hours": <Hours> | null, "hoursNote": "10am-9pm daily", "phone": "+63 2 ...", "description": "...", "logoUrl": "https://..." }
   ],
   "outOfService": [ { "connectorId": "cn_1", "since": "2026-10-23T08:00:00+08:00" } ]
 }
@@ -229,6 +229,6 @@ GET /api/shopper/branches/:id/live        ETag; answers 304 to If-None-Match
 - **ETag:** a hash of the body without `generatedAt`, so an unchanged store list answers 304.
 - **An inactive, unpublished or unknown branch** answers `404 {error}`. The app keeps its last copy and asks again only after the next directory refresh.
 - **Optional fields:**
-  - `website`, until the owner decides on a website field;
-  - `logoUrl`, used from step 4 (the picture cache);
-  - `hoursNote`, waiting for the owner (the old free-text hours, shown only when `hours` and `branchHours` are both null).
+  - `hoursNote`: the store's old free-text hours, shown as written only when its `hours` and `branchHours` are both null (owner, 2026-10-23);
+  - `logoUrl`, used from step 4 (the picture cache).
+- **No website** for now (owner, 2026-10-23): shoppers see the phone and the description.

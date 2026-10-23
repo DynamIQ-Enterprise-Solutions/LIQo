@@ -300,7 +300,7 @@ class NavBottomBar extends ConsumerWidget {
                   ])),
                   Text(sc.tr('To ${pl.name} · ${s.levels[pl.lv].name}'), maxLines: 2, overflow: TextOverflow.ellipsis, style: ts(13.5, color: p.muted)),
                   // not open: the way is still given; its status says why (owner decision 2026-10-23)
-                  if (!status.isOpen && pl.kind != 'zone' && pl.kind != 'conn') Text(status.line, key: const ValueKey('nav-status'), style: ts(13.5, w: FontWeight.w700, color: statusColour(p, status.key))),
+                  if (status.notOpen && pl.kind != 'zone' && pl.kind != 'conn') Text(status.line, key: const ValueKey('nav-status'), style: ts(13.5, w: FontWeight.w700, color: statusColour(p, status.key))),
                 ]),
               ),
               const SizedBox(width: 8),
@@ -309,6 +309,28 @@ class NavBottomBar extends ConsumerWidget {
           ]),
         ),
       ),
+      // a lift, escalator or stairs on this route went out of service: say so, offer another way
+      if (s.outNote != null)
+        Padding(
+          padding: const EdgeInsets.only(top: 8),
+          child: Container(
+            key: const ValueKey('out-note'),
+            padding: const EdgeInsets.fromLTRB(12, 6, 6, 6),
+            decoration: BoxDecoration(color: p.maintBg, borderRadius: BorderRadius.circular(12)),
+            // the words, then the button under them (no crowding on a narrow phone with large text)
+            child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+              Row(children: [
+                Icon(Icons.construction_rounded, size: 18, color: p.maint),
+                const SizedBox(width: 8),
+                Expanded(child: Text(sc.tr('${s.outNote}: out of service'), style: ts(13.5, w: FontWeight.w700, color: p.ink))),
+              ]),
+              Align(
+                alignment: Alignment.centerRight,
+                child: TextButton(key: const ValueKey('out-reroute'), onPressed: sc.nav.findAnotherWay, child: Text(sc.tr('Find another way'))),
+              ),
+            ]),
+          ),
+        ),
       // start, pause or resume, and End (at the end the pop-up asks for "I've arrived" instead)
       btns([
         if (s.prompt != 'end')

@@ -6,48 +6,16 @@
 // a move; the server can retire this app version.
 import 'dart:typed_data';
 
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:liqo_mobile/core/clock.dart';
-import 'package:liqo_mobile/core/data/blob_store.dart';
 import 'package:liqo_mobile/core/data/net.dart';
 import 'package:liqo_mobile/core/data/shopper_api.dart';
-import 'package:liqo_mobile/core/storage/store.dart';
 import 'package:liqo_mobile/features/malls/data/sample_server.dart';
 import 'package:liqo_mobile/features/malls/models/saved_mall.dart';
 import 'package:liqo_mobile/features/malls/providers/malls_provider.dart';
 import 'package:liqo_mobile/features/saved/providers/saved_providers.dart';
 
-import '../support/fake_server.dart';
-import '../support/harness.dart' show fixedNow;
+import '../support/phone.dart';
 import '../support/samples.dart';
-
-class Phone {
-  Phone({List<String> installed = const [], MemoryStore? store, MemoryBlobStore? blobs, FakeShopperApi? api, NetKind net = NetKind.wifi})
-      : api = api ?? FakeShopperApi(),
-        net = FixedNet(net),
-        store = store ?? MemoryStore({if (installed.isNotEmpty) ...sampleSavedPrefs(fixedNow, installed)}),
-        blobs = blobs ?? MemoryBlobStore(sampleInstall(fixedNow, installed).blobs) {
-    c = ProviderContainer(overrides: [
-      storeProvider.overrideWithValue(this.store),
-      blobStoreProvider.overrideWithValue(this.blobs),
-      shopperApiProvider.overrideWithValue(this.api),
-      netProvider.overrideWithValue(this.net),
-      clockProvider.overrideWithValue(() => fixedNow),
-    ]);
-    addTearDown(c.dispose);
-  }
-
-  final FakeShopperApi api;
-  final FixedNet net;
-  final MemoryStore store;
-  final MemoryBlobStore blobs;
-  late final ProviderContainer c;
-
-  MallsController get malls => c.read(mallsProvider.notifier);
-  MallsState get s => c.read(mallsProvider);
-  Future<void> boot() => malls.boot();
-}
 
 void main() {
   group('the first download', () {

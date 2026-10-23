@@ -10,6 +10,7 @@ import '../graph.dart';
 import '../kit/kit_venue.dart' show hopCostFor;
 import '../routing.dart';
 import '../venue.dart';
+import 'live_info.dart';
 
 /// The newest package format this app reads. A higher one means "update the app".
 const int packageFormatVersion = 1;
@@ -113,8 +114,52 @@ class PackageVenue extends Venue {
   late final List<PackageBuilding> buildings;
   late final List<double> heights;
 
-  /// Store ids by place id, for the live store info.
+  /// Store ids by place id (the package's, then the live store info's).
   final storeOf = <String, String>{};
+  final _baseStoreOf = <String, String>{};
+
+  /// The live store info last applied (applyLive), or null.
+  LiveInfo? live;
+
+  /// Each place's name, category and status as the package has them, so live info can be undone.
+  final _baseline = <String, (String, String, String)>{};
+
+  /// Applies live store info to the places in place (names, categories, statuses): a trip, a
+  /// position and the narration carry on. A store no longer in it falls back to the package.
+  void applyLive(LiveInfo? l) {
+    live = l;
+    for (final p in places) {
+      final b = _baseline[p.id];
+      if (b != null) {
+        p.name = b.$1;
+        p.cat = b.$2;
+        p.status = b.$3;
+      }
+    }
+    storeOf
+      ..clear()
+      ..addAll(_baseStoreOf);
+    if (l == null) return;
+    for (final st in l.stores) {
+      for (final sid in st.spaceIds) {
+        final p = placeById(sid);
+        if (p == null) continue;
+        if (st.name.isNotEmpty) p.name = st.name;
+        if (st.category != null && storeCats.contains(st.category)) p.cat = st.category!;
+        p.status = st.status;
+        storeOf[sid] = st.storeId;
+      }
+    }
+  }
+
+  /// Lifts, escalators and stairs out of service now (routes avoid them).
+  Set<String> get outOfService => live?.outOfService ?? const {};
+
+  /// Stores on spaces this map doesn't have yet: they come with the next map update.
+  List<LiveStore> get storesNotOnMap => [
+        for (final st in live?.stores ?? const <LiveStore>[])
+          if (!st.spaceIds.any((id) => placeById(id) != null)) st,
+      ];
 
   /// Hand-tuned presets: only the sample malls carry them (published maps get them worked out).
   Map<String, Object?> _presets = const {};
@@ -239,6 +284,10 @@ class PackageVenue extends Venue {
     ];
     exits = [for (final e in (j['exits'] as List? ?? const []).cast<Map<String, Object?>>()) ExitDef(e['id']!.toString(), e['name']?.toString() ?? '', nodeKey(e['node']))];
     gr.fixUnjoined(places);
+    for (final p in places) {
+      _baseline[p.id] = (p.name, p.cat, p.status);
+    }
+    _baseStoreOf.addAll(storeOf);
   }
 
   // ===== What the app needs to know =====

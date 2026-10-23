@@ -23,6 +23,10 @@ const Map<String, String> _exact = {
   'The download didn\'t work. Please try again.': 'Hindi gumana ang pag-download. Pakisubukan ulit.',
   'Update LIQo to get this mall\'s map.': 'I-update ang LIQo para makuha ang mapa ng mall na ito.',
   'Not enough space on your phone for this map.': 'Kulang ang espasyo sa phone mo para sa mapang ito.',
+  // live store info (owner decisions 2026-10-23)
+  'Temporarily closed': 'Pansamantalang sarado', 'Closed today': 'Sarado ngayong araw', 'Closed now': 'Sarado ngayon',
+  'Not on the map yet': 'Wala pa sa mapa', 'Directions come with the next map update': 'Darating ang direksyon sa susunod na update ng mapa',
+  'Update now': 'I-update ngayon',
   'Saved malls': 'Mga naka-save na mall', 'Malls on this phone, updates, storage': 'Mga mall sa phone na ito, update, espasyo',
   'These malls work without signal. Maps update by themselves on Wi-Fi.': 'Gumagana ang mga mall na ito kahit walang signal. Kusang nag-a-update ang mapa kapag naka-Wi-Fi.',
   'No malls on this phone yet.': 'Wala pang mall sa phone na ito.', 'Add a mall': 'Magdagdag ng mall', 'Delete': 'Burahin', 'Update': 'I-update',
@@ -230,7 +234,9 @@ String _hand(String s) => s == 'left' ? 'kaliwa' : 'kanan';
 final List<(RegExp, String Function(Match))> _rules = [
   // ----- LIQo mobile -----
   (RegExp(r'^Open · Closes (.+)$'), (m) => 'Bukas · Magsasara nang ${m[1]}'),
+  (RegExp(r'^Closed now · Opens tomorrow (.+)$'), (m) => 'Sarado ngayon · Magbubukas bukas nang ${m[1]}'),
   (RegExp(r'^Closed now · Opens (.+)$'), (m) => 'Sarado ngayon · Magbubukas nang ${m[1]}'),
+  (RegExp(r'^(.+): out of service$'), (m) => '${m[1]}: hindi gumagana'),
   (RegExp(r'^Best way \((.+)\)$'), (m) => 'Pinakamagandang daan (${m[1]})'),
   (RegExp(r'^Mall: (.+)\. Change mall$'), (m) => 'Mall: ${m[1]}. Palitan ang mall'),
   (RegExp(r'^Search in (.+)$'), (m) => 'Maghanap sa ${m[1]}'),

@@ -8,6 +8,7 @@ import 'dart:math' as math;
 import '../../../core/engine/constants.dart';
 import '../../../core/engine/directions.dart';
 import '../../../core/engine/graph.dart';
+import '../../../core/engine/package/package_venue.dart';
 import '../../../core/engine/reroute.dart';
 import '../../../core/engine/routing.dart';
 import '../../../core/engine/util.dart';
@@ -68,6 +69,10 @@ class NavState {
 
   /// The route uses stairs or an escalator although the shopper avoids them: nothing else reaches the place.
   String? needsNote;
+
+  /// A lift, escalator or stairs on the route in progress went out of service (live store info):
+  /// its name, for the note with "Find another way". The route doesn't change by itself.
+  String? outNote;
 
   /// The route goes to the information desk for help.
   bool helpNote = false;
@@ -178,7 +183,8 @@ class NavState {
     final l = lv ?? (u != null && c.at.containsKey(u.lv) ? u.lv : c.lvs.first), k = c.at[l];
     final n = k == null ? null : gr.nodes[k];
     if (n == null) return null;
-    return Place(id: 'CONN:$cid', lv: l, name: c.name, cat: c.type, wing: '', rect: [n.x, n.y, n.x, n.y], at: [n.x, n.y], door: [n.x, n.y], kind: 'conn', status: 'open', nodes: [k!]);
+    final out = v is PackageVenue && (v as PackageVenue).outOfService.contains(cid);
+    return Place(id: 'CONN:$cid', lv: l, name: c.name, cat: c.type, wing: '', rect: [n.x, n.y, n.x, n.y], at: [n.x, n.y], door: [n.x, n.y], kind: 'conn', status: out ? 'maintenance' : 'open', nodes: [k!]);
   }
 
   /// Every place a shopper looks for: the services on a walkway (ATMs, desks) count only as exits.

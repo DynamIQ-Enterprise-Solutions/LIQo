@@ -16,6 +16,7 @@ import '../../../core/config.dart';
 import '../../../core/data/blob_store.dart';
 import '../../../core/data/net.dart';
 import '../../../core/data/shopper_api.dart';
+import '../../../core/engine/package/live_info.dart';
 import '../../../core/engine/package/package_venue.dart';
 import '../../../core/engine/venue.dart';
 import '../../../core/storage/keys.dart';
@@ -27,7 +28,7 @@ enum DownloadFailure { offline, needsMobileOk, server, corrupt, newerFormat, sto
 
 @immutable
 class MallsState {
-  const MallsState({this.saved = const {}, this.venues = const {}, this.directory, this.checkedAt, this.offline = false, this.downloading = const {}, this.booted = false, this.mustUpdate = false});
+  const MallsState({this.saved = const {}, this.venues = const {}, this.directory, this.checkedAt, this.offline = false, this.downloading = const {}, this.booted = false, this.mustUpdate = false, this.liveSeq = 0});
 
   /// The malls on the phone, by id, in the order they were saved.
   final Map<String, SavedMall> saved;
@@ -51,16 +52,49 @@ class MallsState {
   /// The server retired this app version: everything waits for an app update (rare).
   final bool mustUpdate;
 
+  /// Counts live store info applied to the venues (their places change in place), so screens redraw.
+  final int liveSeq;
+
   bool isSaved(String id) => venues.containsKey(id);
 
-  MallsState copyWith({Map<String, SavedMall>? saved, Map<String, Venue>? venues, DirectoryData? directory, DateTime? checkedAt, bool? offline, Set<String>? downloading, bool? booted, bool? mustUpdate}) => MallsState(
+  MallsState copyWith({Map<String, SavedMall>? saved, Map<String, Venue>? venues, DirectoryData? directory, DateTime? checkedAt, bool? offline, Set<String>? downloading, bool? booted, bool? mustUpdate, int? liveSeq}) => MallsState(
         saved: saved ?? this.saved, venues: venues ?? this.venues, directory: directory ?? this.directory, checkedAt: checkedAt ?? this.checkedAt,
         offline: offline ?? this.offline, downloading: downloading ?? this.downloading, booted: booted ?? this.booted, mustUpdate: mustUpdate ?? this.mustUpdate,
+        liveSeq: liveSeq ?? this.liveSeq,
       );
 }
 
 class MallsController extends Notifier<MallsState> {
   static const _directoryKey = 'directory.json';
+  static String _liveKey(String id) => 'live/$id.json';
+
+  /// Each mall's live store info (kept on the phone with its ETag, so it works offline).
+  final _live = <String, ({LiveInfo info, String? etag})>{};
+
+  void _applyLive(String id, [Venue? venue]) {
+    final v = venue ?? state.venues[id], l = _live[id];
+    if (v is PackageVenue) v.applyLive(l?.info);
+  }
+
+  /// Asks the server for a mall's store info (any network); unchanged replies cost nothing.
+  Future<void> _refreshLive(String id) async {
+    try {
+      final r = await _api.live(id, etag: _live[id]?.etag);
+      if (r == null) return;
+      final info = LiveInfo.fromJson(r.json);
+      _live[id] = (info: info, etag: r.etag);
+      try {
+        await _blobs.write(_liveKey(id), Uint8List.fromList(utf8.encode(jsonEncode({'etag': r.etag, 'json': r.json}))));
+      } catch (_) {} // kept in memory for this session
+      _applyLive(id);
+      state = state.copyWith(liveSeq: state.liveSeq + 1);
+    } catch (e) {
+      debugPrint('LIQo: store info for $id not refreshed ($e)');
+    }
+  }
+
+  /// The out-of-service lifts, escalators and stairs of a mall now.
+  Set<String> outOfService(String id) => _live[id]?.info.outOfService ?? const {};
 
   @override
   MallsState build() {
@@ -111,6 +145,15 @@ class MallsController extends Notifier<MallsState> {
       final d = await _blobs.read(_directoryKey);
       if (d != null) dir = DirectoryData.fromJson((jsonDecode(utf8.decode(d)) as Map).cast<String, Object?>());
     } catch (_) {}
+    for (final id in venues.keys) {
+      try {
+        final b = await _blobs.read(_liveKey(id));
+        if (b == null) continue;
+        final j = (jsonDecode(utf8.decode(b)) as Map).cast<String, Object?>();
+        _live[id] = (info: LiveInfo.fromJson((j['json']! as Map).cast<String, Object?>()), etag: j['etag']?.toString());
+        _applyLive(id, venues[id]);
+      } catch (_) {} // unreadable: fetched again on the next check
+    }
     if (saved.length != state.saved.length) _persist(saved);
     state = state.copyWith(saved: saved, venues: venues, directory: dir, booted: true);
     // updates that waited for a trip that never ended (the app was closed): switch them in now
@@ -140,6 +183,7 @@ class MallsController extends Notifier<MallsState> {
     }
     try {
       final cfg = await _api.appConfig();
+      if (cfg.serverTime != null) ref.read(clockSkewProvider.notifier).seen(cfg.serverTime!, DateTime.now());
       final below = cfg.mustUpdateBelow;
       state = state.copyWith(mustUpdate: below != null && versionOlder(appVersion, below));
     } catch (_) {} // no config: carry on
@@ -174,6 +218,9 @@ class MallsController extends Notifier<MallsState> {
     }
     _persist(saved);
     state = state.copyWith(saved: saved, directory: dir, checkedAt: now, offline: false);
+    for (final m in saved.values) {
+      if (!m.retired && state.venues.containsKey(m.id)) await _refreshLive(m.id);
+    }
   }
 
   /// Downloads a mall (first time, or an update the shopper tapped). On mobile data a first
@@ -198,7 +245,9 @@ class MallsController extends Notifier<MallsState> {
     }
     if (b == null || !b.offered) return DownloadFailure.server;
     if (b.package!.formatVersion > packageFormatVersion) return DownloadFailure.newerFormat;
-    return _fetch(b, pending: tripIn == id);
+    final r = await _fetch(b, pending: tripIn == id);
+    if (r == null) await _refreshLive(id);
+    return r;
   }
 
   /// Fetches, checks and saves [b]'s package. With [pending], an update waits for the trip to end.
@@ -229,6 +278,7 @@ class MallsController extends Notifier<MallsState> {
       } on StorageException {
         return DownloadFailure.storage;
       }
+      _applyLive(b.id, venue);
       if (pending && old != null) {
         _setSaved({...state.saved, b.id: old.copyWith(pending: meta, clearOffered: true, newerFormat: false)});
         _pendingVenues[b.id] = venue;
@@ -258,6 +308,7 @@ class MallsController extends Notifier<MallsState> {
       }
       venue = _parse(bytes, pm);
     }
+    _applyLive(id, venue);
     _setSaved({...state.saved, id: pm}, venues: {...state.venues, id: venue});
     await _blobs.delete(m.blobKey);
     return true;
@@ -270,6 +321,8 @@ class MallsController extends Notifier<MallsState> {
     await _blobs.delete(m.blobKey);
     if (m.pending != null) await _blobs.delete(SavedMall.key(id, m.pending!.version));
     _pendingVenues.remove(id);
+    _live.remove(id);
+    await _blobs.delete(_liveKey(id));
     _setSaved({...state.saved}..remove(id), venues: {...state.venues}..remove(id));
   }
 

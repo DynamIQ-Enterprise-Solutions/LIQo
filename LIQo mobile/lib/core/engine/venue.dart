@@ -35,10 +35,13 @@ class SiteLabel {
 }
 
 class Place {
-  final String id, name, cat, wing, kind;
+  final String id, wing, kind;
+
+  /// Name, category and status can change with a published mall's live store info (a store
+  /// renamed, moved to another category, closed for repairs) without rebuilding the venue.
+  String name, cat, status;
   final int lv;
   final List<double> rect, at, door;
-  final String status;
   final double w;
   final String? quad;
   final List<List<double>> doors;

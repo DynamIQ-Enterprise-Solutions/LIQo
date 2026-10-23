@@ -2,7 +2,11 @@
 // itself, so they are the same on every launch: the mall's hours (food courts
 // later, cinemas and the arena on their own hours, ATMs all day), a phone in the
 // fictional 555-01NN range, a website on example.com, and an About text per
-// category in English and Tagalog.
+// category in English and Tagalog. A published mall's places take theirs from
+// its live store info instead (hours per day, contacts, description); with no
+// hours of its own a store uses the mall's, and with none at all nothing is
+// said about being open (owner decisions 2026-10-23).
+import '../../../core/engine/package/package_venue.dart';
 import '../../../core/engine/venue.dart';
 import '../../malls/data/mall_info.dart';
 import '../models/place_info.dart';
@@ -49,6 +53,7 @@ String motifOf(String cat) => switch (cat) {
     };
 
 PlaceInfo placeInfoFor(Venue v, Place p) {
+  if (v is PackageVenue && mallInfos[v.id] == null) return _published(v, p);
   final mall = mallInfos[v.id], h = stableHash('${v.id}/${p.id}');
   final shop = p.kind == 'store' || p.kind == 'box';
   OpeningHours? hours;
@@ -73,6 +78,26 @@ PlaceInfo placeInfoFor(Venue v, Place p) {
     phone: shop ? '+63 2 5550 01${(3 + h % 97).toString().padLeft(2, '0')}' : null,
     website: shop ? 'https://example.com/${v.id}/${slug(p.name)}' : null,
     about: Bilingual(about.en.replaceAll('{name}', p.name), about.tl.replaceAll('{name}', p.name)),
+    art: PlaceArt(motifOf(p.cat), h % 8, h),
+  );
+}
+
+/// A published mall's place: its store's live details, or the mall's hours for the shops and
+/// services that keep them (restrooms, desks). Exits, parking, lifts and ATMs have no hours line.
+PlaceInfo _published(PackageVenue v, Place p) {
+  final h = stableHash('${v.id}/${p.id}'), st = v.live?.storeOn(p.id);
+  final shop = p.kind == 'store' || p.kind == 'box';
+  final usesMallHours = shop || p.cat == 'restroom' || p.cat == 'info' || p.cat == 'food' || p.cat == 'atm';
+  final week = st?.hours ?? (usesMallHours ? v.live?.branchHours : null);
+  final desc = st?.description;
+  final about = desc != null && desc.isNotEmpty ? Bilingual(desc, desc) : Bilingual(p.name, p.name);
+  return PlaceInfo(
+    placeId: p.id,
+    week: week,
+    hoursNote: week == null ? st?.hoursNote : null,
+    unknown: week == null && (st?.hoursNote ?? '').isEmpty,
+    phone: st?.phone,
+    about: about,
     art: PlaceArt(motifOf(p.cat), h % 8, h),
   );
 }

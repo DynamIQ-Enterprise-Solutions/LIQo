@@ -72,7 +72,7 @@ Widget statusChip(BuildContext context, String key, String label) {
 }
 
 /// A status's own colour: green open, red closed, amber being repaired, violet opening soon.
-Color statusColour(Pal p, String key) => switch (key) { 'open' => p.open, 'closed' || 'closedNow' => p.closed, 'maintenance' => p.maint, _ => p.soon };
+Color statusColour(Pal p, String key) => switch (key) { 'open' => p.open, 'closed' || 'closedNow' => p.closed, 'maintenance' => p.maint, 'unknown' => p.line, 'note' => p.muted, _ => p.soon };
 
 /// A quiet grey chip (a level, "Other level").
 Widget flChip(BuildContext context, String label) {

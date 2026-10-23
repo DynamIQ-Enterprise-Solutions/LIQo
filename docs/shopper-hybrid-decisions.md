@@ -67,6 +67,17 @@ Everything works offline for a downloaded mall. The internet only brings new mal
 - Leaving returns to the LIQo-wide Home. An evacuation always finishes first.
 - Location permission is asked when first needed, and only used while the app is open.
 
+**Live store info** (owner answers 2026-10-23; shape in `docs/shopper-package-format.md` §7)
+- Store name, category, status, hours, phone and description come from `/live` and change on the phone without a map update. They are kept on the phone for offline use.
+- "Temporarily closed" is shown as written.
+- A store with no hours of its own uses its mall's hours.
+  - With neither, the store's old free-text hours are shown as written, if it has any.
+  - Otherwise nothing is said about being open.
+- A special day can carry a short note: "Closed today · Holiday".
+- No website for now: shoppers see the phone and the description.
+- If a lift, escalator or stairs on the route in progress goes out of service, a note appears with "Find another way". The route doesn't change by itself, and new routes avoid it.
+- Store logos come with the posts step, sharing one picture cache.
+
 **Posts**
 - Posts are the existing announcements: approved, targeted to the branch, within their dates. What's on shows the same from every branch.
 - Offline they behave like FB/IG: the last-loaded feed is shown, and posts past their end date disappear even offline.

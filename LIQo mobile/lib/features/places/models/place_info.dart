@@ -4,6 +4,8 @@
 // admin data replaces them later.
 import 'package:flutter/foundation.dart';
 
+import '../../../core/engine/package/live_info.dart';
+
 /// Opening hours, as minutes from midnight. A close at or before the open time
 /// runs past midnight (1440 is midnight itself).
 @immutable
@@ -47,8 +49,17 @@ class Bilingual {
 
 @immutable
 class PlaceInfo {
-  const PlaceInfo({required this.placeId, this.hours, this.phone, this.website, required this.about, required this.art, this.allDay = false});
+  const PlaceInfo({required this.placeId, this.hours, this.week, this.hoursNote, this.phone, this.website, required this.about, required this.art, this.allDay = false, this.unknown = false});
   final String placeId;
+
+  /// A published mall's hours per weekday with special days (live store info, Philippine time).
+  final WeekHours? week;
+
+  /// No hours are known for it (a published mall's place without them): no open/closed line.
+  final bool unknown;
+
+  /// The store's old free-text hours, shown as written when no hours are set (owner, 2026-10-23).
+  final String? hoursNote;
 
   /// Null when the place has no hours (an exit, a parking zone) or is open all day.
   final OpeningHours? hours;

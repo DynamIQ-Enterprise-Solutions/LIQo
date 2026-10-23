@@ -115,11 +115,11 @@ class _PlaceDetailsViewState extends ConsumerState<PlaceDetailsView> {
             ]),
             const SizedBox(height: 4),
             Text('$level · ${w.tr(catLabels[place.cat] ?? place.cat)} · ${venue.name}', style: ts(14, color: p.muted)),
-            if (hasStatus) ...[
+            if (hasStatus && status.known) ...[
               const SizedBox(height: 6),
               Text(status.line, key: const ValueKey('status-line'), style: ts(14, w: FontWeight.w700, color: statusColour(p, status.key))),
             ],
-            if (hasStatus && !status.isOpen)
+            if (hasStatus && status.notOpen)
               Padding(padding: const EdgeInsets.only(top: 4), child: Text(w.tr('You can still get directions.'), style: ts(13, color: p.muted))),
             const SizedBox(height: 16),
             PrimaryButton(key: const ValueKey('get-directions'), label: w.tr('Directions'), icon: Icons.directions, onPressed: _directions),

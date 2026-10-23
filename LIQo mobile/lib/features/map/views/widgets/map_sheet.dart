@@ -110,12 +110,12 @@ class _PlaceCard extends ConsumerWidget {
         ]),
       ),
       Wrap(spacing: 8, runSpacing: 8, children: [
-        if (pl.kind != 'zone' && pl.kind != 'conn') statusChip(context, status.key, status.line),
+        if (pl.kind != 'zone' && pl.kind != 'conn' && status.known) statusChip(context, status.key, status.line),
         if (u != null && pl.lv != u.lv) flChip(context, sc.tr('On ${t.levelLow(pl.lv)}')),
         if (u != null && u.out) flChip(context, sc.tr('You are outside')),
       ]),
       // not open: the way is still given, the status chip above says why
-      if (!status.isOpen && pl.kind != 'zone' && pl.kind != 'conn') note(context, 'warn', Text(sc.tr('You can still get directions.'))),
+      if (status.notOpen && pl.kind != 'zone' && pl.kind != 'conn') note(context, 'warn', Text(sc.tr('You can still get directions.'))),
       btns([
         if (pl.kind != 'conn') Btn(sc.tr('Details'), onTap: () => context.push('/place/${sc.mallId}/${pl.id}')),
         // Google Maps' Directions: the bent-arrow sign
@@ -193,7 +193,7 @@ class _NearRow extends ConsumerWidget {
                 child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                   Text('${pl.name}${closest ? ' · ${sc.tr('closest')}' : ''}', maxLines: 2, overflow: TextOverflow.ellipsis, style: ts(15, w: FontWeight.w700, color: p.ink)),
                   Text(sub, style: ts(12.5, color: p.muted)),
-                  Text(status.line, style: ts(12.5, w: FontWeight.w700, color: colour)),
+                  if (status.known) Text(status.line, style: ts(12.5, w: FontWeight.w700, color: colour)),
                 ]),
               ),
               if (chosen) ...[

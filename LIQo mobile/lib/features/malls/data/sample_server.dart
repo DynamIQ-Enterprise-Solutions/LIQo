@@ -52,6 +52,11 @@ class SampleShopperApi implements ShopperApi {
 
   @override
   Future<AppConfig> appConfig() async => const AppConfig();
+
+  /// The samples keep their made-up sample details: no live store info.
+  @override
+  Future<({Map<String, Object?> json, String? etag})?> live(String branchId, {String? etag}) async =>
+      etag == 'sample' ? null : (json: <String, Object?>{'branchId': branchId, 'stores': const []}, etag: 'sample');
 }
 
 /// The sample malls already downloaded: blobs and saved-mall records, for tests (and a fresh debug install).
