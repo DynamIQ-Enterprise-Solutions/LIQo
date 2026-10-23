@@ -99,7 +99,8 @@ class _StoreListPanelState extends State<StoreListPanel> {
             child: entries.isEmpty
                 ? Padding(
                     padding: const EdgeInsets.all(16),
-                    child: Text(byStore.isEmpty ? 'No store is linked to a space on this map yet. Mall admins link stores on each store\'s page.' : 'No store matches "${_search.text.trim()}".', style: ts(12, color: p.muted)),
+                    child: Text(byStore.isEmpty ? 'No store is linked to a space on this map yet. Mall admins link stores on each store\'s page.' : 'No store matches "${_search.text.trim()}".',
+                        style: ts(12, color: p.muted)),
                   )
                 : ListView(
                     padding: const EdgeInsets.symmetric(vertical: 6),

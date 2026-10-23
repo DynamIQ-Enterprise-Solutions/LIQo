@@ -111,65 +111,81 @@ class _OptionDetailViewState extends ConsumerState<OptionDetailView> {
       subtitle: o == null ? '' : '$kindLabel · sort order ${o.sortOrder}',
       backPath: '/mall-admin/options',
       backLabel: 'Option lists',
-      pills: o == null ? const [] : [StatusPill(active: o.isActive), Pill(kindLabel, kind: PillKind.off)],
+      hero: o == null
+          ? null
+          : RecordHero(
+              mark: const HeroMark.icon(Icons.list_alt_outlined),
+              title: o.name,
+              sub: kindLabel,
+              pills: [StatusPill(active: o.isActive), Pill(kindLabel, kind: PillKind.off)],
+              line: 'Sort order ${o.sortOrder}',
+            ),
       loading: _loading,
       error: _error,
       onRetry: _load,
       children: o == null
           ? const []
           : [
-              DetailCard(
-                title: 'Details',
-                subtitle: 'Name and sort order',
-                trailing: _editing ? null : AppButton(label: 'Edit', small: true, icon: Icons.edit_outlined, onPressed: () => setState(() => _editing = true)),
-                child: _editing
-                    ? AppFormBody(
-                        fields: optionFields,
-                        initial: {'name': o.name, 'sortOrder': o.sortOrder},
-                        onSubmit: (v) async {
-                          final updated = await _service.updateOption(o.id, {'name': v['name'], 'sortOrder': v['sortOrder'] ?? 0});
-                          setState(() => _o = updated);
-                        },
-                        onCancel: () => setState(() => _editing = false),
-                        onDone: () {
-                          setState(() => _editing = false);
-                          _msg('Updated.');
-                        },
-                      )
-                    : Column(
-                        children: [
-                          DetailRow('List', kindLabel),
-                          DetailRow('Name', o.name),
-                          DetailRow('Sort order', '${o.sortOrder}'),
-                        ],
-                      ),
+              DetailColumns(
+                facts: [
+                  DetailCard(
+                    title: 'Details',
+                    subtitle: 'Name and sort order',
+                    trailing: _editing ? null : AppButton(label: 'Edit', small: true, icon: Icons.edit_outlined, onPressed: () => setState(() => _editing = true)),
+                    child: _editing
+                        ? AppFormBody(
+                            fields: optionFields,
+                            initial: {'name': o.name, 'sortOrder': o.sortOrder},
+                            onSubmit: (v) async {
+                              final updated = await _service.updateOption(o.id, {'name': v['name'], 'sortOrder': v['sortOrder'] ?? 0});
+                              setState(() => _o = updated);
+                            },
+                            onCancel: () => setState(() => _editing = false),
+                            onDone: () {
+                              setState(() => _editing = false);
+                              _msg('Updated.');
+                            },
+                          )
+                        : Column(
+                            children: [
+                              DetailRow('List', kindLabel),
+                              DetailRow('Name', o.name),
+                              DetailRow('Sort order', '${o.sortOrder}'),
+                            ],
+                          ),
+                  ),
+                  DetailCard(
+                    title: 'Used by',
+                    subtitle: o.kind == 'store_category' ? 'Stores with this category' : 'Map spaces that use this value',
+                    child: Text(
+                      o.kind == 'store_category'
+                          ? (o.inUse == 0
+                              ? 'No store uses this category yet.'
+                              : '${o.inUse} store${o.inUse == 1 ? '' : 's'} use this category. Deactivating keeps it on them; deleting is blocked while it is in use.')
+                          : 'Unit types and floor labels are offered in the map editor when a space is described.',
+                      style: ts(12, color: p.muted),
+                    ),
+                  ),
+                  if (!o.isActive)
+                    DetailCard(
+                      title: 'Reactivate',
+                      subtitle: 'This value is inactive',
+                      trailing: AppButton(label: 'Reactivate', small: true, primary: true, icon: Icons.play_circle_outline, onPressed: () => _setActive(true)),
+                      child: Text('It cannot be chosen for new records until it is reactivated.', style: ts(12, color: p.muted)),
+                    ),
+                ],
+                after: [
+                  DangerZone(actions: [
+                    if (o.isActive) DangerAction(label: 'Deactivate', description: 'Hide it from new records; existing ones keep it.', onTap: () => _setActive(false)),
+                    DangerAction(
+                      label: 'Delete',
+                      description: inUse ? 'Used by ${o.inUse} store(s), so it cannot be deleted. Deactivate it instead.' : 'Remove the value for good.',
+                      enabled: !inUse,
+                      onTap: _delete,
+                    ),
+                  ]),
+                ],
               ),
-              DetailCard(
-                title: 'Used by',
-                subtitle: o.kind == 'store_category' ? 'Stores with this category' : 'Map spaces that use this value',
-                child: Text(
-                  o.kind == 'store_category'
-                      ? (o.inUse == 0 ? 'No store uses this category yet.' : '${o.inUse} store${o.inUse == 1 ? '' : 's'} use this category. Deactivating keeps it on them; deleting is blocked while it is in use.')
-                      : 'Unit types and floor labels are offered in the map editor when a space is described.',
-                  style: ts(12, color: p.muted),
-                ),
-              ),
-              if (!o.isActive)
-                DetailCard(
-                  title: 'Reactivate',
-                  subtitle: 'This value is inactive',
-                  trailing: AppButton(label: 'Reactivate', small: true, primary: true, icon: Icons.play_circle_outline, onPressed: () => _setActive(true)),
-                  child: Text('It cannot be chosen for new records until it is reactivated.', style: ts(12, color: p.muted)),
-                ),
-              DangerZone(actions: [
-                if (o.isActive) DangerAction(label: 'Deactivate', description: 'Hide it from new records; existing ones keep it.', onTap: () => _setActive(false)),
-                DangerAction(
-                  label: 'Delete',
-                  description: inUse ? 'Used by ${o.inUse} store(s), so it cannot be deleted. Deactivate it instead.' : 'Remove the value for good.',
-                  enabled: !inUse,
-                  onTap: _delete,
-                ),
-              ]),
             ],
     );
   }

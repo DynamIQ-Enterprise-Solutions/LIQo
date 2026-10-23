@@ -19,7 +19,9 @@ import '../features/stores/owner_detail_view.dart';
 import '../features/stores/option_detail_view.dart';
 import '../features/announcements/announcement_detail_view.dart';
 import '../features/profile_requests/profile_request_detail_view.dart';
-import '../features/profile_requests/profile_requests_view.dart';
+import '../features/reports/report_detail_view.dart';
+import '../features/requests/credit_request_detail_view.dart';
+import '../features/requests/requests_view.dart';
 import '../features/map_editor/map_editor_view.dart';
 import '../features/map_editor/map_viewer_view.dart';
 import '../features/overview/overview_view.dart';
@@ -95,6 +97,11 @@ final Map<String, Widget Function(int id)> _detailRoutes = {
   '/mall-admin/branch/:id': (id) => BranchDetailView(branchId: id),
   '/superadmin/accounts/:id': (id) => AccountDetailView(accountId: id),
   '/superadmin/profile-requests/:id': (id) => ProfileRequestDetailView(requestId: id),
+  '/superadmin/credit-requests/:id': (id) => CreditRequestDetailView(requestId: id),
+  '/superadmin/reports/:id': (id) => ReportDetailView(reportId: id),
+  '/mall-owner/reports/:id': (id) => ReportDetailView(reportId: id),
+  '/mall-admin/reports/:id': (id) => ReportDetailView(reportId: id),
+  '/store-owner/reports/:id': (id) => ReportDetailView(reportId: id),
   '/mall-owner/admins/:id': (id) => AccountDetailView(accountId: id),
   '/mall-admin/stores/:id': (id) => StoreDetailView(storeId: id),
   '/mall-owner/stores/:id': (id) => StoreDetailView(storeId: id),
@@ -150,8 +157,8 @@ Widget _pageFor(NavItem item, RoleNav nav, {Map<String, String> query = const {}
       return const OptionsView();
     case 'account':
       return const AccountView();
-    case 'profile_requests':
-      return const ProfileRequestsView();
+    case 'requests':
+      return RequestsView(initialTab: requestsTabFrom(tab));
     case 'map_editor':
       return const MinWidthGate(minWidth: 900, what: 'The map editor', child: MapEditorView());
     case 'maps':
@@ -220,6 +227,8 @@ final routerProvider = Provider<GoRouter>((ref) {
             ),
           // The old People page lives inside the mall page now; keep the link working.
           GoRoute(path: '/superadmin/malls/:id/people', redirect: (_, state) => '/superadmin/malls/${state.pathParameters['id']}'),
+          // Round 19: Profile requests became a tab of Requests & reports.
+          GoRoute(path: '/superadmin/profile-requests', redirect: (_, __) => '/superadmin/requests?tab=profile'),
           for (final nav in roleNavs.values)
             for (final item in nav.items)
               GoRoute(

@@ -139,8 +139,9 @@ class AccountsService {
   }
 
   /// Creates the account and its first assignment in one request.
-  /// Returns the account and its one-time temporary password.
-  Future<(Account, String)> create({
+  /// Returns the account, its one-time temporary password, and (for a mall
+  /// admin, Round 19) the AI credits it starts with and a note when fewer.
+  Future<(Account, String, ({double credits, String? note})?)> create({
     required String email,
     required String fullName,
     required String role,
@@ -154,7 +155,12 @@ class AccountsService {
       if (mallIds.isNotEmpty || branchIds.isNotEmpty) 'assignments': {'mallIds': mallIds, 'branchIds': branchIds},
     });
     final data = r.data as Map<String, dynamic>;
-    return (Account.fromJson(data['user'] as Map<String, dynamic>), data['tempPassword'] as String);
+    final start = data['startCredits'];
+    return (
+      Account.fromJson(data['user'] as Map<String, dynamic>),
+      data['tempPassword'] as String,
+      start is num ? (credits: start.toDouble(), note: data['startNote'] as String?) : null,
+    );
   }
 
   Future<Account> update(int id, {required String email, required String fullName}) async {
@@ -171,8 +177,6 @@ class AccountsService {
     final r = await _client.dio.post('/accounts/$id/reset-password');
     return (r.data as Map<String, dynamic>)['tempPassword'] as String;
   }
-
-
 
   Future<void> setSupervisorAssignments(int userId, {required List<int> mallIds, required List<int> branchIds}) async {
     await _client.dio.put('/assignments/supervisors/$userId', data: {'mallIds': mallIds, 'branchIds': branchIds});

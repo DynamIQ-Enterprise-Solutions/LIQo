@@ -138,7 +138,8 @@ class PropertiesPanel extends ConsumerWidget {
                       Expanded(child: Text('${i + 1}. ${doc.level(e.level)?.name ?? e.level} · ${doc.buildingOfLevel(e.level)?.name ?? ''}', style: ts(11, w: FontWeight.w700, color: p.ink))),
                       if (e.level != level.id) LinkButton('Go', onPressed: () => n.selectLevel(e.level)),
                       if (!ro && c.endpoints.length > 2)
-                        IconButton(padding: EdgeInsets.zero, constraints: const BoxConstraints(), iconSize: 16, icon: const Icon(Icons.close), onPressed: () => n.edit((_, __) => c.endpoints.removeAt(i))),
+                        IconButton(
+                            padding: EdgeInsets.zero, constraints: const BoxConstraints(), iconSize: 16, icon: const Icon(Icons.close), onPressed: () => n.edit((_, __) => c.endpoints.removeAt(i))),
                     ],
                   ),
                   Row(

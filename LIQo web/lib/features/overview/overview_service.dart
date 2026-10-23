@@ -68,9 +68,7 @@ class OverviewService {
     final data = r.data as Map<String, dynamic>;
     return OverviewData(
       counts: OverviewCounts.fromJson(data['counts'] as Map<String, dynamic>),
-      recent: (data['recent'] as List<dynamic>)
-          .map((e) => RecentActivity.fromJson(e as Map<String, dynamic>))
-          .toList(),
+      recent: (data['recent'] as List<dynamic>).map((e) => RecentActivity.fromJson(e as Map<String, dynamic>)).toList(),
     );
   }
 }

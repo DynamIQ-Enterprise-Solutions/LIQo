@@ -251,7 +251,10 @@ List<List<double>> _simplify(List<List<double>> pts, double tol) {
       stack.add((idx, e));
     }
   }
-  return [for (var i = 0; i < pts.length; i++) if (keep[i]) pts[i]];
+  return [
+    for (var i = 0; i < pts.length; i++)
+      if (keep[i]) pts[i]
+  ];
 }
 
 /// Drops points on a straight line between their neighbours, then near-duplicates

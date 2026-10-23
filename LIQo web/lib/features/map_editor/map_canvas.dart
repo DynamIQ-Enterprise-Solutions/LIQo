@@ -1466,13 +1466,18 @@ class _ZoomButtons extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final p = context.pal;
-    Widget b(Key key, IconData icon, String tip, VoidCallback on) => IconButton(
-          key: key,
-          tooltip: tip,
-          iconSize: 20,
-          visualDensity: VisualDensity.compact,
-          icon: Icon(icon, color: p.ink),
-          onPressed: on,
+    // No tooltips inside the map editor: their overlay froze the page in debug
+    // mode (see the tool rail); the label goes to screen readers instead.
+    Widget b(Key key, IconData icon, String tip, VoidCallback on) => Semantics(
+          label: tip,
+          button: true,
+          child: IconButton(
+            key: key,
+            iconSize: 20,
+            visualDensity: VisualDensity.compact,
+            icon: Icon(icon, color: p.ink),
+            onPressed: on,
+          ),
         );
     return DecoratedBox(
       decoration: BoxDecoration(color: p.panel, borderRadius: BorderRadius.circular(12), border: Border.all(color: p.line), boxShadow: p.shadow),

@@ -848,7 +848,7 @@ class _StoresArt extends StatelessWidget {
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
                             Flexible(child: _pill(p, 'Waiting for review', p.warn, p.noticeBg)),
-                              const SizedBox(width: 10),
+                            const SizedBox(width: 10),
                             Container(
                               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                               decoration: BoxDecoration(

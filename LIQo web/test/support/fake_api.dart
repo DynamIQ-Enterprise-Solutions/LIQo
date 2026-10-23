@@ -168,7 +168,23 @@ class FakeApiAdapter implements HttpClientAdapter {
     this.aiModel = 'gemini-2.5-pro-vision-preview-long-model-name',
     this.aiBlocked = false,
     this.aiScaleFound,
+    this.aiWallet,
+    this.aiMine = (12.5, 20),
+    this.creditRequestPending = false,
+    this.creditsAvgCost = 0.5,
   });
+
+  /// Round 19: a mall admin's own credits (balance, last top-up).
+  final (double balance, double? full) aiMine;
+
+  /// The mall admin has a credit request waiting.
+  final bool creditRequestPending;
+
+  /// The average paid reading lately (the low-balance warning).
+  final double? creditsAvgCost;
+
+  /// The wallet's balance and its last top-up (the credit bar), when a test sets them.
+  final (double balance, double full)? aiWallet;
 
   /// Round 18: the reading also found the plan's scale from a written dimension.
   final Map<String, Object>? aiScaleFound;
@@ -293,8 +309,145 @@ class FakeApiAdapter implements HttpClientAdapter {
         'cost': {'model': 'gemini-2.5-pro-vision-preview-long-model-name', 'credits': credits, 'usd': 0.006},
       };
 
+  // ---- Round 19: AI credits, Requests & reports, problem reports ----
+
+  static Map<String, dynamic> creditRequestJson({int id = 1, String status = 'pending'}) => {
+        'id': id,
+        'userId': 3,
+        'user': longPerson,
+        'email': longEmail,
+        'userActive': true,
+        'branch': longName,
+        'balance': 2.5,
+        'amount': 5,
+        'status': status,
+        'decidedAmount': status == 'approved' ? 4 : null,
+        'decidedBy': status == 'pending' ? null : longPerson,
+        'declineReason': status == 'declined' ? 'Enough for this month.' : null,
+        'createdAt': '2026-10-23T09:15:00',
+        'decidedAt': status == 'pending' ? null : '2026-10-23T10:00:00',
+      };
+
+  static Map<String, dynamic> reportJson({int id = 1, String status = 'new', String type = 'broken', String? subject, String? pagePath = '/mall-admin/map-editor'}) => {
+        'id': id,
+        'reporterId': 3,
+        'reporter': longPerson,
+        'reporterEmail': longEmail,
+        'reporterRole': 'mall_admin',
+        'type': type,
+        'subject': subject ?? 'The map draft does not save after adding a very long room name to the ground floor',
+        'body': 'I added a room called "$longName" and pressed save; the editor showed an error and the change was gone.',
+        'pagePath': pagePath,
+        'status': status,
+        'open': status == 'new' || status == 'in_progress',
+        'waiting': status == 'new',
+        'messageCount': status == 'new' ? 0 : 2,
+        'createdAt': '2026-10-23T08:00:00',
+        'updatedAt': '2026-10-23T09:30:00',
+        'closedAt': null,
+        'closedBy': status == 'resolved' || status == 'closed' ? longPerson : null,
+      };
+
+  Map<String, dynamic>? _credits(String path, String method) {
+    if (path == '/requests/counts') return {'profile': 1, 'credits': 1, 'reports': 1, 'total': 3};
+    if (path == '/ai/credits/mine') {
+      return {
+        'balance': aiMine.$1,
+        'full': aiMine.$2,
+        'cap': 20,
+        'avgCost': creditsAvgCost,
+        'request': creditRequestPending ? creditRequestJson() : null,
+      };
+    }
+    if (path == '/ai/credits/overview') {
+      final owner = role == 'supervisor';
+      return {
+        'days': 30,
+        'cap': 20,
+        'wallet': owner ? null : {'wallet': 82, 'given': 36, 'free': 46, 'used': 18, 'overGiven': 0, 'full': 100},
+        'admins': [
+          {'id': 3, 'name': longPerson, 'email': longEmail, 'branch': longName, 'balance': 12.5, 'full': 20, 'used': 7.25, 'readings': 14, 'lastReading': '2026-10-22T16:40:00'},
+          {'id': 5, 'name': 'Jun Reyes', 'email': 'jun@liqo.local', 'branch': 'Robinsons Galleria', 'balance': 0.4, 'full': 5, 'used': 4.6, 'readings': 9, 'lastReading': '2026-10-23T08:10:00'},
+          {'id': 6, 'name': 'Ana Cruz', 'email': 'ana@liqo.local', 'branch': null, 'balance': 0, 'full': null, 'used': 0, 'readings': 0, 'lastReading': null},
+        ],
+        'usage': {
+          'total': 11.85,
+          'series': [
+            {'day': '2026-10-21', 'credits': 4.2, 'readings': 8},
+            {'day': '2026-10-22', 'credits': 5.15, 'readings': 10},
+            {'day': '2026-10-23', 'credits': 2.5, 'readings': 5},
+          ],
+        },
+        'requests': owner ? null : {'waiting': 1, 'items': [creditRequestJson()]},
+      };
+    }
+    if (path == '/ai/credits/history') {
+      return paged([
+        for (var i = 0; i < 3; i++)
+          {
+            'id': 10 - i,
+            'userId': 3,
+            'user': longPerson,
+            'delta': i == 0 ? -0.5 : 5,
+            'balanceAfter': 12.5 - i,
+            'kind': i == 0 ? 'reading' : 'grant',
+            'note': i == 1 ? 'For the new wing with a rather long note attached to it' : null,
+            'conversionId': null,
+            'requestId': null,
+            'actor': longPerson,
+            'createdAt': '2026-10-23T09:00:00',
+          },
+      ]);
+    }
+    if (path == '/ai/credits/requests' && method == 'GET') return paged([creditRequestJson(), creditRequestJson(id: 2, status: 'approved')]);
+    if (path == '/ai/credits/requests' && method == 'POST') return {'request': creditRequestJson()};
+    if (path == '/ai/credits/requests/mine') return {'request': creditRequestJson(status: 'cancelled')};
+    final req = RegExp(r'^/ai/credits/requests/(\d+)(/approve|/decline)?$').firstMatch(path);
+    if (req != null) {
+      final id = int.parse(req.group(1)!);
+      if (req.group(2) == '/approve') return {'request': creditRequestJson(id: id, status: 'approved')};
+      if (req.group(2) == '/decline') return {'request': creditRequestJson(id: id, status: 'declined')};
+      return {'request': creditRequestJson(id: id, status: id == 2 ? 'approved' : 'pending'), 'limits': {'free': 46, 'overGiven': 0, 'cap': 20, 'room': 17.5}};
+    }
+    if (RegExp(r'^/ai/credits/\d+/adjust$').hasMatch(path)) return {'balance': 17.5};
+    return null;
+  }
+
+  Map<String, dynamic>? _reports(String path, String method) {
+    if (path == '/reports/mine') return paged([reportJson(), reportJson(id: 2, status: 'resolved', type: 'question', subject: 'How do I add a level?')]);
+    if (path == '/reports' && method == 'GET') return paged([reportJson(), reportJson(id: 2, status: 'in_progress', type: 'wrong_data')]);
+    final one = RegExp(r'^/reports/(\d+)(/messages|/status)?$').firstMatch(path);
+    if (one != null) {
+      final id = int.parse(one.group(1)!);
+      final status = one.group(2) == '/status' ? 'in_progress' : (id == 2 ? 'resolved' : 'new');
+      return {
+        'report': reportJson(id: id, status: status),
+        'messages': [
+          if (id == 2 || one.group(2) != null) {'id': 1, 'authorId': 1, 'author': longPerson, 'authorRole': 'superadmin', 'body': 'Thanks, looking into it now. Which floor was it?', 'createdAt': '2026-10-23T09:00:00'},
+          if (one.group(2) == '/messages') {'id': 2, 'authorId': 3, 'author': longPerson, 'authorRole': 'mall_admin', 'body': 'The ground floor.', 'createdAt': '2026-10-23T09:20:00'},
+        ],
+      };
+    }
+    return null;
+  }
+
   Map<String, dynamic> _answer(String path, String method) {
     requests.add('$method $path');
+    if (path == '/ai/status' && role == 'mall_admin') {
+      // Round 19: a mall admin sees only their own credits, never the wallet.
+      return {
+        'configured': aiConfigured,
+        'model': aiConfigured ? aiModel : null,
+        'quota': null,
+        'quotaError': null,
+        'gatewayBlocked': aiBlocked,
+        'mine': {'balance': aiMine.$1, 'full': aiMine.$2},
+      };
+    }
+    final credits = _credits(path, method);
+    if (credits != null) return credits;
+    final reports = _reports(path, method);
+    if (reports != null) return reports;
     if (path == '/ai/status') {
       return {
         'configured': aiConfigured,
@@ -302,8 +455,8 @@ class FakeApiAdapter implements HttpClientAdapter {
         'quota': !aiConfigured
             ? null
             : aiBlocked
-                ? {'balance': 0, 'usedToday': 0, 'dailyCap': null, 'blocked': true, 'reason': 'Out of AI credits. Contact your administrator to top up.'}
-                : {'balance': 123456.75, 'usedToday': 37.5, 'dailyCap': 50, 'blocked': false, 'reason': null},
+                ? {'balance': 0, 'usedToday': 0, 'dailyCap': null, 'full': 40, 'blocked': true, 'reason': 'Out of AI credits. Contact your administrator to top up.'}
+                : {'balance': aiWallet?.$1 ?? 123456.75, 'usedToday': 37.5, 'dailyCap': 50, 'full': aiWallet?.$2 ?? 150000, 'blocked': false, 'reason': null, 'given': 36, 'free': 46, 'overGiven': 0},
         'quotaError': null,
       };
     }
@@ -433,13 +586,15 @@ class FakeApiAdapter implements HttpClientAdapter {
     if (path == '/audit/actions') return {'actions': ['login_success', 'login_failed', 'mall_admin_assignments_updated']};
     if (path == '/settings') {
       return {
-        'settings': {'min_password_length': 8, 'ai_file_size_mb': 20, 'default_announcement_days': 7, 'session_timeout_hours': 8, 'max_login_attempts': 5, 'ai_model': 'gpt-4o'},
+        'settings': {'min_password_length': 8, 'ai_file_size_mb': 20, 'default_announcement_days': 7, 'session_timeout_hours': 8, 'max_login_attempts': 5, 'ai_model': 'gpt-4o', 'ai_start_credits': 3, 'ai_credit_cap': 20},
         'rules': {
           'min_password_length': {'min': 6, 'max': 64, 'label': 'Minimum password length'},
           'ai_file_size_mb': {'min': 1, 'max': 50, 'label': 'AI file size limit (MB)'},
           'default_announcement_days': {'min': 1, 'max': 365, 'label': 'Default announcement duration (days)'},
           'session_timeout_hours': {'min': 1, 'max': 72, 'label': 'Session timeout (hours)'},
           'max_login_attempts': {'min': 3, 'max': 20, 'label': 'Max failed sign-ins before lockout'},
+          'ai_start_credits': {'min': 0, 'max': 1000, 'label': 'Starting AI credits for a new mall admin'},
+          'ai_credit_cap': {'min': 1, 'max': 10000, 'label': 'Most AI credits per mall admin'},
         },
       };
     }
@@ -606,7 +761,11 @@ class FakeApiAdapter implements HttpClientAdapter {
       return {
         'user': {...userJson(id: 77, role: d['role'] as String? ?? 'mall_admin'), 'email': d['email'] ?? longEmail, 'fullName': d['fullName'] ?? longPerson},
         'tempPassword': 'Tmp-7Kq2-Wx9p',
+        if ((d['role'] as String? ?? 'mall_admin') == 'mall_admin') ...{'startCredits': 3, 'startNote': null},
       };
+    }
+    if (path == '/reports') {
+      return {'report': reportJson(id: 9, type: d['type'] as String? ?? 'broken', subject: d['subject'] as String? ?? longName, pagePath: d['pagePath'] as String?)};
     }
     if (path == '/owners') {
       final existing = (d['email'] as String? ?? '').contains('owner');

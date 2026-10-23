@@ -62,18 +62,17 @@ class AccountCheckService {
 
   final ApiClient _client;
 
-  Future<Map<String, dynamic>> _get(Map<String, Object> q) async =>
-      (await _client.dio.get('/accounts/check', queryParameters: q)).data as Map<String, dynamic>;
+  Future<Map<String, dynamic>> _get(Map<String, Object> q) async => (await _client.dio.get('/accounts/check', queryParameters: q)).data as Map<String, dynamic>;
 
-  Future<EmailCheck> email(String email, {String purpose = 'account'}) async =>
-      EmailCheck.fromJson((await _get({'email': email, 'purpose': purpose}))['email'] as Map<String, dynamic>);
+  Future<EmailCheck> email(String email, {String purpose = 'account'}) async => EmailCheck.fromJson((await _get({'email': email, 'purpose': purpose}))['email'] as Map<String, dynamic>);
 
-  Future<NameCheck> name(String fullName) async =>
-      NameCheck.fromJson((await _get({'fullName': fullName}))['name'] as Map<String, dynamic>);
+  Future<NameCheck> name(String fullName) async => NameCheck.fromJson((await _get({'fullName': fullName}))['name'] as Map<String, dynamic>);
 
   Future<List<AccountMatch>> branchAdmins(int branchId) async {
     final list = (await _get({'branchId': branchId}))['branchAdmins'] as List? ?? const [];
-    return [for (final m in list) AccountMatch.fromJson({...(m as Map<String, dynamic>), 'role': 'mall_admin'})];
+    return [
+      for (final m in list) AccountMatch.fromJson({...(m as Map<String, dynamic>), 'role': 'mall_admin'})
+    ];
   }
 }
 
@@ -173,7 +172,8 @@ Widget? emailNote(LiveCheck<EmailCheck> c, {bool storeOwner = false, void Functi
           ? CheckNote(NoteTone.block, 'This store owner is inactive: ${a.fullName}. Reactivate them from Store owners first, then add the store there.', actionLabel: openLabel, onAction: open)
           : CheckNote(NoteTone.block, 'Belongs to an inactive account: ${a.fullName} (${a.roleLabel}). Reactivate it from its page instead.', actionLabel: openLabel, onAction: open);
     case 'store_owner':
-      return CheckNote(NoteTone.info, 'Already a store owner: ${a?.fullName ?? 'an existing account'}. Creating adds this store to their account. No new password is made, and the name typed here is not used.');
+      return CheckNote(
+          NoteTone.info, 'Already a store owner: ${a?.fullName ?? 'an existing account'}. Creating adds this store to their account. No new password is made, and the name typed here is not used.');
     case 'pending_request':
       return const CheckNote(NoteTone.warn, "This email is waiting in someone's profile change request. If you continue, that request will fail when it is approved.");
   }

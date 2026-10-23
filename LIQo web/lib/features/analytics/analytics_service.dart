@@ -144,8 +144,7 @@ class AccountsReport {
 
   final List<RoleRow> byRole;
 
-  factory AccountsReport.fromJson(Map<String, dynamic> j) =>
-      AccountsReport(byRole: [for (final r in j['byRole'] as List<dynamic>) RoleRow.fromJson(r as Map<String, dynamic>)]);
+  factory AccountsReport.fromJson(Map<String, dynamic> j) => AccountsReport(byRole: [for (final r in j['byRole'] as List<dynamic>) RoleRow.fromJson(r as Map<String, dynamic>)]);
 }
 
 class PendingItem {

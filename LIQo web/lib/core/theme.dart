@@ -44,6 +44,8 @@ class Pal extends ThemeExtension<Pal> {
     required this.avatarFg,
     required this.sideNote,
     required this.warn,
+    required this.caution,
+    required this.cautionText,
     required this.shadow,
     required this.glow,
     required this.chart,
@@ -111,6 +113,9 @@ class Pal extends ThemeExtension<Pal> {
       avatarFg,
       sideNote,
       warn;
+
+  /// The credit bar when credits run low: a yellow fill, and words in a yellow that stays readable.
+  final Color caution, cautionText;
   final List<BoxShadow> shadow;
 
   /// The orange glow behind the active nav item, the primary button and the avatar.
@@ -167,6 +172,8 @@ class Pal extends ThemeExtension<Pal> {
     avatarFg: Color(0xFFFFFFFF),
     sideNote: Color(0xFF8A8A95),
     warn: Color(0xFFA3620A),
+    caution: Color(0xFFE2B203),
+    cautionText: Color(0xFF7A5C00),
     shadow: [
       BoxShadow(color: Color(0x14191C2E), blurRadius: 28, offset: Offset(0, 10)),
     ],
@@ -229,6 +236,8 @@ class Pal extends ThemeExtension<Pal> {
     avatarFg: Color(0xFFFFFFFF),
     sideNote: Color(0xFF7F7F8C),
     warn: Color(0xFFFFB547),
+    caution: Color(0xFFF3D34A),
+    cautionText: Color(0xFFF3D34A),
     shadow: [
       BoxShadow(color: Color(0x66000000), blurRadius: 30, offset: Offset(0, 12)),
     ],
@@ -318,6 +327,8 @@ class Pal extends ThemeExtension<Pal> {
       avatarFg: Color.lerp(avatarFg, other.avatarFg, t)!,
       sideNote: Color.lerp(sideNote, other.sideNote, t)!,
       warn: Color.lerp(warn, other.warn, t)!,
+      caution: Color.lerp(caution, other.caution, t)!,
+      cautionText: Color.lerp(cautionText, other.cautionText, t)!,
       danger: Color.lerp(danger, other.danger, t)!,
       dangerBg: Color.lerp(dangerBg, other.dangerBg, t)!,
       toastError: Color.lerp(toastError, other.toastError, t)!,

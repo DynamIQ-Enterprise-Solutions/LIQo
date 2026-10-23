@@ -8,8 +8,7 @@ class AnnouncementBranch {
   final String name;
   final String mallName;
 
-  factory AnnouncementBranch.fromJson(Map<String, dynamic> j) =>
-      AnnouncementBranch(id: j['id'] as int, name: j['name'] as String, mallName: j['mallName'] as String? ?? '');
+  factory AnnouncementBranch.fromJson(Map<String, dynamic> j) => AnnouncementBranch(id: j['id'] as int, name: j['name'] as String, mallName: j['mallName'] as String? ?? '');
 
   LookupItem toLookup() => LookupItem(id: id, label: '$mallName · $name');
 }
@@ -57,6 +56,7 @@ class Announcement {
   final String createdRole;
   final String? reviewedByName;
   final String? rejectReason;
+
   /// For managers, only their own branches are listed (owner decision 2026-10-22).
   final List<AnnouncementBranch> branches;
   final DateTime createdAt;

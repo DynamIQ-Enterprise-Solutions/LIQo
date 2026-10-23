@@ -104,8 +104,7 @@ class _MapViewerViewState extends ConsumerState<MapViewerView> {
                   },
                 ),
               ),
-              if (st.doc != null && st.publishedVersion != null)
-                Pill('Published v${st.publishedVersion}', kind: PillKind.green),
+              if (st.doc != null && st.publishedVersion != null) Pill('Published v${st.publishedVersion}', kind: PillKind.green),
               if (st.doc != null && st.versions.isNotEmpty)
                 Text('Last published ${_fmt.format(st.versions.first.publishedAt)} by ${st.versions.first.publishedByName ?? ''}', style: ts(11, color: p.muted)),
             ],

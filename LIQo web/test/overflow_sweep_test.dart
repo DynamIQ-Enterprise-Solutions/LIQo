@@ -12,6 +12,9 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:gabay_admin/core/api_client.dart';
+import 'package:gabay_admin/features/ai/credits_service.dart';
+import 'package:gabay_admin/features/ai/my_credits.dart';
+import 'package:gabay_admin/features/reports/report_problem.dart';
 import 'package:gabay_admin/core/router.dart';
 import 'package:gabay_admin/core/session.dart';
 import 'package:gabay_admin/core/theme.dart';
@@ -104,10 +107,25 @@ Future<void> _settle(WidgetTester tester) async {
 
 /// Every record page a role can open, with the fake API's ids.
 List<String> _detailPathsFor(String role) => switch (role) {
-      'superadmin' => ['/superadmin/malls/1', '/superadmin/branches/1', '/superadmin/accounts/3', '/superadmin/accounts/4', '/superadmin/accounts/9', '/superadmin/profile-requests/1'],
-      'supervisor' => ['/mall-owner/malls/1', '/mall-owner/branches/1', '/mall-owner/admins/3', '/mall-owner/announcements/1', '/mall-owner/stores/1', '/mall-owner/maps?branch=1'],
-      'mall_admin' => ['/mall-admin/branch/1', '/mall-admin/stores/1', '/mall-admin/owners/4', '/mall-admin/options/1', '/mall-admin/announcements/1'],
-      _ => ['/store-owner/stores/1', '/store-owner/announcements/1'],
+      'superadmin' => [
+          '/superadmin/malls/1',
+          '/superadmin/branches/1',
+          '/superadmin/accounts/3',
+          '/superadmin/accounts/4',
+          '/superadmin/accounts/9',
+          '/superadmin/profile-requests/1',
+          // Round 19: Requests & reports, its tabs and pages.
+          '/superadmin/requests?tab=profile',
+          '/superadmin/requests?tab=credits',
+          '/superadmin/requests?tab=reports',
+          '/superadmin/credit-requests/1',
+          '/superadmin/credit-requests/2',
+          '/superadmin/reports/1',
+          '/superadmin/reports/2',
+        ],
+      'supervisor' => ['/mall-owner/malls/1', '/mall-owner/branches/1', '/mall-owner/admins/3', '/mall-owner/announcements/1', '/mall-owner/stores/1', '/mall-owner/maps?branch=1', '/mall-owner/reports/1'],
+      'mall_admin' => ['/mall-admin/branch/1', '/mall-admin/stores/1', '/mall-admin/owners/4', '/mall-admin/options/1', '/mall-admin/announcements/1', '/mall-admin/reports/1', '/mall-admin/reports/2'],
+      _ => ['/store-owner/stores/1', '/store-owner/announcements/1', '/store-owner/reports/2'],
     };
 
 void _setWidth(WidgetTester tester, double w) {
@@ -486,12 +504,18 @@ void main() {
       final errors = <String>[];
       ApiClient.instance.dio.httpClientAdapter = FakeApiAdapter();
       late BuildContext ctx;
-      await tester.pumpWidget(MaterialApp(
-        theme: buildTheme(Brightness.light),
-        home: Scaffold(body: Builder(builder: (c) {
-          ctx = c;
-          return const SizedBox.shrink();
-        })),
+      late WidgetRef wref;
+      await tester.pumpWidget(ProviderScope(
+        child: MaterialApp(
+          theme: buildTheme(Brightness.light),
+          home: MessageOverlay(
+            child: Scaffold(body: Consumer(builder: (c, r, _) {
+              ctx = c;
+              wref = r;
+              return const SizedBox.shrink();
+            })),
+          ),
+        ),
       ));
 
       await _collect(errors, 'assignment dialog (mall admin) @ ${w.toInt()}', () async {
@@ -602,6 +626,21 @@ void main() {
         await tester.ensureVisible(find.byKey(const ValueKey('pdf-page-24')));
         await _settle(tester);
         await tester.tap(find.byKey(const ValueKey('pdf-page-24')));
+        await _settle(tester);
+        Navigator.of(ctx, rootNavigator: true).pop();
+        await _settle(tester);
+      });
+
+      // Round 19: report a problem, ask for credits, give credits, approve a request.
+      await _collect(errors, 'report a problem @ ${w.toInt()}', () async {
+        showReportProblemDialog(ctx, wref, pagePath: '/mall-admin/map-editor/with/a/rather/long/path/to/the/page');
+        await _settle(tester);
+        Navigator.of(ctx, rootNavigator: true).pop();
+        await _settle(tester);
+      });
+
+      await _collect(errors, 'request AI credits @ ${w.toInt()}', () async {
+        showRequestCreditsDialog(ctx, wref, const MyCredits(balance: 0.25, full: 20, cap: 20, avgCost: 0.5));
         await _settle(tester);
         Navigator.of(ctx, rootNavigator: true).pop();
         await _settle(tester);

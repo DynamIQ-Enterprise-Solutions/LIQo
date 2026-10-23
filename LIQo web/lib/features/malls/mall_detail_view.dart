@@ -191,11 +191,28 @@ class _MallDetailViewState extends ConsumerState<MallDetailView> {
       title: 'Add an admin to ${_mall?.name}',
       subtitle: 'Only admins with no branch yet are offered: a mall admin manages exactly one branch.',
       submitLabel: 'Add admin',
-      initial: {'mall': [_mallItem]},
+      initial: {
+        'mall': [_mallItem]
+      },
       fields: const [
-        FieldSpec(name: 'admin', label: 'Mall admin account', kind: FieldKind.lookup, lookup: 'free_mall_admins', required: true, hint: 'Choose an admin…', help: 'An admin already placed in a mall is not listed. Change their branch from that mall\'s page.'),
+        FieldSpec(
+            name: 'admin',
+            label: 'Mall admin account',
+            kind: FieldKind.lookup,
+            lookup: 'free_mall_admins',
+            required: true,
+            hint: 'Choose an admin…',
+            help: 'An admin already placed in a mall is not listed. Change their branch from that mall\'s page.'),
         FieldSpec(name: 'mall', label: 'Mall', kind: FieldKind.lookup, lookup: 'malls', required: true, readOnly: true),
-        FieldSpec(name: 'branch', label: 'Branch', kind: FieldKind.lookup, lookup: 'branches', lookupParentField: 'mall', required: true, hint: 'Choose the branch…', help: 'They report to the owner of this branch, or else to the mall\'s owner (set automatically).'),
+        FieldSpec(
+            name: 'branch',
+            label: 'Branch',
+            kind: FieldKind.lookup,
+            lookup: 'branches',
+            lookupParentField: 'mall',
+            required: true,
+            hint: 'Choose the branch…',
+            help: 'They report to the owner of this branch, or else to the mall\'s owner (set automatically).'),
       ],
       onSubmit: (v) async {
         await _people.setAdmin(
@@ -223,7 +240,15 @@ class _MallDetailViewState extends ConsumerState<MallDetailView> {
       },
       fields: const [
         FieldSpec(name: 'mall', label: 'Mall', kind: FieldKind.lookup, lookup: 'malls', required: true, readOnly: true),
-        FieldSpec(name: 'branch', label: 'Branch', kind: FieldKind.lookup, lookup: 'branches', lookupParentField: 'mall', required: true, hint: 'Choose the branch…', help: 'They report to the owner of this branch, or else to the mall\'s owner (set automatically).'),
+        FieldSpec(
+            name: 'branch',
+            label: 'Branch',
+            kind: FieldKind.lookup,
+            lookup: 'branches',
+            lookupParentField: 'mall',
+            required: true,
+            hint: 'Choose the branch…',
+            help: 'They report to the owner of this branch, or else to the mall\'s owner (set automatically).'),
       ],
       onSubmit: (v) async {
         await _people.setAdmin(
@@ -281,150 +306,182 @@ class _MallDetailViewState extends ConsumerState<MallDetailView> {
       backLabel: isSuper ? 'Malls & branches' : 'My malls',
       actions: [
         if (isSuper && m != null) AppButton(label: 'New owner account', icon: Icons.person_add_alt, onPressed: _newOwnerAccount),
-        if (isSuper && m != null) AppButton(label: 'New admin account', icon: Icons.person_add_alt, primary: true, onPressed: hasBranches ? _newAdminAccount : () => _msg('Add a branch first: an admin manages a branch.', error: true)),
+        if (isSuper && m != null)
+          AppButton(
+              label: 'New admin account',
+              icon: Icons.person_add_alt,
+              primary: true,
+              onPressed: hasBranches ? _newAdminAccount : () => _msg('Add a branch first: an admin manages a branch.', error: true)),
       ],
-      pills: m == null ? const [] : [StatusPill(active: m.isActive), if ((m.branchCount ?? _branches.length) == 0) const Pill('No branches', kind: PillKind.pending)],
+      hero: m == null
+          ? null
+          : RecordHero(
+              mark: HeroMark.logo(logoUrl: m.logoUrl, name: m.name),
+              title: m.name,
+              sub: 'Mall',
+              pills: [StatusPill(active: m.isActive), if ((m.branchCount ?? _branches.length) == 0) const Pill('No branches', kind: PillKind.pending)],
+              line: [
+                countOf(m.branchCount ?? _branches.length, 'branch', 'branches'),
+                if (people != null) countOf(people.owners.length, 'owner', 'owners'),
+                if (people != null) countOf(people.admins.length, 'mall admin', 'mall admins'),
+              ].join(' · '),
+            ),
       loading: _loading,
       error: _error,
       onRetry: _load,
       children: m == null
           ? const []
           : [
-              DetailCard(
-                title: 'Details',
-                subtitle: 'Name and logo',
-                trailing: _editing || !_canManage ? null : AppButton(label: 'Edit', small: true, icon: Icons.edit_outlined, onPressed: () => setState(() => _editing = true)),
-                child: _editing
-                    ? AppFormBody(
-                        fields: mallFields,
-                        initial: {'name': m.name, 'logoUrl': m.logoUrl},
-                        onSubmit: (v) async {
-                          final updated = await _service.updateMall(m.id, v);
-                          setState(() => _mall = updated);
-                        },
-                        onCancel: () => setState(() => _editing = false),
-                        onDone: () {
-                          setState(() => _editing = false);
-                          _msg('Mall updated.');
-                        },
-                      )
-                    : Column(
-                        children: [
-                          DetailRow('Name', m.name),
-                          DetailRow('Status', null, child: Align(alignment: Alignment.centerLeft, child: StatusPill(active: m.isActive))),
-                          DetailRow('Branches', '${m.branchCount ?? _branches.length}'),
-                          DetailRow(
-                            'Logo',
-                            null,
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                LogoImage(url: m.logoUrl, name: m.name, size: 64),
-                                const SizedBox(height: 6),
-                                (m.logoUrl ?? '').trim().isNotEmpty
-                                    ? SelectableText(m.logoUrl!, style: ts(11, color: p.muted))
-                                    : Text('No logo yet. Edit to add one; the initials are shown meanwhile.', style: ts(11, color: p.muted)),
-                              ],
-                            ),
+              DetailColumns(
+                facts: [
+                  DetailCard(
+                    title: 'Details',
+                    subtitle: 'Name and logo',
+                    trailing: _editing || !_canManage ? null : AppButton(label: 'Edit', small: true, icon: Icons.edit_outlined, onPressed: () => setState(() => _editing = true)),
+                    child: _editing
+                        ? AppFormBody(
+                            fields: mallFields,
+                            initial: {'name': m.name, 'logoUrl': m.logoUrl},
+                            onSubmit: (v) async {
+                              final updated = await _service.updateMall(m.id, v);
+                              setState(() => _mall = updated);
+                            },
+                            onCancel: () => setState(() => _editing = false),
+                            onDone: () {
+                              setState(() => _editing = false);
+                              _msg('Mall updated.');
+                            },
+                          )
+                        : Column(
+                            children: [
+                              DetailRow('Name', m.name),
+                              DetailRow('Status', null, child: Align(alignment: Alignment.centerLeft, child: StatusPill(active: m.isActive))),
+                              DetailRow('Branches', '${m.branchCount ?? _branches.length}'),
+                              DetailRow(
+                                'Logo',
+                                null,
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    LogoImage(url: m.logoUrl, name: m.name, size: 64),
+                                    const SizedBox(height: 6),
+                                    (m.logoUrl ?? '').trim().isNotEmpty
+                                        ? SelectableText(m.logoUrl!, style: ts(11, color: p.muted))
+                                        : Text('No logo yet. Edit to add one; the initials are shown meanwhile.', style: ts(11, color: p.muted)),
+                                  ],
+                                ),
+                              ),
+                            ],
                           ),
-                        ],
-                      ),
-              ),
-              DetailCard(
-                title: 'Branches of this mall',
-                subtitle: _branches.isEmpty ? 'None yet' : countOf(_branches.length, 'branch', 'branches'),
-                trailing: isSuper ? AppButton(label: 'Add branch', small: true, icon: Icons.add, onPressed: _addBranch) : null,
-                child: _branches.isEmpty
-                    ? Text('No branch yet. A mall needs at least one branch before a mall admin can be assigned to it.', style: ts(12, color: p.muted))
-                    : Column(
-                        children: [
-                          for (final b in _branches)
-                            RecordRow(
-                              title: b.name,
-                              subtitle: b.address ?? b.openingHours,
-                              chips: [StatusPill(active: b.isActive)],
-                              onTap: () => context.go('${branchPath(role, b.id)}?fromMall=${widget.mallId}'),
-                            ),
-                        ],
-                      ),
-              ),
-              if (isSuper || role == 'supervisor') ...[
-                DetailCard(
-                  title: 'Mall owners',
-                  subtitle: 'Whole-mall owners cover every branch, including ones added later. Branch-level owners cover only the branches listed.',
-                  trailing: isSuper ? AppButton(label: 'Add owner', small: true, icon: Icons.add, onPressed: _addOwner) : null,
-                  child: people == null
-                      ? Text('Owners could not be loaded.', style: ts(12, color: p.warn))
-                      : people.owners.isEmpty
-                          ? Text('No owner yet. Add an existing owner account, or create a new one with "New owner account".', style: ts(12, color: p.muted))
-                          : Column(
-                              children: [
-                                for (final o in people.owners)
-                                  RecordRow(
-                                    title: o.fullName,
-                                    subtitle: o.email,
-                                    chips: [
-                                      StatusPill(active: o.isActive),
-                                      if (o.wholeMall) const Pill('Whole mall', kind: PillKind.blue) else Pill('Branches: ${o.branchNames}', kind: PillKind.off),
-                                    ],
-                                    actions: [if (isSuper) DangerButton(label: 'Remove', onPressed: () => _removeOwner(o))],
-                                  ),
-                              ],
-                            ),
-                ),
-                DetailCard(
-                  title: 'Mall admins',
-                  subtitle: isSuper
-                      ? 'One branch per admin. Each reports to the owner of their branch, or else the mall\'s owner; this is set automatically.'
-                      : 'Admins on your branches. Each reports to the owner of their branch, or else the mall\'s owner. Yours open from here.',
-                  trailing: isSuper && hasBranches ? AppButton(label: 'Add admin', small: true, icon: Icons.add, onPressed: _addAdmin) : null,
-                  child: !hasBranches
-                      ? Text('This mall has no branches yet, so no admin can be assigned. Add a branch first.', style: ts(12, color: p.warn))
-                      : people == null
-                          ? Text('Admins could not be loaded.', style: ts(12, color: p.warn))
-                          : people.admins.isEmpty
-                              ? Text(isSuper ? 'No admin on this mall yet. Add an admin who has no branch, or create a new account with "New admin account".' : 'No admin on your branches of this mall yet.', style: ts(12, color: p.muted))
+                  ),
+                  if (role == 'supervisor' && !_canManage)
+                    DetailCard(
+                      title: 'Read only',
+                      subtitle: 'You own branches of this mall, not the whole mall',
+                      child: Text('Only an owner of the whole mall, or a superadmin, can rename, deactivate or reactivate it. You can still manage your own branches.', style: ts(12, color: p.muted)),
+                    ),
+                  if (canToggle && !m.isActive)
+                    DetailCard(
+                      title: 'Reactivate',
+                      subtitle: 'This mall is inactive',
+                      trailing: AppButton(label: 'Reactivate', small: true, primary: true, icon: Icons.play_circle_outline, onPressed: () => _setActive(true)),
+                      child:
+                          Text('Its branches and stores are hidden from its mall admins, store owners and shoppers until it is reactivated. Its owners still see it.', style: ts(12, color: p.muted)),
+                    ),
+                ],
+                lists: [
+                  DetailCard(
+                    title: 'Branches of this mall',
+                    subtitle: _branches.isEmpty ? 'None yet' : countOf(_branches.length, 'branch', 'branches'),
+                    trailing: isSuper ? AppButton(label: 'Add branch', small: true, icon: Icons.add, onPressed: _addBranch) : null,
+                    child: _branches.isEmpty
+                        ? Text('No branch yet. A mall needs at least one branch before a mall admin can be assigned to it.', style: ts(12, color: p.muted))
+                        : Column(
+                            children: [
+                              for (final b in _branches)
+                                RecordRow(
+                                  title: b.name,
+                                  subtitle: b.address ?? b.openingHours,
+                                  chips: [StatusPill(active: b.isActive)],
+                                  onTap: () => context.go('${branchPath(role, b.id)}?fromMall=${widget.mallId}'),
+                                ),
+                            ],
+                          ),
+                  ),
+                  if (isSuper || role == 'supervisor') ...[
+                    DetailCard(
+                      title: 'Mall owners',
+                      subtitle: 'Whole-mall owners cover every branch, including ones added later. Branch-level owners cover only the branches listed.',
+                      trailing: isSuper ? AppButton(label: 'Add owner', small: true, icon: Icons.add, onPressed: _addOwner) : null,
+                      child: people == null
+                          ? Text('Owners could not be loaded.', style: ts(12, color: p.warn))
+                          : people.owners.isEmpty
+                              ? Text('No owner yet. Add an existing owner account, or create a new one with "New owner account".', style: ts(12, color: p.muted))
                               : Column(
                                   children: [
-                                    for (final a in people.admins)
+                                    for (final o in people.owners)
                                       RecordRow(
-                                        title: a.fullName,
-                                        subtitle: a.email,
+                                        title: o.fullName,
+                                        subtitle: o.email,
                                         chips: [
-                                          StatusPill(active: a.isActive),
-                                          if (a.mustChangePassword) const Pill('Temp password', kind: PillKind.pending),
-                                          for (final b in a.branches) Pill(b.name, kind: PillKind.off),
-                                          if (a.reportsToId == null) const Pill('No owner', kind: PillKind.pending) else Pill('Reports to ${a.reportsToName}', kind: PillKind.blue),
+                                          StatusPill(active: o.isActive),
+                                          if (o.wholeMall) const Pill('Whole mall', kind: PillKind.blue) else Pill('Branches: ${o.branchNames}', kind: PillKind.off),
                                         ],
-                                        actions: [
-                                          if (isSuper) AppButton(label: 'Edit', small: true, onPressed: () => _editAdmin(a)),
-                                          if (isSuper) DangerButton(label: 'Remove', onPressed: () => _removeAdmin(a)),
-                                        ],
-                                        // An owner opens the admins who report to them.
-                                        onTap: !isSuper && a.reportsToId == me ? () => context.go('/mall-owner/admins/${a.id}') : null,
+                                        actions: [if (isSuper) DangerButton(label: 'Remove', onPressed: () => _removeOwner(o))],
                                       ),
                                   ],
                                 ),
-                ),
-              ],
-              if (role == 'supervisor' && !_canManage)
-                DetailCard(
-                  title: 'Read only',
-                  subtitle: 'You own branches of this mall, not the whole mall',
-                  child: Text('Only an owner of the whole mall, or a superadmin, can rename, deactivate or reactivate it. You can still manage your own branches.', style: ts(12, color: p.muted)),
-                ),
-              if (canToggle)
-                if (m.isActive)
-                  DangerZone(actions: [
-                    DangerAction(label: 'Deactivate', description: 'Hide this mall, its branches and stores from everyone except superadmins and its owners. Nothing is deleted.', onTap: () => _setActive(false)),
-                  ])
-                else
-                  DetailCard(
-                    title: 'Reactivate',
-                    subtitle: 'This mall is inactive',
-                    trailing: AppButton(label: 'Reactivate', small: true, primary: true, icon: Icons.play_circle_outline, onPressed: () => _setActive(true)),
-                    child: Text('Its branches and stores are hidden from its mall admins, store owners and shoppers until it is reactivated. Its owners still see it.', style: ts(12, color: p.muted)),
-                  ),
+                    ),
+                    DetailCard(
+                      title: 'Mall admins',
+                      subtitle: isSuper
+                          ? 'One branch per admin. Each reports to the owner of their branch, or else the mall\'s owner; this is set automatically.'
+                          : 'Admins on your branches. Each reports to the owner of their branch, or else the mall\'s owner. Yours open from here.',
+                      trailing: isSuper && hasBranches ? AppButton(label: 'Add admin', small: true, icon: Icons.add, onPressed: _addAdmin) : null,
+                      child: !hasBranches
+                          ? Text('This mall has no branches yet, so no admin can be assigned. Add a branch first.', style: ts(12, color: p.warn))
+                          : people == null
+                              ? Text('Admins could not be loaded.', style: ts(12, color: p.warn))
+                              : people.admins.isEmpty
+                                  ? Text(
+                                      isSuper
+                                          ? 'No admin on this mall yet. Add an admin who has no branch, or create a new account with "New admin account".'
+                                          : 'No admin on your branches of this mall yet.',
+                                      style: ts(12, color: p.muted))
+                                  : Column(
+                                      children: [
+                                        for (final a in people.admins)
+                                          RecordRow(
+                                            title: a.fullName,
+                                            subtitle: a.email,
+                                            chips: [
+                                              StatusPill(active: a.isActive),
+                                              if (a.mustChangePassword) const Pill('Temp password', kind: PillKind.pending),
+                                              for (final b in a.branches) Pill(b.name, kind: PillKind.off),
+                                              if (a.reportsToId == null) const Pill('No owner', kind: PillKind.pending) else Pill('Reports to ${a.reportsToName}', kind: PillKind.blue),
+                                            ],
+                                            actions: [
+                                              if (isSuper) AppButton(label: 'Edit', small: true, onPressed: () => _editAdmin(a)),
+                                              if (isSuper) DangerButton(label: 'Remove', onPressed: () => _removeAdmin(a)),
+                                            ],
+                                            // An owner opens the admins who report to them.
+                                            onTap: !isSuper && a.reportsToId == me ? () => context.go('/mall-owner/admins/${a.id}') : null,
+                                          ),
+                                      ],
+                                    ),
+                    ),
+                  ],
+                ],
+                after: [
+                  if (canToggle && m.isActive)
+                    DangerZone(actions: [
+                      DangerAction(
+                          label: 'Deactivate',
+                          description: 'Hide this mall, its branches and stores from everyone except superadmins and its owners. Nothing is deleted.',
+                          onTap: () => _setActive(false)),
+                    ]),
+                ],
+              ),
             ],
     );
   }

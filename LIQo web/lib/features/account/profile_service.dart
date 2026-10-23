@@ -137,8 +137,7 @@ class ProfileService {
 
   Future<ProfileRequest> approve(int id) async => ProfileRequest.fromJson(_m(_m((await _client.dio.post('/profile-requests/$id/approve')).data)['request']));
 
-  Future<ProfileRequest> reject(int id, String reason) async =>
-      ProfileRequest.fromJson(_m(_m((await _client.dio.post('/profile-requests/$id/reject', data: {'reason': reason})).data)['request']));
+  Future<ProfileRequest> reject(int id, String reason) async => ProfileRequest.fromJson(_m(_m((await _client.dio.post('/profile-requests/$id/reject', data: {'reason': reason})).data)['request']));
 
   /// Waiting requests across the platform (the sidebar badge).
   Future<int> pendingCount() async {

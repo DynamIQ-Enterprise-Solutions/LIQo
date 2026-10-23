@@ -51,8 +51,7 @@ class AssignmentDraft {
 typedef BranchSearch = Future<PagedResult<LookupItem>> Function(int mallId, {int pageSize});
 
 /// The real branch search (the lookup service).
-Future<PagedResult<LookupItem>> serverBranchSearch(int mallId, {int pageSize = 200}) =>
-    LookupService().search('branches', parentId: mallId, pageSize: pageSize);
+Future<PagedResult<LookupItem>> serverBranchSearch(int mallId, {int pageSize = 200}) => LookupService().search('branches', parentId: mallId, pageSize: pageSize);
 
 /// The "Assignments" action on an account page.
 /// Returns true when [onSubmit] succeeded; false when the user cancelled.

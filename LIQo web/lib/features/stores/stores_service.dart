@@ -63,8 +63,7 @@ class OwnerRef {
   final String fullName;
   final bool isActive;
 
-  factory OwnerRef.fromJson(Map<String, dynamic> j) =>
-      OwnerRef(id: j['id'] as int, email: j['email'] as String, fullName: j['fullName'] as String, isActive: j['isActive'] as bool? ?? true);
+  factory OwnerRef.fromJson(Map<String, dynamic> j) => OwnerRef(id: j['id'] as int, email: j['email'] as String, fullName: j['fullName'] as String, isActive: j['isActive'] as bool? ?? true);
 }
 
 class StoreRef {
@@ -167,11 +166,9 @@ class StoresService {
 
   Future<Store> create(Map<String, Object?> body) async => Store.fromJson(_m(_m((await _client.dio.post('/stores', data: body)).data)['store']));
   Future<Store> update(int id, Map<String, Object?> body) async => Store.fromJson(_m(_m((await _client.dio.put('/stores/$id', data: body)).data)['store']));
-  Future<Store> setActive(int id, bool active) async =>
-      Store.fromJson(_m(_m((await _client.dio.post('/stores/$id/${active ? 'reactivate' : 'deactivate'}')).data)['store']));
+  Future<Store> setActive(int id, bool active) async => Store.fromJson(_m(_m((await _client.dio.post('/stores/$id/${active ? 'reactivate' : 'deactivate'}')).data)['store']));
 
-  Future<List<String>> setSpaces(int id, List<String> keys) async =>
-      (_m((await _client.dio.put('/stores/$id/spaces', data: {'spaceKeys': keys})).data)['spaces'] as List<dynamic>).cast<String>();
+  Future<List<String>> setSpaces(int id, List<String> keys) async => (_m((await _client.dio.put('/stores/$id/spaces', data: {'spaceKeys': keys})).data)['spaces'] as List<dynamic>).cast<String>();
 
   // ---- Option lists ----
 
@@ -182,8 +179,7 @@ class StoresService {
 
   Future<BranchOption> createOption(Map<String, Object?> body) async => BranchOption.fromJson(_m(_m((await _client.dio.post('/options', data: body)).data)['option']));
   Future<BranchOption> updateOption(int id, Map<String, Object?> body) async => BranchOption.fromJson(_m(_m((await _client.dio.put('/options/$id', data: body)).data)['option']));
-  Future<BranchOption> setOptionActive(int id, bool active) async =>
-      BranchOption.fromJson(_m(_m((await _client.dio.post('/options/$id/${active ? 'reactivate' : 'deactivate'}')).data)['option']));
+  Future<BranchOption> setOptionActive(int id, bool active) async => BranchOption.fromJson(_m(_m((await _client.dio.post('/options/$id/${active ? 'reactivate' : 'deactivate'}')).data)['option']));
   Future<void> deleteOption(int id) => _client.dio.delete('/options/$id');
 
   // ---- Store owners ----
@@ -204,8 +200,7 @@ class StoresService {
     return (StoreOwner.fromJson(_m(d['user'])), d['tempPassword'] as String?);
   }
 
-  Future<StoreOwner> assignOwner(int userId, int storeId) async =>
-      StoreOwner.fromJson(_m(_m((await _client.dio.post('/owners/$userId/assign', data: {'storeId': storeId})).data)['user']));
+  Future<StoreOwner> assignOwner(int userId, int storeId) async => StoreOwner.fromJson(_m(_m((await _client.dio.post('/owners/$userId/assign', data: {'storeId': storeId})).data)['user']));
 
   Future<(StoreOwner, bool)> unassignOwner(int userId, int storeId) async {
     final d = _m((await _client.dio.post('/owners/$userId/unassign', data: {'storeId': storeId})).data);
@@ -217,6 +212,5 @@ class StoresService {
 
   Future<String> resetOwnerPassword(int userId) async => _m((await _client.dio.post('/owners/$userId/reset-password')).data)['tempPassword'] as String;
 
-  Future<StoreOwner> setOwnerActive(int userId, bool active) async =>
-      StoreOwner.fromJson(_m(_m((await _client.dio.post('/owners/$userId/${active ? 'reactivate' : 'deactivate'}')).data)['user']));
+  Future<StoreOwner> setOwnerActive(int userId, bool active) async => StoreOwner.fromJson(_m(_m((await _client.dio.post('/owners/$userId/${active ? 'reactivate' : 'deactivate'}')).data)['user']));
 }

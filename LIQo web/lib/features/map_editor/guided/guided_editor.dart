@@ -12,7 +12,8 @@ import '../../../shared/models/paged.dart';
 import '../../../shared/widgets/common.dart';
 import '../../../shared/widgets/skeleton.dart';
 import '../../ai/ai_service.dart';
-import '../../ai/credit_bar.dart';
+import '../../ai/my_credits.dart';
+import '../../ai/credits_service.dart';
 import '../../stores/stores_service.dart';
 import '../ai_scan_dialog.dart';
 import '../blueprint_panel.dart';
@@ -68,8 +69,7 @@ class GuidedStepBar extends ConsumerWidget {
         runSpacing: 8,
         crossAxisAlignment: WrapCrossAlignment.center,
         children: [
-          for (final (i, name) in guidedSteps.indexed)
-            _StepChip(index: i, label: name, active: st.guidedStep == i, done: st.guidedStep > i, onTap: () => n.setGuidedStep(i)),
+          for (final (i, name) in guidedSteps.indexed) _StepChip(index: i, label: name, active: st.guidedStep == i, done: st.guidedStep > i, onTap: () => n.setGuidedStep(i)),
           const SizedBox(width: 10),
           AppButton(key: const ValueKey('guided-undo'), label: 'Undo', small: true, icon: Icons.undo, onPressed: st.undoDepth > 0 ? n.undo : () {}),
           AppButton(key: const ValueKey('guided-redo'), label: 'Redo', small: true, icon: Icons.redo, onPressed: st.redoDepth > 0 ? n.redo : () {}),
@@ -232,7 +232,8 @@ class _PlanStepState extends ConsumerState<_PlanStep> {
         if (bd == null)
           Text('No plan on this floor yet.', style: ts(13, color: p.ink))
         else
-          Text(info == null ? 'A plan is on this floor.' : '${info.originalName ?? 'Plan'} · ${info.isDrawing ? '${info.kind.toUpperCase()} drawing' : '${info.width} × ${info.height} px'}', style: ts(13, color: p.ink)),
+          Text(info == null ? 'A plan is on this floor.' : '${info.originalName ?? 'Plan'} · ${info.isDrawing ? '${info.kind.toUpperCase()} drawing' : '${info.width} × ${info.height} px'}',
+              style: ts(13, color: p.ink)),
         const SizedBox(height: 12),
         if (st.editable)
           AppButton(
@@ -346,6 +347,7 @@ class _ReadStep extends ConsumerWidget {
     final scan = bd != null && st.branchId != null ? showAiScan(context, done: work, branchId: st.branchId!, backdropKey: bd.id) : null;
     final err = await work;
     ref.invalidate(aiStatusProvider);
+    ref.invalidate(myCreditsProvider);
     if (err != null) {
       if (scan == null) {
         _say(ref, err, error: true);
@@ -385,9 +387,8 @@ class _ReadStep extends ConsumerWidget {
         status.when(
           loading: () => const Shimmer(child: SkeletonLines(widths: [0.8, 0.5], height: 9)),
           error: (e, _) => Text(formatApiError(e), style: ts(12, color: p.warn)),
-          data: (s) => s.blocker != null
-              ? Text(s.blocker!, style: ts(12, color: p.warn))
-              : (s.quota != null && !s.quota!.isEmpty ? CreditBar(quota: s.quota!, compact: true) : const SizedBox.shrink()),
+          // Round 19: a mall admin sees their own credits (and can ask for more); a superadmin the wallet.
+          data: (s) => s.blocker != null && !s.outOfCredits ? Text(s.blocker!, style: ts(12, color: p.warn)) : AiReadingCredits(status: s),
         ),
         const SizedBox(height: 12),
         if (st.level?.backdrop == null)
@@ -471,7 +472,12 @@ class _RoomsStepState extends ConsumerState<_RoomsStep> {
       }
     } else if (sel.kind == SelKind.opening) {
       final o = level.openings.cast<Opening?>().firstWhere((x) => x!.id == sel.id, orElse: () => null);
-      if (o != null) children.add(_PieceCard(title: '${o.kind == 'entrance' ? 'Entrance' : o.kind == 'shutter' ? 'Shop front' : 'Door'} · ${o.w.toStringAsFixed(1)} m', hint: '', st: st));
+      if (o != null) {
+        children.add(_PieceCard(
+            title: '${o.kind == 'entrance' ? 'Entrance' : o.kind == 'shutter' ? 'Shop front' : 'Door'} · ${o.w.toStringAsFixed(1)} m',
+            hint: '',
+            st: st));
+      }
     } else if (!sel.isEmpty) {
       children.add(_PieceCard(title: 'Selected', hint: '', st: st));
     }
@@ -541,8 +547,7 @@ class _Tools extends StatelessWidget {
             ],
           ),
         ],
-        if (t != GuidedTool.none)
-          Padding(padding: const EdgeInsets.only(top: 6), child: Text('Follow the hint on the map. Esc cancels.', style: ts(11, color: p.brand2))),
+        if (t != GuidedTool.none) Padding(padding: const EdgeInsets.only(top: 6), child: Text('Follow the hint on the map. Esc cancels.', style: ts(11, color: p.brand2))),
       ],
     );
   }
@@ -706,7 +711,8 @@ class _RoomList extends ConsumerWidget {
       children: [
         const SizedBox(height: 8),
         Text('ROOMS (${level.spaces.length})', style: ts(10, w: FontWeight.w800, color: p.sideNote, ls: 1)),
-        if (rooms.isEmpty) Padding(padding: const EdgeInsets.only(top: 6), child: Text(level.spaces.isEmpty ? 'No rooms yet. Read the plan with AI (step 3).' : 'No room matches.', style: ts(12, color: p.muted))),
+        if (rooms.isEmpty)
+          Padding(padding: const EdgeInsets.only(top: 6), child: Text(level.spaces.isEmpty ? 'No rooms yet. Read the plan with AI (step 3).' : 'No room matches.', style: ts(12, color: p.muted))),
         for (final r in rooms.take(80))
           InkWell(
             key: ValueKey('guided-room-${r.id}'),
@@ -750,7 +756,9 @@ class _StoreList extends ConsumerWidget {
           error: (e, _) => Text(formatApiError(e), style: ts(12, color: p.warn)),
           data: (items) {
             final shown = items.where((s) => search.isEmpty || s.name.toLowerCase().contains(search)).toList();
-            if (shown.isEmpty) return Padding(padding: const EdgeInsets.only(top: 6), child: Text(items.isEmpty ? 'No stores in this branch yet.' : 'No store matches.', style: ts(12, color: p.muted)));
+            if (shown.isEmpty) {
+              return Padding(padding: const EdgeInsets.only(top: 6), child: Text(items.isEmpty ? 'No stores in this branch yet.' : 'No store matches.', style: ts(12, color: p.muted)));
+            }
             return Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
@@ -812,10 +820,14 @@ class _PublishStep extends ConsumerWidget {
     final unnamed = level?.spaces.where((s) => s.name.isEmpty).toList() ?? const <Space>[];
     final checks = <(String, VoidCallback?)>[
       if (level?.backdrop == null && (level?.walls.isEmpty ?? true)) ('This floor has no plan and no walls yet.', () => n.setGuidedStep(0)),
-      if (unnamed.isNotEmpty) ('${unnamed.length} ${unnamed.length == 1 ? 'room has' : 'rooms have'} no name.', () {
+      if (unnamed.isNotEmpty)
+        (
+          '${unnamed.length} ${unnamed.length == 1 ? 'room has' : 'rooms have'} no name.',
+          () {
             n.setGuidedStep(3);
             n.select(Selection(SelKind.space, unnamed.first.id));
-          }),
+          }
+        ),
       for (final w in st.warnings.take(8)) (w.message, w.ids.isEmpty ? null : () => n.selectById(w.ids.first)),
       for (final pr in st.publishProblems.take(5)) (pr, null),
     ];

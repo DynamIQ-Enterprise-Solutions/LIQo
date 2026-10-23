@@ -39,8 +39,7 @@ class Wall {
   double t;
   String kind;
 
-  factory Wall.fromJson(Map<String, dynamic> j) =>
-      Wall(id: j['id'] as String, a: _pt(j['a']), b: _pt(j['b']), t: (j['t'] as num?)?.toDouble() ?? 0.2, kind: j['kind'] as String? ?? 'solid');
+  factory Wall.fromJson(Map<String, dynamic> j) => Wall(id: j['id'] as String, a: _pt(j['a']), b: _pt(j['b']), t: (j['t'] as num?)?.toDouble() ?? 0.2, kind: j['kind'] as String? ?? 'solid');
 
   Map<String, dynamic> toJson() => {'id': id, 'a': a, 'b': b, 't': t, 'kind': kind};
 
@@ -50,8 +49,7 @@ class Wall {
 }
 
 class Opening {
-  Opening({required this.id, required this.wall, this.at = 0.5, this.w = 1.2, this.kind = 'door', this.label = '', Map<String, dynamic>? props})
-      : props = props ?? {};
+  Opening({required this.id, required this.wall, this.at = 0.5, this.w = 1.2, this.kind = 'door', this.label = '', Map<String, dynamic>? props}) : props = props ?? {};
 
   String id;
   String wall;
@@ -128,8 +126,7 @@ class Space {
 }
 
 class Feature {
-  Feature({required this.id, required this.type, required this.x, required this.z, this.rot = 0, this.w, this.d, this.h, this.label = '', Map<String, dynamic>? props})
-      : props = props ?? {};
+  Feature({required this.id, required this.type, required this.x, required this.z, this.rot = 0, this.w, this.d, this.h, this.label = '', Map<String, dynamic>? props}) : props = props ?? {};
 
   String id;
   String type;
@@ -304,6 +301,7 @@ class Level {
       if (x > maxX) maxX = x;
       if (z > maxZ) maxZ = z;
     }
+
     for (final p in outline?.outer ?? const <List<double>>[]) {
       add(p[0], p[1]);
     }
@@ -369,8 +367,7 @@ class Endpoint {
 }
 
 class Connector {
-  Connector({required this.id, this.kind = 'stairs', this.name = '', this.oneWay = false, this.walkable = true, List<Endpoint>? endpoints})
-      : endpoints = endpoints ?? [];
+  Connector({required this.id, this.kind = 'stairs', this.name = '', this.oneWay = false, this.walkable = true, List<Endpoint>? endpoints}) : endpoints = endpoints ?? [];
 
   String id;
   String kind;
@@ -388,8 +385,7 @@ class Connector {
         endpoints: (j['endpoints'] as List<dynamic>? ?? []).map((e) => Endpoint.fromJson(e as Map<String, dynamic>)).toList(),
       );
 
-  Map<String, dynamic> toJson() =>
-      {'id': id, 'kind': kind, 'name': name, 'oneWay': oneWay, 'walkable': walkable, 'endpoints': endpoints.map((e) => e.toJson()).toList()};
+  Map<String, dynamic> toJson() => {'id': id, 'kind': kind, 'name': name, 'oneWay': oneWay, 'walkable': walkable, 'endpoints': endpoints.map((e) => e.toJson()).toList()};
 }
 
 class LayoutDoc {

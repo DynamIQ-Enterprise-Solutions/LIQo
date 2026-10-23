@@ -72,8 +72,7 @@ class MapWarning {
   final String message;
   final List<String> ids;
 
-  factory MapWarning.fromJson(Map<String, dynamic> j) =>
-      MapWarning(code: j['code'] as String, message: j['message'] as String, ids: (j['ids'] as List<dynamic>? ?? []).cast<String>());
+  factory MapWarning.fromJson(Map<String, dynamic> j) => MapWarning(code: j['code'] as String, message: j['message'] as String, ids: (j['ids'] as List<dynamic>? ?? []).cast<String>());
 }
 
 class MapLock {
@@ -99,8 +98,7 @@ class StoreLink {
   final int storeId;
   final String storeName;
 
-  factory StoreLink.fromJson(Map<String, dynamic> j) =>
-      StoreLink(spaceKey: j['spaceKey'] as String, storeId: j['storeId'] as int, storeName: j['storeName'] as String);
+  factory StoreLink.fromJson(Map<String, dynamic> j) => StoreLink(spaceKey: j['spaceKey'] as String, storeId: j['storeId'] as int, storeName: j['storeName'] as String);
 }
 
 class MapBundle {
@@ -166,7 +164,15 @@ class FeatureDef {
 }
 
 class MapCatalog {
-  const MapCatalog({required this.version, required this.categories, required this.features, required this.spaceTypes, required this.wallKinds, required this.openingKinds, required this.connectorKinds, required this.oneWayCapable});
+  const MapCatalog(
+      {required this.version,
+      required this.categories,
+      required this.features,
+      required this.spaceTypes,
+      required this.wallKinds,
+      required this.openingKinds,
+      required this.connectorKinds,
+      required this.oneWayCapable});
 
   final int version;
   final List<String> categories;
@@ -186,9 +192,7 @@ class MapCatalog {
         category: f['category'] as String,
         label: f['label'] as String,
         size: (f['size'] as List<dynamic>).map((n) => (n as num).toDouble()).toList(),
-        resize: f['resize'] == null
-            ? null
-            : (f['resize'] as Map<String, dynamic>).map((k, v) => MapEntry(k, (v as List<dynamic>).map((n) => (n as num).toDouble()).toList())),
+        resize: f['resize'] == null ? null : (f['resize'] as Map<String, dynamic>).map((k, v) => MapEntry(k, (v as List<dynamic>).map((n) => (n as num).toDouble()).toList())),
         blocks: f['blocks'] == true,
         target: f['target'] == true,
         icon: f['icon'] as String? ?? 'pin',
@@ -265,8 +269,7 @@ class StoreMatch {
   final String storeName;
   final bool exact;
 
-  factory StoreMatch.fromJson(Map<String, dynamic> j) =>
-      StoreMatch(spaceId: j['spaceId'] as String, storeId: j['storeId'] as int, storeName: j['storeName'] as String, exact: j['exact'] == true);
+  factory StoreMatch.fromJson(Map<String, dynamic> j) => StoreMatch(spaceId: j['spaceId'] as String, storeId: j['storeId'] as int, storeName: j['storeName'] as String, exact: j['exact'] == true);
 
   StoreMatch withSpace(String id) => StoreMatch(spaceId: id, storeId: storeId, storeName: storeName, exact: exact);
 }
@@ -278,8 +281,7 @@ class ScaleFound {
   final double mpp;
   final int mm;
 
-  static ScaleFound? fromJson(Object? j) =>
-      j is Map<String, dynamic> && j['mpp'] is num ? ScaleFound(mpp: (j['mpp'] as num).toDouble(), mm: (j['mm'] as num?)?.round() ?? 0) : null;
+  static ScaleFound? fromJson(Object? j) => j is Map<String, dynamic> && j['mpp'] is num ? ScaleFound(mpp: (j['mpp'] as num).toDouble(), mm: (j['mm'] as num?)?.round() ?? 0) : null;
 }
 
 /// What one AI reading cost, from the gateway's meter.
@@ -290,8 +292,7 @@ class AiCost {
   final double credits;
   final double usd;
 
-  factory AiCost.fromJson(Map<String, dynamic> j) =>
-      AiCost(model: j['model'] as String?, credits: (j['credits'] as num?)?.toDouble() ?? 0, usd: (j['usd'] as num?)?.toDouble() ?? 0);
+  factory AiCost.fromJson(Map<String, dynamic> j) => AiCost(model: j['model'] as String?, credits: (j['credits'] as num?)?.toDouble() ?? 0, usd: (j['usd'] as num?)?.toDouble() ?? 0);
 
   AiCost operator +(AiCost o) => AiCost(model: o.model ?? model, credits: credits + o.credits, usd: usd + o.usd);
 }
@@ -580,8 +581,7 @@ class MapsService {
     }
   }
 
-  Future<LayoutDoc> version(int branchId, int version) async =>
-      LayoutDoc.fromJson(_m(_m((await _client.dio.get('/maps/$branchId/versions/$version')).data)['layout']));
+  Future<LayoutDoc> version(int branchId, int version) async => LayoutDoc.fromJson(_m(_m((await _client.dio.get('/maps/$branchId/versions/$version')).data)['layout']));
 
   // ---- Backdrops ----
 

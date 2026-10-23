@@ -118,113 +118,132 @@ class _AnnouncementDetailViewState extends ConsumerState<AnnouncementDetailView>
       subtitle: a == null ? '' : 'By ${a.createdByName}${a.storeName != null ? ' · ${a.storeName}' : ''}',
       backPath: listPath,
       backLabel: 'Announcements',
-      pills: a == null ? const [] : [StatePill(a.liveState)],
+      hero: a == null
+          ? null
+          : RecordHero(
+              mark: const HeroMark.icon(Icons.campaign_outlined),
+              title: a.title,
+              sub: 'By ${a.createdByName}${a.storeName != null ? ' · ${a.storeName}' : ''}',
+              pills: [StatePill(a.liveState)],
+              line: [
+                '${a.startsOn} → ${a.endsOn}',
+                if (a.branches.isNotEmpty) a.branches.map((b) => b.name).join(', '),
+              ].join(' · '),
+            ),
       loading: _loading,
       error: _error,
       onRetry: _load,
       children: a == null
           ? const []
           : [
-              if (a.sharedBeyondScope)
-                DetailCard(
-                  title: 'Shared with other branches',
-                  subtitle: 'Only your branches are listed here',
-                  child: Text(
-                    a.canChange
-                        ? 'It also shows in branches outside your scope.'
-                        : 'It also shows in branches outside your scope, so only its author can change it. You can remove it from your branches.',
-                    style: ts(12, color: p.muted),
-                  ),
-                ),
-              DetailCard(
-                title: 'Message',
-                subtitle: '${a.startsOn} → ${a.endsOn}',
-                child: SelectableText(a.body, style: ts(13.5, color: p.ink, height: 1.55)),
-              ),
-              DetailCard(
-                title: 'Details',
-                subtitle: 'Dates, targets and review',
-                trailing: canEdit && _edit == _Edit.none ? AppButton(label: 'Edit', small: true, icon: Icons.edit_outlined, onPressed: () => setState(() => _edit = _Edit.details)) : null,
-                child: _edit == _Edit.details
-                    ? Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          if (owner && a.status != 'pending') Padding(padding: const EdgeInsets.only(bottom: 12), child: Text('Saving sends it back for review.', style: ts(11, color: p.warn))),
-                          AppFormBody(
-                            fields: announcementFields(owner: owner).where((f) => f.name != 'store').toList(),
-                            initial: {
-                              'title': a.title,
-                              'body': a.body,
-                              'startsOn': a.startsOn,
-                              'endsOn': a.endsOn,
-                              'imageUrl': a.imageUrl,
-                              'branches': [for (final b in a.branches) b.toLookup()],
-                            },
-                            onSubmit: (v) async {
-                              final updated = await _service.update(a.id, announcementBody(v, owner: owner));
-                              setState(() => _a = updated);
-                            },
-                            onCancel: () => setState(() => _edit = _Edit.none),
-                            onDone: () {
-                              setState(() => _edit = _Edit.none);
-                              _msg('Announcement updated.');
-                            },
+              DetailColumns(
+                facts: [
+                  DetailCard(
+                    title: 'Details',
+                    subtitle: 'Dates, targets and review',
+                    trailing: canEdit && _edit == _Edit.none ? AppButton(label: 'Edit', small: true, icon: Icons.edit_outlined, onPressed: () => setState(() => _edit = _Edit.details)) : null,
+                    child: _edit == _Edit.details
+                        ? Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              if (owner && a.status != 'pending') Padding(padding: const EdgeInsets.only(bottom: 12), child: Text('Saving sends it back for review.', style: ts(11, color: p.warn))),
+                              AppFormBody(
+                                fields: announcementFields(owner: owner).where((f) => f.name != 'store').toList(),
+                                initial: {
+                                  'title': a.title,
+                                  'body': a.body,
+                                  'startsOn': a.startsOn,
+                                  'endsOn': a.endsOn,
+                                  'imageUrl': a.imageUrl,
+                                  'branches': [for (final b in a.branches) b.toLookup()],
+                                },
+                                onSubmit: (v) async {
+                                  final updated = await _service.update(a.id, announcementBody(v, owner: owner));
+                                  setState(() => _a = updated);
+                                },
+                                onCancel: () => setState(() => _edit = _Edit.none),
+                                onDone: () {
+                                  setState(() => _edit = _Edit.none);
+                                  _msg('Announcement updated.');
+                                },
+                              ),
+                            ],
+                          )
+                        : Column(
+                            children: [
+                              DetailRow('Dates', '${a.startsOn} → ${a.endsOn}'),
+                              DetailRow('Branches', a.branches.map((b) => b.name).join(', ')),
+                              if (a.storeName != null) DetailRow('Store', a.storeName),
+                              DetailRow('Posted by', '${a.createdByName} (${roleLabelOf(a.createdRole)})'),
+                              DetailRow('Status', reviewStatusLabel(a.status)),
+                              if (a.reviewedByName != null) DetailRow('Reviewed by', a.reviewedByName),
+                              if (a.rejectReason != null) DetailRow('Reason', a.rejectReason),
+                              if (a.imageUrl != null) DetailRow('Image URL', a.imageUrl),
+                            ],
                           ),
-                        ],
-                      )
-                    : Column(
-                        children: [
-                          DetailRow('Dates', '${a.startsOn} → ${a.endsOn}'),
-                          DetailRow('Branches', a.branches.map((b) => b.name).join(', ')),
-                          if (a.storeName != null) DetailRow('Store', a.storeName),
-                          DetailRow('Posted by', '${a.createdByName} (${roleLabelOf(a.createdRole)})'),
-                          DetailRow('Status', reviewStatusLabel(a.status)),
-                          if (a.reviewedByName != null) DetailRow('Reviewed by', a.reviewedByName),
-                          if (a.rejectReason != null) DetailRow('Reason', a.rejectReason),
-                          if (a.imageUrl != null) DetailRow('Image URL', a.imageUrl),
-                        ],
+                  ),
+                  if (a.sharedBeyondScope)
+                    DetailCard(
+                      title: 'Shared with other branches',
+                      subtitle: 'Only your branches are listed here',
+                      child: Text(
+                        a.canChange
+                            ? 'It also shows in branches outside your scope.'
+                            : 'It also shows in branches outside your scope, so only its author can change it. You can remove it from your branches.',
+                        style: ts(12, color: p.muted),
                       ),
+                    ),
+                ],
+                lists: [
+                  DetailCard(
+                    title: 'Message',
+                    subtitle: '${a.startsOn} → ${a.endsOn}',
+                    child: SelectableText(a.body, style: ts(13.5, color: p.ink, height: 1.55)),
+                  ),
+                  if (reviewable)
+                    DetailCard(
+                      title: 'Review',
+                      subtitle: 'Approve to publish it for its dates, or reject it with a reason the store owner will see',
+                      trailing: _edit == _Edit.reject ? null : AppButton(label: 'Approve', small: true, primary: true, icon: Icons.check_circle_outline, onPressed: _approve),
+                      child: _edit == _Edit.reject
+                          ? AppFormBody(
+                              fields: const [FieldSpec(name: 'reason', label: 'Reason', kind: FieldKind.multiline, required: true, maxLength: 500, hint: 'Tell the store owner what to change.')],
+                              submitLabel: 'Reject',
+                              onSubmit: (v) async {
+                                final updated = await _service.reject(a.id, v['reason'] as String);
+                                setState(() => _a = updated);
+                              },
+                              onCancel: () => setState(() => _edit = _Edit.none),
+                              onDone: () {
+                                setState(() => _edit = _Edit.none);
+                                _msg('Rejected.');
+                              },
+                            )
+                          : Row(
+                              children: [
+                                Expanded(child: Text('Waiting for review since ${a.createdAt.toLocal().toString().substring(0, 10)}.', style: ts(12, color: p.muted))),
+                                AppButton(label: 'Reject…', small: true, icon: Icons.undo, onPressed: () => setState(() => _edit = _Edit.reject)),
+                              ],
+                            ),
+                    ),
+                  if (waitingForAdmin)
+                    DetailCard(
+                      title: 'Review',
+                      subtitle: 'Waiting for a mall admin',
+                      child: Text('Mall admins approve or reject store-owner announcements. It goes live for its dates once approved.', style: ts(12, color: p.muted)),
+                    ),
+                ],
+                after: [
+                  if (canDelete)
+                    DangerZone(actions: [
+                      DangerAction(label: 'Delete', description: 'Remove this announcement for good.', onTap: () => _delete(listPath)),
+                    ])
+                  else if (canDetach)
+                    DangerZone(actions: [
+                      DangerAction(label: 'Remove from my branches', description: 'Stop showing it in your branches. Other branches keep it.', onTap: () => _delete(listPath, detach: true)),
+                    ]),
+                ],
               ),
-              if (reviewable)
-                DetailCard(
-                  title: 'Review',
-                  subtitle: 'Approve to publish it for its dates, or reject it with a reason the store owner will see',
-                  trailing: _edit == _Edit.reject ? null : AppButton(label: 'Approve', small: true, primary: true, icon: Icons.check_circle_outline, onPressed: _approve),
-                  child: _edit == _Edit.reject
-                      ? AppFormBody(
-                          fields: const [FieldSpec(name: 'reason', label: 'Reason', kind: FieldKind.multiline, required: true, maxLength: 500, hint: 'Tell the store owner what to change.')],
-                          submitLabel: 'Reject',
-                          onSubmit: (v) async {
-                            final updated = await _service.reject(a.id, v['reason'] as String);
-                            setState(() => _a = updated);
-                          },
-                          onCancel: () => setState(() => _edit = _Edit.none),
-                          onDone: () {
-                            setState(() => _edit = _Edit.none);
-                            _msg('Rejected.');
-                          },
-                        )
-                      : Row(
-                          children: [
-                            Expanded(child: Text('Waiting for review since ${a.createdAt.toLocal().toString().substring(0, 10)}.', style: ts(12, color: p.muted))),
-                            AppButton(label: 'Reject…', small: true, icon: Icons.undo, onPressed: () => setState(() => _edit = _Edit.reject)),
-                          ],
-                        ),
-                ),
-              if (waitingForAdmin)
-                DetailCard(
-                  title: 'Review',
-                  subtitle: 'Waiting for a mall admin',
-                  child: Text('Mall admins approve or reject store-owner announcements. It goes live for its dates once approved.', style: ts(12, color: p.muted)),
-                ),
-              if (canDelete)
-                DangerZone(actions: [
-                  DangerAction(label: 'Delete', description: 'Remove this announcement for good.', onTap: () => _delete(listPath)),
-                ])
-              else if (canDetach)
-                DangerZone(actions: [
-                  DangerAction(label: 'Remove from my branches', description: 'Stop showing it in your branches. Other branches keep it.', onTap: () => _delete(listPath, detach: true)),
-                ]),
             ],
     );
   }

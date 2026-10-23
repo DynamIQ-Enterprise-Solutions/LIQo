@@ -141,7 +141,8 @@ class _AccountDetailViewState extends ConsumerState<AccountDetailView> {
     final ok = await confirmDangerous(
       context,
       title: 'Reset the password of ${a.fullName}?',
-      impact: '${a.role == 'superadmin' ? 'They keep their platform access but must sign in with the new password. ' : ''}Their current password stops working at once. A new temporary password is shown to you once; they must change it at the next sign-in. This also clears a lockout.',
+      impact:
+          '${a.role == 'superadmin' ? 'They keep their platform access but must sign in with the new password. ' : ''}Their current password stops working at once. A new temporary password is shown to you once; they must change it at the next sign-in. This also clears a lockout.',
       name: a.fullName,
       confirmLabel: 'Reset password',
     );
@@ -178,114 +179,135 @@ class _AccountDetailViewState extends ConsumerState<AccountDetailView> {
       subtitle: a == null ? '' : '${roleLabels[a.role] ?? a.role} · ${a.email}',
       backPath: backPath,
       backLabel: listLabel,
-      pills: a == null
-          ? const []
-          : [
-              StatusPill(active: a.isActive),
-              if (a.mustChangePassword) const Pill('Temp password', kind: PillKind.pending),
-              if (a.lockedUntil != null) const Pill('Locked', kind: PillKind.pending),
-              if (self) const Pill('This is you', kind: PillKind.blue),
-            ],
+      hero: a == null
+          ? null
+          : RecordHero(
+              mark: HeroMark.initials(initialsOf(a.fullName)),
+              title: a.fullName,
+              sub: a.email,
+              pills: [
+                Pill(roleLabels[a.role] ?? a.role, kind: PillKind.blue),
+                StatusPill(active: a.isActive),
+                if (a.mustChangePassword) const Pill('Temp password', kind: PillKind.pending),
+                if (a.lockedUntil != null) const Pill('Locked', kind: PillKind.pending),
+                if (self) const Pill('This is you', kind: PillKind.blue),
+              ],
+              line: [
+                if (a.createdAt != null) 'Created ${_fmt.format(a.createdAt!)}',
+                a.lastLoginAt == null ? 'Never signed in' : 'Last sign-in ${_fmt.format(a.lastLoginAt!)}',
+              ].join(' · '),
+            ),
       loading: _loading,
       error: _error,
       onRetry: _load,
       children: a == null
           ? const []
           : [
-              DetailCard(
-                title: 'Details',
-                subtitle: otherSuperadmin ? "Only this superadmin can change their own name and email" : 'Name and email address',
-                trailing: _editing || otherSuperadmin ? null : AppButton(label: 'Edit', small: true, icon: Icons.edit_outlined, onPressed: () => setState(() => _editing = true)),
-                child: _editing
-                    ? AppFormBody(
-                        fields: _detailFields,
-                        initial: {'fullName': a.fullName, 'email': a.email},
-                        onSubmit: (v) async {
-                          final updated = await _service.update(a.id, email: v['email'] as String, fullName: v['fullName'] as String);
-                          setState(() => _a = updated);
-                        },
-                        onCancel: () => setState(() => _editing = false),
-                        onDone: () {
-                          setState(() => _editing = false);
-                          _msg('Account updated.');
-                        },
-                      )
-                    : Column(
+              DetailColumns(
+                facts: [
+                  DetailCard(
+                    title: 'Details',
+                    subtitle: otherSuperadmin ? "Only this superadmin can change their own name and email" : 'Name and email address',
+                    trailing: _editing || otherSuperadmin ? null : AppButton(label: 'Edit', small: true, icon: Icons.edit_outlined, onPressed: () => setState(() => _editing = true)),
+                    child: _editing
+                        ? AppFormBody(
+                            fields: _detailFields,
+                            initial: {'fullName': a.fullName, 'email': a.email},
+                            onSubmit: (v) async {
+                              final updated = await _service.update(a.id, email: v['email'] as String, fullName: v['fullName'] as String);
+                              setState(() => _a = updated);
+                            },
+                            onCancel: () => setState(() => _editing = false),
+                            onDone: () {
+                              setState(() => _editing = false);
+                              _msg('Account updated.');
+                            },
+                          )
+                        : Column(
+                            children: [
+                              DetailRow('Full name', a.fullName),
+                              DetailRow('Email', a.email),
+                              DetailRow('Role', roleLabels[a.role] ?? a.role),
+                              DetailRow('Created', a.createdAt == null ? null : _fmt.format(a.createdAt!)),
+                            ],
+                          ),
+                  ),
+                  if (pendingChange != null)
+                    DetailCard(
+                      title: 'Pending profile change',
+                      subtitle: 'Sent ${_fmt.format(pendingChange.createdAt)}. Nothing changes until you approve.',
+                      trailing:
+                          AppButton(label: 'Review', small: true, primary: true, icon: Icons.how_to_reg_outlined, onPressed: () => context.go('/superadmin/profile-requests/${pendingChange.id}')),
+                      child: Column(
                         children: [
-                          DetailRow('Full name', a.fullName),
-                          DetailRow('Email', a.email),
-                          DetailRow('Role', roleLabels[a.role] ?? a.role),
-                          DetailRow('Created', a.createdAt == null ? null : _fmt.format(a.createdAt!)),
+                          DetailRow('New name', pendingChange.requestedName),
+                          DetailRow('New email', pendingChange.requestedEmail),
                         ],
                       ),
-              ),
-              if (pendingChange != null)
-                DetailCard(
-                  title: 'Pending profile change',
-                  subtitle: 'Sent ${_fmt.format(pendingChange.createdAt)}. Nothing changes until you approve.',
-                  trailing: AppButton(label: 'Review', small: true, primary: true, icon: Icons.how_to_reg_outlined, onPressed: () => context.go('/superadmin/profile-requests/${pendingChange.id}')),
-                  child: Column(
-                    children: [
-                      DetailRow('New name', pendingChange.requestedName),
-                      DetailRow('New email', pendingChange.requestedEmail),
-                    ],
-                  ),
-                ),
-              if (a.role == 'store_owner')
-                DetailCard(
-                  title: 'Stores',
-                  subtitle: _stores.isEmpty ? 'None (the account is deactivated until a store is assigned)' : '${_stores.length} store${_stores.length == 1 ? '' : 's'}',
-                  child: _stores.isEmpty
-                      ? Text('Mall admins assign stores to store owners.', style: ts(12, color: p.muted))
-                      : Column(
-                          children: [
-                            for (final s in _stores) RecordRow(title: s.name, subtitle: s.branchName, chips: [StatusPill(active: s.isActive)]),
+                    ),
+                  if (isOwnerOrAdmin)
+                    DetailCard(
+                      title: 'Access',
+                      subtitle: a.role == 'supervisor' ? 'Malls and branches this owner owns' : 'The branch this admin manages and who they report to',
+                      trailing: AppButton(label: 'Change assignments', small: true, icon: Icons.account_tree_outlined, onPressed: _assignments_),
+                      child: Column(
+                        children: [
+                          if (a.role == 'supervisor') ...[
+                            DetailRow('Whole malls', _assignments.malls.isEmpty ? null : _assignments.malls.map((m) => m.label).join(', ')),
+                            DetailRow('Single branches', _assignments.branches.isEmpty ? null : _assignments.branches.map((b) => b.label).join(', ')),
+                          ] else ...[
+                            DetailRow('Branch', _assignments.branches.isEmpty ? 'Not assigned yet' : _assignments.branches.first.label),
+                            // Set automatically from branch ownership (owner decision 2026-10-22).
+                            DetailRow('Reports to', null,
+                                child: Align(
+                                    alignment: Alignment.centerLeft,
+                                    child: a.reportsTo == null ? const Pill('No owner', kind: PillKind.pending) : Text(a.reportsTo!.name, style: ts(12.5, color: p.ink)))),
                           ],
-                        ),
-                ),
-              if (isOwnerOrAdmin)
-                DetailCard(
-                  title: 'Access',
-                  subtitle: a.role == 'supervisor' ? 'Malls and branches this owner owns' : 'The branch this admin manages and who they report to',
-                  trailing: AppButton(label: 'Change assignments', small: true, icon: Icons.account_tree_outlined, onPressed: _assignments_),
-                  child: Column(
-                    children: [
-                      if (a.role == 'supervisor') ...[
-                        DetailRow('Whole malls', _assignments.malls.isEmpty ? null : _assignments.malls.map((m) => m.label).join(', ')),
-                        DetailRow('Single branches', _assignments.branches.isEmpty ? null : _assignments.branches.map((b) => b.label).join(', ')),
-                      ] else ...[
-                        DetailRow('Branch', _assignments.branches.isEmpty ? 'Not assigned yet' : _assignments.branches.first.label),
-                        // Set automatically from branch ownership (owner decision 2026-10-22).
-                        DetailRow('Reports to', null, child: Align(alignment: Alignment.centerLeft, child: a.reportsTo == null ? const Pill('No owner', kind: PillKind.pending) : Text(a.reportsTo!.name, style: ts(12.5, color: p.ink)))),
+                        ],
+                      ),
+                    ),
+                  DetailCard(
+                    title: 'Sign-in',
+                    subtitle: 'What the person sees when they sign in',
+                    child: Column(
+                      children: [
+                        DetailRow('Last sign-in', a.lastLoginAt == null ? 'Never' : _fmt.format(a.lastLoginAt!)),
+                        DetailRow('Password', a.mustChangePassword ? 'Temporary, must be changed at next sign-in' : 'Set by the person'),
+                        DetailRow('Lockout', a.lockedUntil == null ? 'None' : 'Locked until ${_fmt.format(DateTime.parse(a.lockedUntil!).toLocal())}'),
                       ],
-                    ],
+                    ),
                   ),
-                ),
-              DetailCard(
-                title: 'Sign-in',
-                subtitle: 'What the person sees when they sign in',
-                child: Column(
-                  children: [
-                    DetailRow('Last sign-in', a.lastLoginAt == null ? 'Never' : _fmt.format(a.lastLoginAt!)),
-                    DetailRow('Password', a.mustChangePassword ? 'Temporary, must be changed at next sign-in' : 'Set by the person'),
-                    DetailRow('Lockout', a.lockedUntil == null ? 'None' : 'Locked until ${_fmt.format(DateTime.parse(a.lockedUntil!).toLocal())}'),
-                  ],
-                ),
+                  if (!a.isActive && !self)
+                    DetailCard(
+                      title: 'Reactivate',
+                      subtitle: 'This account is inactive',
+                      trailing: AppButton(label: 'Reactivate', small: true, primary: true, icon: Icons.play_circle_outline, onPressed: _reactivate),
+                      child: Text('The person cannot sign in until the account is reactivated. Assignments are kept.', style: ts(12, color: p.muted)),
+                    ),
+                  if (self) DetailCard(title: 'Your own account', subtitle: 'Password and profile', child: Text('Change your own password under My account.', style: ts(12, color: p.muted))),
+                ],
+                lists: [
+                  if (a.role == 'store_owner')
+                    DetailCard(
+                      title: 'Stores',
+                      subtitle: _stores.isEmpty ? 'None (the account is deactivated until a store is assigned)' : '${_stores.length} store${_stores.length == 1 ? '' : 's'}',
+                      child: _stores.isEmpty
+                          ? Text('Mall admins assign stores to store owners.', style: ts(12, color: p.muted))
+                          : Column(
+                              children: [
+                                for (final s in _stores) RecordRow(title: s.name, subtitle: s.branchName, chips: [StatusPill(active: s.isActive)]),
+                              ],
+                            ),
+                    ),
+                ],
+                after: [
+                  if (!self)
+                    DangerZone(actions: [
+                      DangerAction(label: 'Reset password', description: 'Give a new temporary password. The current one stops working.', onTap: _reset),
+                      if (a.isActive) DangerAction(label: 'Deactivate', description: 'Block sign-in. Assignments are kept for a later reactivation.', onTap: _deactivate),
+                    ]),
+                ],
               ),
-              if (!a.isActive && !self)
-                DetailCard(
-                  title: 'Reactivate',
-                  subtitle: 'This account is inactive',
-                  trailing: AppButton(label: 'Reactivate', small: true, primary: true, icon: Icons.play_circle_outline, onPressed: _reactivate),
-                  child: Text('The person cannot sign in until the account is reactivated. Assignments are kept.', style: ts(12, color: p.muted)),
-                ),
-              if (self)
-                DetailCard(title: 'Your own account', subtitle: 'Password and profile', child: Text('Change your own password under My account.', style: ts(12, color: p.muted)))
-              else
-                DangerZone(actions: [
-                  DangerAction(label: 'Reset password', description: 'Give a new temporary password. The current one stops working.', onTap: _reset),
-                  if (a.isActive) DangerAction(label: 'Deactivate', description: 'Block sign-in. Assignments are kept for a later reactivation.', onTap: _deactivate),
-                ]),
             ],
     );
   }

@@ -16,6 +16,7 @@ class FieldBuilder extends StatelessWidget {
     this.error,
     this.values = const {},
     this.note,
+    this.bare = false,
   });
 
   final FieldSpec spec;
@@ -29,8 +30,13 @@ class FieldBuilder extends StatelessWidget {
   /// A line under the field, such as the result of a live duplicate check.
   final Widget? note;
 
+  /// Only the input itself (no label, help or spacing), for compact controls
+  /// such as the settings page's number steppers; numbers are centred.
+  final bool bare;
+
   @override
   Widget build(BuildContext context) {
+    if (bare) return _control(context);
     final p = context.pal;
     return Padding(
       padding: const EdgeInsets.only(bottom: 14),
@@ -73,7 +79,7 @@ class FieldBuilder extends StatelessWidget {
       isDense: true,
       hintText: spec.hint,
       hintStyle: ts(13, color: p.hint),
-      contentPadding: const EdgeInsets.all(10),
+      contentPadding: bare ? const EdgeInsets.symmetric(horizontal: 6, vertical: 9) : const EdgeInsets.all(10),
       border: border(p.pick(p.line, p.fieldLine)),
       enabledBorder: border(p.pick(p.line, p.fieldLine)),
       focusedBorder: border(p.brand),
@@ -95,6 +101,7 @@ class FieldBuilder extends StatelessWidget {
           value: value?.toString() ?? '',
           decoration: decoration,
           onChanged: onChanged,
+          center: bare,
         );
       case FieldKind.toggle:
         return Row(
@@ -152,12 +159,13 @@ class FieldBuilder extends StatelessWidget {
 }
 
 class _TextControl extends StatefulWidget {
-  const _TextControl({super.key, required this.spec, required this.value, required this.decoration, required this.onChanged});
+  const _TextControl({super.key, required this.spec, required this.value, required this.decoration, required this.onChanged, this.center = false});
 
   final FieldSpec spec;
   final String value;
   final InputDecoration decoration;
   final ValueChanged<Object?> onChanged;
+  final bool center;
 
   @override
   State<_TextControl> createState() => _TextControlState();
@@ -196,6 +204,7 @@ class _TextControlState extends State<_TextControl> {
         if (s.kind == FieldKind.integer) FilteringTextInputFormatter.allow(RegExp(r'[0-9-]')),
         if (s.kind == FieldKind.decimal) FilteringTextInputFormatter.allow(RegExp(r'[0-9.\-]')),
       ],
+      textAlign: widget.center ? TextAlign.center : TextAlign.start,
       style: ts(13, color: p.ink),
       decoration: widget.decoration.copyWith(counterText: ''),
       onChanged: (v) => widget.onChanged(numeric ? v : v),

@@ -142,9 +142,7 @@ class _MallsViewState extends ConsumerState<MallsView> {
     final isSuper = role == 'superadmin';
     final showMallsTab = !widget.branchesOnly && role != 'supervisor';
 
-    final title = widget.branchesOnly
-        ? (role == 'mall_admin' ? 'Branch information' : 'Branches & hours')
-        : (isSuper ? 'Malls & branches' : 'My malls');
+    final title = widget.branchesOnly ? (role == 'mall_admin' ? 'Branch information' : 'Branches & hours') : (isSuper ? 'Malls & branches' : 'My malls');
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -152,9 +150,8 @@ class _MallsViewState extends ConsumerState<MallsView> {
         PageHead(
           eyebrow: '${isSuper ? 'Superadmin' : role == 'supervisor' ? 'Mall owner' : 'Mall admin'} / $title',
           title: title,
-          subtitle: isSuper
-              ? 'Register mall chains and their physical branches. Click a row to open it.'
-              : 'Review and update the information for the locations in your scope. Click a row to open it.',
+          subtitle:
+              isSuper ? 'Register mall chains and their physical branches. Click a row to open it.' : 'Review and update the information for the locations in your scope. Click a row to open it.',
           actions: [
             if (isSuper && _tab == 0) AppButton(label: 'Register mall', icon: Icons.add, primary: true, onPressed: _createMall),
             if (isSuper && _tab == 1) AppButton(label: 'Create branch', icon: Icons.add, primary: true, onPressed: _createBranch),
@@ -177,7 +174,9 @@ class _MallsViewState extends ConsumerState<MallsView> {
             fetch: _service.listMalls,
             searchHint: 'Search malls…',
             emptyText: isSuper ? 'No malls yet. Register the first one.' : 'No malls assigned to you yet.',
-            filters: const [FilterSpec(name: 'status', label: 'All statuses', options: {'': 'All statuses', 'active': 'Active', 'inactive': 'Inactive'})],
+            filters: const [
+              FilterSpec(name: 'status', label: 'All statuses', options: {'': 'All statuses', 'active': 'Active', 'inactive': 'Inactive'})
+            ],
             onRowTap: (m) => context.go('${nav.prefix}/malls/${m.id}'),
             columns: [
               ListColumn(
@@ -194,9 +193,7 @@ class _MallsViewState extends ConsumerState<MallsView> {
               ListColumn(
                 label: 'Branches',
                 flex: 2,
-                cell: (c, m) => (m.branchCount ?? 0) == 0
-                    ? const Align(alignment: Alignment.centerLeft, child: Pill('No branches', kind: PillKind.pending))
-                    : Text('${m.branchCount}'),
+                cell: (c, m) => (m.branchCount ?? 0) == 0 ? const Align(alignment: Alignment.centerLeft, child: Pill('No branches', kind: PillKind.pending)) : Text('${m.branchCount}'),
               ),
               ListColumn(label: 'Status', flex: 2, cell: (c, m) => StatusPill(active: m.isActive)),
             ],
@@ -208,7 +205,9 @@ class _MallsViewState extends ConsumerState<MallsView> {
             fetch: _service.listBranches,
             searchHint: 'Search branches, malls, addresses…',
             emptyText: isSuper ? 'No branches yet.' : 'No branches assigned to you yet.',
-            filters: const [FilterSpec(name: 'status', label: 'All statuses', options: {'': 'All statuses', 'active': 'Active', 'inactive': 'Inactive'})],
+            filters: const [
+              FilterSpec(name: 'status', label: 'All statuses', options: {'': 'All statuses', 'active': 'Active', 'inactive': 'Inactive'})
+            ],
             onRowTap: (b) => context.go(branchPath(role, b.id)),
             columns: [
               ListColumn(

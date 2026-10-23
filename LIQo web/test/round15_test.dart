@@ -12,7 +12,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:gabay_admin/core/api_client.dart';
 import 'package:gabay_admin/core/session.dart';
 import 'package:gabay_admin/core/theme.dart';
-import 'package:gabay_admin/features/ai/ai_settings_card.dart';
+import 'package:gabay_admin/features/settings/settings_view.dart';
 import 'package:gabay_admin/features/map_editor/blueprint_panel.dart';
 import 'package:gabay_admin/features/map_editor/editor_state.dart';
 import 'package:gabay_admin/features/map_editor/map_canvas.dart';
@@ -97,11 +97,13 @@ class _FakePdf implements PdfDocument {
 }
 
 void main() {
+  // Owner decision 2026-10-23 (Round 19): a mall admin sees their own credits, never the gateway wallet.
   testWidgets('the panel offers "Read with AI" with the credit bar; Detect is gone', (tester) async {
     await _panel(tester, FakeApiAdapter(role: 'mall_admin'));
     expect(find.text('Read with AI'), findsOneWidget);
     expect(find.textContaining('Detect'), findsNothing);
-    expect(find.text('123456.75 credits left · 37.5 of 50 used today'), findsOneWidget);
+    expect(find.text('12.5 credits left'), findsOneWidget);
+    expect(find.textContaining('123456.75'), findsNothing, reason: 'no wallet numbers for mall admins');
     expect(find.textContaining('Reading the whole plan'), findsOneWidget);
   });
 
@@ -115,11 +117,13 @@ void main() {
     expect(fake.writes.where((w) => w.$2.endsWith('/convert')), isEmpty);
   });
 
+  // Owner decision 2026-10-23 (Round 19): a mall admin is told the AI service is not taking
+  // readings, without the wallet's own words (those are for the superadmin).
   testWidgets('an empty wallet: the gateway\'s reason shows and reading sends nothing', (tester) async {
     final fake = FakeApiAdapter(role: 'mall_admin', aiBlocked: true);
     await _panel(tester, fake);
-    expect(find.byKey(const ValueKey('ai-wallet-blocked')), findsOneWidget);
-    expect(find.text('Out of AI credits. Contact your administrator to top up.'), findsOneWidget);
+    expect(find.byKey(const ValueKey('ai-blocker')), findsOneWidget);
+    expect(find.textContaining('not accepting readings right now'), findsOneWidget);
     await tester.tap(find.text('Read with AI'));
     await _steps(tester, 4);
     expect(fake.writes.where((w) => w.$2.endsWith('/convert')), isEmpty);
@@ -291,8 +295,10 @@ void main() {
     expect(pdf.rendered, containsAll([1, 3]), reason: 'previews of the pages looked at');
   });
 
+  // Owner decision 2026-10-23: the AI settings are a tile on the Settings page,
+  // and the page's one "Save settings" button saves the model.
   testWidgets('Settings: the model list comes from the gateway; saving sends the choice', (tester) async {
-    tester.view.physicalSize = const Size(900, 1400);
+    tester.view.physicalSize = const Size(1300, 1400);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
     final fake = FakeApiAdapter(role: 'superadmin');
@@ -300,38 +306,40 @@ void main() {
     addTearDown(c.dispose);
     await tester.pumpWidget(UncontrolledProviderScope(
       container: c,
-      child: MaterialApp(theme: buildTheme(Brightness.light), home: const MessageOverlay(child: Scaffold(body: SingleChildScrollView(child: SizedBox(width: 560, child: AiSettingsCard()))))),
+      child: MaterialApp(theme: buildTheme(Brightness.light), home: const MessageOverlay(child: Scaffold(body: SingleChildScrollView(child: SizedBox(width: 1200, child: SettingsView()))))),
     ));
     await _steps(tester);
     expect(find.text('AI floor-plan reading'), findsOneWidget);
     expect(find.text('123456.75 credits left · 37.5 of 50 used today'), findsOneWidget);
     expect(find.textContaining('Google: Gemini 2.5 Pro Vision Preview (long label)'), findsOneWidget);
 
-    await tester.tap(find.byType(DropdownButton<String>));
+    // Owner decision 2026-10-23: the model list opens under its field (no dropdown).
+    await tester.tap(find.byKey(const ValueKey('ai-model-field')));
     await _steps(tester, 4);
     await tester.tap(find.text('GPT-4o · openai').last);
     await _steps(tester, 4);
-    await tester.tap(find.text('Save model'));
+    await tester.tap(find.byKey(const ValueKey('settings-save')));
     await _steps(tester, 4);
     final put = fake.writes.where((w) => w.$1 == 'PUT' && w.$2 == '/ai/model').toList();
     expect(put, hasLength(1));
     expect(put.single.$3, {'model': 'gpt-4o'});
+    expect(fake.writes.where((w) => w.$2 == '/settings'), isEmpty, reason: 'no number changed');
     await _quiet(tester);
   });
 
   testWidgets('Settings without the key: it says where the key goes, and that it never reaches the app', (tester) async {
-    tester.view.physicalSize = const Size(900, 1000);
+    tester.view.physicalSize = const Size(1300, 1000);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
     final c = await _container(FakeApiAdapter(role: 'superadmin', aiConfigured: false), role: 'superadmin');
     addTearDown(c.dispose);
     await tester.pumpWidget(UncontrolledProviderScope(
       container: c,
-      child: MaterialApp(theme: buildTheme(Brightness.light), home: const Scaffold(body: SingleChildScrollView(child: SizedBox(width: 560, child: AiSettingsCard())))),
+      child: MaterialApp(theme: buildTheme(Brightness.light), home: const MessageOverlay(child: Scaffold(body: SingleChildScrollView(child: SizedBox(width: 1200, child: SettingsView()))))),
     ));
     await _steps(tester);
     expect(find.byKey(const ValueKey('ai-not-configured')), findsOneWidget);
-    expect(find.byType(DropdownButton<String>), findsNothing);
+    expect(find.byKey(const ValueKey('ai-model-field')), findsNothing);
   });
 
   test('the proposal colours come from the theme in both modes', () {

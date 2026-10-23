@@ -22,7 +22,8 @@ import 'plan_image.dart';
 /// Kept light so it runs smoothly with very large plans: the picture is decoded
 /// once at screen size, the still part (plan, grid, brackets) is drawn once in
 /// its own layer, only the thin line layer moves, and the card has no live blur.
-Future<bool> showAiScan(BuildContext context, {required Future<String?> done, required int branchId, required String backdropKey, List<double>? crop, @visibleForTesting Future<ui.Image?> Function()? loadImage}) async {
+Future<bool> showAiScan(BuildContext context,
+    {required Future<String?> done, required int branchId, required String backdropKey, List<double>? crop, @visibleForTesting Future<ui.Image?> Function()? loadImage}) async {
   final retry = await showGeneralDialog<bool>(
     context: context,
     barrierDismissible: false,
@@ -251,7 +252,9 @@ class _PlanPainter extends CustomPainter {
       c.drawImageRect(img, src, dst, paint);
     }
     // The reading grid as the AI sees it (every 1/20), faint.
-    final line = Paint()..color = grid.withValues(alpha: 0.06)..strokeWidth = 1;
+    final line = Paint()
+      ..color = grid.withValues(alpha: 0.06)
+      ..strokeWidth = 1;
     for (var k = 1; k < 20; k++) {
       final gx = dst.left + dst.width * k / 20;
       final gy = dst.top + dst.height * k / 20;
@@ -259,7 +262,11 @@ class _PlanPainter extends CustomPainter {
       c.drawLine(Offset(gx, dst.top), Offset(gx, dst.bottom), line);
     }
     // Corner brackets around the part being read.
-    final br = Paint()..color = glow.withValues(alpha: 0.9)..strokeWidth = 2.5..style = PaintingStyle.stroke..strokeCap = StrokeCap.round;
+    final br = Paint()
+      ..color = glow.withValues(alpha: 0.9)
+      ..strokeWidth = 2.5
+      ..style = PaintingStyle.stroke
+      ..strokeCap = StrokeCap.round;
     final l = math.min(28.0, dst.shortestSide / 6);
     for (final (o, dx, dy) in [(dst.topLeft, 1.0, 1.0), (dst.topRight, -1.0, 1.0), (dst.bottomLeft, 1.0, -1.0), (dst.bottomRight, -1.0, -1.0)]) {
       c.drawLine(o, o + Offset(l * dx, 0), br);
@@ -291,13 +298,23 @@ class _LinePainter extends CustomPainter {
       final gy = dst.top + dst.height * k / 20;
       final near = (1 - ((gy - y).abs() / (dst.height * 0.2))).clamp(0.0, 1.0);
       if (near <= 0) continue;
-      c.drawLine(Offset(dst.left, gy), Offset(dst.right, gy), Paint()..color = grid.withValues(alpha: 0.2 * near)..strokeWidth = 1);
+      c.drawLine(
+          Offset(dst.left, gy),
+          Offset(dst.right, gy),
+          Paint()
+            ..color = grid.withValues(alpha: 0.2 * near)
+            ..strokeWidth = 1);
     }
     // A soft glow band with a bright core.
     final band = math.max(30.0, dst.height * 0.08);
     final rect = Rect.fromLTRB(dst.left, y - band, dst.right, y + band);
     c.drawRect(rect, Paint()..shader = ui.Gradient.linear(rect.topCenter, rect.bottomCenter, [glow.withValues(alpha: 0), glow.withValues(alpha: 0.22), glow.withValues(alpha: 0)], [0, 0.5, 1]));
-    c.drawLine(Offset(dst.left, y), Offset(dst.right, y), Paint()..color = glow.withValues(alpha: 0.95)..strokeWidth = 1.6);
+    c.drawLine(
+        Offset(dst.left, y),
+        Offset(dst.right, y),
+        Paint()
+          ..color = glow.withValues(alpha: 0.95)
+          ..strokeWidth = 1.6);
   }
 
   @override

@@ -1,6 +1,7 @@
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 
+import '../ai/credit_bar.dart' show credits;
 import '../../core/api_client.dart';
 import '../../core/theme.dart';
 import '../../shared/forms/app_form_dialog.dart';
@@ -96,7 +97,7 @@ class _CreateAccountWizardState extends State<CreateAccountWizard> {
   /// Mall admin variant: who is already on a branch, by branch id.
   final Map<int, List<AccountMatch>> _branchAdmins = {};
 
-  (Account, String)? _created;
+  (Account, String, ({double credits, String? note})?)? _created;
 
   late final LiveCheck<EmailCheck> _emailCheck = LiveCheck<EmailCheck>(
     (v) async => looksLikeEmail(v) ? _checks.email(v.toLowerCase()) : null,
@@ -400,6 +401,15 @@ class _CreateAccountWizardState extends State<CreateAccountWizard> {
         CheckNote(NoteTone.ok, '${c.$1.fullName} can now sign in with ${c.$1.email} and this temporary password. They must change it at first sign-in.'),
         const SizedBox(height: 14),
         OneTimeSecretBox(c.$2),
+        // Round 19: a new mall admin starts with AI credits, as far as the wallet has free ones.
+        if (c.$3 != null) ...[
+          const SizedBox(height: 14),
+          CheckNote(
+            c.$3!.note == null ? NoteTone.ok : NoteTone.warn,
+            c.$3!.note ?? 'Starts with ${credits(c.$3!.credits)} AI credits for reading floor plans.',
+            key: const ValueKey('wizard-start-credits'),
+          ),
+        ],
       ],
     );
   }

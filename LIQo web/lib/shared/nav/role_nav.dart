@@ -65,7 +65,8 @@ const Map<String, RoleNav> roleNavs = {
     items: [
       NavItem('overview', _iOverview, 'Overview', '/superadmin/overview'),
       NavItem('accounts', _iPerson, 'Account management', '/superadmin/accounts'),
-      NavItem('profile_requests', Icons.how_to_reg_outlined, 'Profile requests', '/superadmin/profile-requests'),
+      // Round 19: profile changes, AI credit requests and problem reports in one place.
+      NavItem('requests', Icons.inbox_outlined, 'Requests & reports', '/superadmin/requests', also: ['/superadmin/profile-requests', '/superadmin/credit-requests', '/superadmin/reports']),
       NavItem('malls', _iStore, 'Malls & branches', '/superadmin/malls', also: ['/superadmin/branches']),
       NavItem('analytics', _iChart, 'Platform analytics', '/superadmin/analytics'),
       NavItem('audit', _iAudit, 'Audit log', '/superadmin/audit'),
@@ -89,7 +90,7 @@ const Map<String, RoleNav> roleNavs = {
       NavItem('maps', _iMap, 'Map viewer', '/mall-owner/maps'),
       NavItem('announcements', _iAnnounce, 'Announcements', '/mall-owner/announcements'),
       NavItem('analytics', _iChart, 'Analytics', '/mall-owner/analytics'),
-      NavItem('account', _iPerson, 'My account', '/mall-owner/account'),
+      NavItem('account', _iPerson, 'My account', '/mall-owner/account', also: ['/mall-owner/reports']),
     ],
   ),
   'mall_admin': RoleNav(
@@ -107,7 +108,7 @@ const Map<String, RoleNav> roleNavs = {
       NavItem('options', _iList, 'Option lists', '/mall-admin/options'),
       NavItem('announcements', _iAnnounce, 'Announcements', '/mall-admin/announcements'),
       NavItem('analytics', _iChart, 'Analytics', '/mall-admin/analytics'),
-      NavItem('account', _iPerson, 'My account', '/mall-admin/account'),
+      NavItem('account', _iPerson, 'My account', '/mall-admin/account', also: ['/mall-admin/reports']),
     ],
   ),
   'store_owner': RoleNav(
@@ -120,7 +121,7 @@ const Map<String, RoleNav> roleNavs = {
       NavItem('overview', _iOverview, 'Overview', '/store-owner/overview'),
       NavItem('my_stores', _iStore, 'My stores', '/store-owner/stores'),
       NavItem('announcements', _iAnnounce, 'Announcements', '/store-owner/announcements'),
-      NavItem('account', _iPerson, 'My account', '/store-owner/account'),
+      NavItem('account', _iPerson, 'My account', '/store-owner/account', also: ['/store-owner/reports']),
     ],
   ),
 };

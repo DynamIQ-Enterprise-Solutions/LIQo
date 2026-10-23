@@ -13,9 +13,7 @@ Future<bool> runAssignmentsFlow(BuildContext context, AccountsService service, A
     context: context,
     role: a.role,
     title: 'Assignments for ${a.fullName}',
-    subtitle: isOwnerRole
-        ? 'Saving replaces the whole set. A whole-mall assignment covers every branch of that mall.'
-        : 'A mall admin manages exactly one branch. Picking another branch replaces it.',
+    subtitle: isOwnerRole ? 'Saving replaces the whole set. A whole-mall assignment covers every branch of that mall.' : 'A mall admin manages exactly one branch. Picking another branch replaces it.',
     submitLabel: 'Save',
     initial: current,
     canCreateBranches: isSuper,

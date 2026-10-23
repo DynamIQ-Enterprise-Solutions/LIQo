@@ -12,6 +12,7 @@ import '../../shared/widgets/common.dart';
 import '../../shared/widgets/detail_widgets.dart';
 import '../accounts/accounts_service.dart' show roleLabels;
 import '../account/profile_service.dart';
+import '../ai/credits_service.dart' show requestCountsProvider;
 import 'profile_requests_view.dart';
 
 /// One profile change request: what changes, who asked, and the decision.
@@ -63,9 +64,7 @@ class _ProfileRequestDetailViewState extends ConsumerState<ProfileRequestDetailV
     final ok = await confirmDialog(
       context,
       title: 'Approve this change?',
-      message: r.emailChanged
-          ? '${r.currentName} will sign in with ${r.requestedEmail} from now on. Their password stays the same.'
-          : '${r.currentName} will be shown as ${r.requestedName}.',
+      message: r.emailChanged ? '${r.currentName} will sign in with ${r.requestedEmail} from now on. Their password stays the same.' : '${r.currentName} will be shown as ${r.requestedName}.',
       confirmLabel: 'Approve',
     );
     if (!ok) return;
@@ -73,6 +72,7 @@ class _ProfileRequestDetailViewState extends ConsumerState<ProfileRequestDetailV
       final updated = await _service.approve(r.id);
       setState(() => _r = updated);
       ref.invalidate(pendingProfileRequestsProvider);
+      ref.invalidate(requestCountsProvider);
       _msg('Approved. The account now has the new details.');
     } catch (e) {
       _msg(formatApiError(e), error: true);
@@ -105,80 +105,97 @@ class _ProfileRequestDetailViewState extends ConsumerState<ProfileRequestDetailV
     }
 
     return DetailScaffold(
-      eyebrow: 'Superadmin / Profile requests / ${r?.currentName ?? 'Request'}',
+      eyebrow: 'Superadmin / Requests & reports / ${r?.currentName ?? 'Request'}',
       title: r == null ? 'Change request' : 'Change request from ${r.currentName}',
       subtitle: r == null ? '' : 'Sent ${_fmt.format(r.createdAt)}',
-      backPath: '/superadmin/profile-requests',
-      backLabel: 'Profile requests',
-      pills: r == null ? const [] : [RequestStatusPill(r.status)],
+      backPath: '/superadmin/requests?tab=profile',
+      backLabel: 'Requests & reports',
+      hero: r == null
+          ? null
+          : RecordHero(
+              mark: HeroMark.initials(initialsOf(r.currentName)),
+              title: r.currentName,
+              sub: 'Profile change · ${roleLabels[r.role] ?? r.role}',
+              pills: [RequestStatusPill(r.status)],
+              line: 'Sent ${_fmt.format(r.createdAt)}',
+            ),
       loading: _loading,
       error: _error,
       onRetry: _load,
       children: r == null
           ? const []
           : [
-              DetailCard(
-                title: 'Change',
-                subtitle: r.pending ? 'Current details, struck through, and what they asked for' : 'What they asked for',
-                child: Column(
-                  children: [
-                    compareRow('Full name', r.currentName, r.requestedName, r.nameChanged),
-                    compareRow('Email', r.currentEmail, r.requestedEmail, r.emailChanged),
-                    if (r.pending && r.emailChanged)
-                      Padding(
-                        padding: const EdgeInsets.only(top: 8),
-                        child: Align(alignment: Alignment.centerLeft, child: Text('The email is their sign-in. After approval they sign in with the new one.', style: ts(11, color: p.muted))),
-                      ),
-                  ],
-                ),
-              ),
-              DetailCard(
-                title: 'Person',
-                subtitle: roleLabels[r.role] ?? r.role,
-                trailing: AppButton(label: 'Open account', small: true, icon: Icons.person_outline, onPressed: () => context.go('/superadmin/accounts/${r.userId}')),
-                child: Column(
-                  children: [
-                    DetailRow('Name', r.currentName),
-                    DetailRow('Email', r.currentEmail),
-                    DetailRow('Role', roleLabels[r.role] ?? r.role),
-                  ],
-                ),
-              ),
-              DetailCard(
-                title: 'Decision',
-                subtitle: r.pending ? 'Approve to apply the change, or reject it with a reason the person will see' : 'Already decided',
-                trailing: r.pending && !_rejecting ? AppButton(label: 'Approve', small: true, primary: true, icon: Icons.check_circle_outline, onPressed: _approve) : null,
-                child: !r.pending
-                    ? Column(
-                        children: [
-                          DetailRow('Status', null, child: Align(alignment: Alignment.centerLeft, child: RequestStatusPill(r.status))),
-                          if (r.reviewedBy != null) DetailRow('Decided by', r.reviewedBy),
-                          if (r.reviewedAt != null) DetailRow('On', _fmt.format(r.reviewedAt!)),
-                          if (r.reason != null) DetailRow('Reason', r.reason),
-                        ],
-                      )
-                    : _rejecting
-                        ? AppFormBody(
-                            fields: const [FieldSpec(name: 'reason', label: 'Reason', kind: FieldKind.multiline, required: true, maxLength: 500, hint: 'Tell them what to change, e.g. "Use your work email."')],
-                            submitLabel: 'Reject',
-                            onSubmit: (v) async {
-                              final updated = await _service.reject(r.id, v['reason'] as String);
-                              setState(() => _r = updated);
-                              ref.invalidate(pendingProfileRequestsProvider);
-                            },
-                            onCancel: () => setState(() => _rejecting = false),
-                            onDone: () {
-                              setState(() => _rejecting = false);
-                              _msg('Rejected. The person sees your reason.');
-                            },
-                          )
-                        : Row(
-                            children: [
-                              Expanded(child: Text('Nothing about the account changes until you approve.', style: ts(12, color: p.muted))),
-                              const SizedBox(width: 10),
-                              AppButton(label: 'Reject…', small: true, icon: Icons.undo, onPressed: () => setState(() => _rejecting = true)),
-                            ],
+              DetailColumns(
+                facts: [
+                  DetailCard(
+                    title: 'Change',
+                    subtitle: r.pending ? 'Current details, struck through, and what they asked for' : 'What they asked for',
+                    child: Column(
+                      children: [
+                        compareRow('Full name', r.currentName, r.requestedName, r.nameChanged),
+                        compareRow('Email', r.currentEmail, r.requestedEmail, r.emailChanged),
+                        if (r.pending && r.emailChanged)
+                          Padding(
+                            padding: const EdgeInsets.only(top: 8),
+                            child: Align(alignment: Alignment.centerLeft, child: Text('The email is their sign-in. After approval they sign in with the new one.', style: ts(11, color: p.muted))),
                           ),
+                      ],
+                    ),
+                  ),
+                  DetailCard(
+                    title: 'Person',
+                    subtitle: roleLabels[r.role] ?? r.role,
+                    trailing: AppButton(label: 'Open account', small: true, icon: Icons.person_outline, onPressed: () => context.go('/superadmin/accounts/${r.userId}')),
+                    child: Column(
+                      children: [
+                        DetailRow('Name', r.currentName),
+                        DetailRow('Email', r.currentEmail),
+                        DetailRow('Role', roleLabels[r.role] ?? r.role),
+                      ],
+                    ),
+                  ),
+                ],
+                lists: [
+                  DetailCard(
+                    title: 'Decision',
+                    subtitle: r.pending ? 'Approve to apply the change, or reject it with a reason the person will see' : 'Already decided',
+                    trailing: r.pending && !_rejecting ? AppButton(label: 'Approve', small: true, primary: true, icon: Icons.check_circle_outline, onPressed: _approve) : null,
+                    child: !r.pending
+                        ? Column(
+                            children: [
+                              DetailRow('Status', null, child: Align(alignment: Alignment.centerLeft, child: RequestStatusPill(r.status))),
+                              if (r.reviewedBy != null) DetailRow('Decided by', r.reviewedBy),
+                              if (r.reviewedAt != null) DetailRow('On', _fmt.format(r.reviewedAt!)),
+                              if (r.reason != null) DetailRow('Reason', r.reason),
+                            ],
+                          )
+                        : _rejecting
+                            ? AppFormBody(
+                                fields: const [
+                                  FieldSpec(name: 'reason', label: 'Reason', kind: FieldKind.multiline, required: true, maxLength: 500, hint: 'Tell them what to change, e.g. "Use your work email."')
+                                ],
+                                submitLabel: 'Reject',
+                                onSubmit: (v) async {
+                                  final updated = await _service.reject(r.id, v['reason'] as String);
+                                  setState(() => _r = updated);
+                                  ref.invalidate(pendingProfileRequestsProvider);
+                                  ref.invalidate(requestCountsProvider);
+                                },
+                                onCancel: () => setState(() => _rejecting = false),
+                                onDone: () {
+                                  setState(() => _rejecting = false);
+                                  _msg('Rejected. The person sees your reason.');
+                                },
+                              )
+                            : Row(
+                                children: [
+                                  Expanded(child: Text('Nothing about the account changes until you approve.', style: ts(12, color: p.muted))),
+                                  const SizedBox(width: 10),
+                                  AppButton(label: 'Reject…', small: true, icon: Icons.undo, onPressed: () => setState(() => _rejecting = true)),
+                                ],
+                              ),
+                  ),
+                ],
               ),
             ],
     );

@@ -14,6 +14,8 @@ import '../../shared/widgets/common.dart';
 import '../../shared/widgets/skeleton.dart';
 import '../ai/ai_service.dart';
 import '../ai/credit_bar.dart';
+import '../ai/my_credits.dart';
+import '../ai/credits_service.dart';
 import 'ai_scan_dialog.dart';
 import 'editor_state.dart';
 import 'maps_service.dart';
@@ -115,6 +117,7 @@ class _BlueprintPanelState extends ConsumerState<BlueprintPanel> {
     final err = await work;
     // The wallet changed (or the reason it failed may have): refresh the credit bar.
     ref.invalidate(aiStatusProvider);
+    ref.invalidate(myCreditsProvider);
     if (err != null) {
       if (scan == null) {
         _msg(err, error: true);
@@ -376,11 +379,12 @@ class _AiReadiness extends ConsumerWidget {
             ],
           ),
           data: (s) {
-            if (s.blocker != null) return Text(s.blocker!, key: const ValueKey('ai-blocker'), style: ts(11, color: p.warn));
+            // Round 19: running out of credits shows the admin's own credits and Request credits instead.
+            if (s.blocker != null && !s.outOfCredits) return Text(s.blocker!, key: const ValueKey('ai-blocker'), style: ts(11, color: p.warn));
             return Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                if (s.quota != null && !s.quota!.isEmpty) CreditBar(quota: s.quota!, compact: true),
+                AiReadingCredits(status: s),
                 if (s.quotaError != null) Text(s.quotaError!, style: ts(11, color: p.warn)),
               ],
             );

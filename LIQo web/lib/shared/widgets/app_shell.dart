@@ -6,7 +6,8 @@ import '../../core/config.dart';
 import '../../core/session.dart';
 import '../../core/theme.dart';
 import '../../core/theme_mode.dart';
-import '../../features/account/profile_service.dart';
+import '../../features/ai/credits_service.dart' show requestCountsProvider;
+import '../../features/reports/report_problem.dart';
 import '../../features/auth/auth_service.dart';
 import '../nav/role_nav.dart';
 import 'common.dart';
@@ -122,6 +123,11 @@ class TopBar extends ConsumerWidget {
                   ),
                   child: Text(nav.name.toUpperCase(), style: ts(10, w: FontWeight.w700, color: p.demoText, ls: 1.2)),
                 ),
+                const SizedBox(width: 12),
+              ],
+              // Round 19: anyone but a superadmin can report a problem from any page.
+              if (user != null && user.role != 'superadmin') ...[
+                _ReportButton(compact: mobile),
                 const SizedBox(width: 12),
               ],
               Tooltip(
@@ -259,7 +265,8 @@ class _SidebarState extends ConsumerState<Sidebar> {
     final active = nav.itemForPath(location);
     _measure(active?.id);
     // Waiting profile change requests, shown as a count on their sidebar item.
-    final waiting = user?.role == 'superadmin' ? (ref.watch(pendingProfileRequestsProvider).valueOrNull ?? 0) : 0;
+    // Round 19: everything waiting on Requests & reports (profile changes, AI credits, reports).
+    final waiting = user?.role == 'superadmin' ? (ref.watch(requestCountsProvider).valueOrNull?.total ?? 0) : 0;
 
     return Container(
       width: mobile ? 68 : 238,
@@ -313,7 +320,7 @@ class _SidebarState extends ConsumerState<Sidebar> {
                           item: item,
                           active: item.id == active?.id,
                           compact: mobile,
-                          badge: item.id == 'profile_requests' ? waiting : 0,
+                          badge: item.id == 'requests' ? waiting : 0,
                           onTap: () => context.go(item.path),
                         ),
                         const SizedBox(height: 4),
@@ -445,5 +452,40 @@ class _NavButtonState extends State<_NavButton> {
     );
 
     return widget.compact ? Tooltip(message: item.label, child: button) : button;
+  }
+}
+
+/// "Report a problem" in the top bar: the page the person is on goes with the report.
+class _ReportButton extends ConsumerWidget {
+  const _ReportButton({required this.compact});
+
+  final bool compact;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final p = context.pal;
+    final button = SizedBox(
+      height: 34,
+      child: Material(
+        color: p.panel,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(9), side: BorderSide(color: p.fieldLine)),
+        child: InkWell(
+          key: const ValueKey('report-problem'),
+          borderRadius: BorderRadius.circular(9),
+          onTap: () => showReportProblemDialog(context, ref, pagePath: GoRouterState.of(context).uri.path),
+          child: Padding(
+            padding: EdgeInsets.symmetric(horizontal: compact ? 8 : 12),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.flag_outlined, size: 16, color: p.btnText),
+                if (!compact) ...[const SizedBox(width: 6), Text('Report a problem', style: ts(12, w: FontWeight.w600, color: p.btnText))],
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+    return compact ? Tooltip(message: 'Report a problem', child: button) : button;
   }
 }

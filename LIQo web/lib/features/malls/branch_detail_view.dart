@@ -97,7 +97,8 @@ class _BranchDetailViewState extends ConsumerState<BranchDetailView> {
       final ok = await confirmDangerous(
         context,
         title: 'Deactivate ${b.name}?',
-        impact: 'This hides ${countOf(i.stores, 'store', 'stores')}. Access is paused for ${countOf(i.storeOwners, 'store owner', 'store owners')} and ${countOf(i.mallAdmins, 'mall admin', 'mall admins')} '
+        impact:
+            'This hides ${countOf(i.stores, 'store', 'stores')}. Access is paused for ${countOf(i.storeOwners, 'store owner', 'store owners')} and ${countOf(i.mallAdmins, 'mall admin', 'mall admins')} '
             'until it is reactivated. Nothing is deleted.',
         name: b.name,
         confirmLabel: 'Deactivate branch',
@@ -162,103 +163,127 @@ class _BranchDetailViewState extends ConsumerState<BranchDetailView> {
       subtitle: b == null ? '' : 'Branch of ${b.mallName}',
       backPath: backPath,
       backLabel: listLabel,
-      pills: b == null ? const [] : [StatusPill(active: b.isActive)],
+      hero: b == null
+          ? null
+          : RecordHero(
+              mark: HeroMark.logo(logoUrl: b.logoUrl, name: b.mallName),
+              title: b.name,
+              sub: 'Branch of ${b.mallName}',
+              pills: [StatusPill(active: b.isActive)],
+              line: [
+                countOf(_storeCount, 'store', 'stores'),
+                if (map != null) !map.hasMap ? 'No map yet' : (map.publishedVersion == null ? 'Map: draft only' : 'Map: published version ${map.publishedVersion}'),
+              ].join(' · '),
+            ),
       loading: _loading,
       error: _error,
       onRetry: _load,
       children: b == null
           ? const []
           : [
-              DetailCard(
-                title: 'Details',
-                subtitle: isSuper ? 'Name, mall, address, hours and contacts' : 'Address, hours and contacts',
-                trailing: _editing ? null : AppButton(label: isSuper ? 'Edit' : 'Edit information', small: true, icon: Icons.edit_outlined, onPressed: () => setState(() => _editing = true)),
-                child: _editing
-                    ? AppFormBody(
-                        fields: branchFields(full: isSuper),
-                        initial: branchInitial(b),
-                        onSubmit: (v) async {
-                          final updated = await _service.updateBranch(b.id, branchBody(v, b, full: isSuper));
-                          setState(() => _branch = updated);
-                        },
-                        onCancel: () => setState(() => _editing = false),
-                        onDone: () {
-                          setState(() => _editing = false);
-                          _msg('Branch updated.');
-                        },
-                      )
-                    : Column(
-                        children: [
-                          DetailRow('Mall', b.mallName),
-                          DetailRow('Address', b.address),
-                          DetailRow('Opening hours', b.openingHours),
-                          DetailRow('Phone', b.contactPhone),
-                          DetailRow('Email', b.contactEmail),
-                          DetailRow('Logo', null, child: _LogoBlock(url: b.logoUrl, name: b.name)),
-                        ],
-                      ),
-              ),
-              DetailCard(
-                title: 'Stores at this branch',
-                subtitle: _storeCount == 0 ? 'None yet' : '${countOf(_storeCount, 'store', 'stores')}${b.isActive ? '' : ' · hidden while inactive'}',
-                trailing: storesPath == null ? null : AppButton(label: 'All stores', small: true, icon: Icons.storefront_outlined, onPressed: () => context.go(storesPath)),
-                child: _stores.isEmpty
-                    ? Text('No store yet.', style: ts(12, color: p.muted))
-                    : Column(
-                        children: [
-                          for (final s in _stores)
-                            RecordRow(
-                              title: s.name,
-                              subtitle: s.categoryName ?? 'No category',
-                              chips: [StatusPill(active: s.isActive), Pill('${s.spaceCount} on map', kind: PillKind.off)],
-                              onTap: storesPath == null ? null : () => context.go('$storesPath/${s.id}'),
-                            ),
-                          if (_storeCount > _stores.length) Padding(padding: const EdgeInsets.only(top: 10), child: Text('Showing ${_stores.length} of $_storeCount.', style: ts(11, color: p.muted))),
-                        ],
-                      ),
-              ),
-              DetailCard(
-                title: 'Map',
-                subtitle: (map == null || !map.hasMap ? 'No map yet' : (map.publishedVersion == null ? 'Draft only' : 'Published version ${map.publishedVersion}')) + (b.isActive ? '' : ' · hidden while inactive'),
-                trailing: role == 'mall_admin'
-                    ? AppButton(label: 'Open in editor', small: true, icon: Icons.architecture, onPressed: () => context.go('/mall-admin/map-editor'))
-                    : role == 'supervisor'
-                        ? AppButton(label: 'Open viewer', small: true, icon: Icons.map_outlined, onPressed: () => context.go('/mall-owner/maps?branch=${b.id}'))
-                        : null,
-                child: map == null || !map.hasMap
-                    ? Text('The mall admin draws the map in the editor. Shoppers can navigate this branch once a version is published.', style: ts(12, color: p.muted))
-                    : Column(
-                        children: [
-                          DetailRow('State', map.publishedVersion == null ? 'Draft only' : 'Published'),
-                          DetailRow('Spaces', '${map.spaceCount}'),
-                          if (map.publishedAt != null) DetailRow('Last published', _fmt.format(map.publishedAt!)),
-                          if (map.lockedBy != null) DetailRow('Being edited by', map.lockedBy),
-                          if (map.lockedBy != null && isSuper)
-                            Padding(
-                              padding: const EdgeInsets.only(top: 10),
-                              child: Row(
-                                children: [
-                                  Expanded(child: Text('Stuck because an editor was closed or crashed? The lock clears itself within 5 minutes, or release it now.', style: ts(11.5, color: p.muted))),
-                                  const SizedBox(width: 12),
-                                  DangerButton(key: const ValueKey('release-lock'), label: 'Release the lock', onPressed: _releaseLock),
-                                ],
-                              ),
-                            ),
-                        ],
-                      ),
-              ),
-              if (canToggle)
-                if (b.isActive)
-                  DangerZone(actions: [
-                    DangerAction(label: 'Deactivate', description: 'Hide this branch and its stores. Store owners and mall admins on it lose access until it is reactivated. Nothing is deleted.', onTap: () => _setActive(false)),
-                  ])
-                else
+              DetailColumns(
+                facts: [
                   DetailCard(
-                    title: 'Reactivate',
-                    subtitle: 'This branch is inactive',
-                    trailing: AppButton(label: 'Reactivate', small: true, primary: true, icon: Icons.play_circle_outline, onPressed: () => _setActive(true)),
-                    child: Text('Its stores and map are hidden from shoppers, its mall admin and store owners until it is reactivated. You can still view them here.', style: ts(12, color: p.muted)),
+                    title: 'Details',
+                    subtitle: isSuper ? 'Name, mall, address, hours and contacts' : 'Address, hours and contacts',
+                    trailing: _editing ? null : AppButton(label: isSuper ? 'Edit' : 'Edit information', small: true, icon: Icons.edit_outlined, onPressed: () => setState(() => _editing = true)),
+                    child: _editing
+                        ? AppFormBody(
+                            fields: branchFields(full: isSuper),
+                            initial: branchInitial(b),
+                            onSubmit: (v) async {
+                              final updated = await _service.updateBranch(b.id, branchBody(v, b, full: isSuper));
+                              setState(() => _branch = updated);
+                            },
+                            onCancel: () => setState(() => _editing = false),
+                            onDone: () {
+                              setState(() => _editing = false);
+                              _msg('Branch updated.');
+                            },
+                          )
+                        : Column(
+                            children: [
+                              DetailRow('Mall', b.mallName),
+                              DetailRow('Address', b.address),
+                              DetailRow('Opening hours', b.openingHours),
+                              DetailRow('Phone', b.contactPhone),
+                              DetailRow('Email', b.contactEmail),
+                              DetailRow('Logo', null, child: _LogoBlock(url: b.logoUrl, name: b.name)),
+                            ],
+                          ),
                   ),
+                  DetailCard(
+                    title: 'Map',
+                    subtitle: (map == null || !map.hasMap ? 'No map yet' : (map.publishedVersion == null ? 'Draft only' : 'Published version ${map.publishedVersion}')) +
+                        (b.isActive ? '' : ' · hidden while inactive'),
+                    trailing: role == 'mall_admin'
+                        ? AppButton(label: 'Open in editor', small: true, icon: Icons.architecture, onPressed: () => context.go('/mall-admin/map-editor'))
+                        : role == 'supervisor'
+                            ? AppButton(label: 'Open viewer', small: true, icon: Icons.map_outlined, onPressed: () => context.go('/mall-owner/maps?branch=${b.id}'))
+                            : null,
+                    child: map == null || !map.hasMap
+                        ? Text('The mall admin draws the map in the editor. Shoppers can navigate this branch once a version is published.', style: ts(12, color: p.muted))
+                        : Column(
+                            children: [
+                              DetailRow('State', map.publishedVersion == null ? 'Draft only' : 'Published'),
+                              DetailRow('Spaces', '${map.spaceCount}'),
+                              if (map.publishedAt != null) DetailRow('Last published', _fmt.format(map.publishedAt!)),
+                              if (map.lockedBy != null) DetailRow('Being edited by', map.lockedBy),
+                              if (map.lockedBy != null && isSuper)
+                                Padding(
+                                  padding: const EdgeInsets.only(top: 10),
+                                  child: Row(
+                                    children: [
+                                      Expanded(
+                                          child: Text('Stuck because an editor was closed or crashed? The lock clears itself within 5 minutes, or release it now.', style: ts(11.5, color: p.muted))),
+                                      const SizedBox(width: 12),
+                                      DangerButton(key: const ValueKey('release-lock'), label: 'Release the lock', onPressed: _releaseLock),
+                                    ],
+                                  ),
+                                ),
+                            ],
+                          ),
+                  ),
+                  if (canToggle && !b.isActive)
+                    DetailCard(
+                      title: 'Reactivate',
+                      subtitle: 'This branch is inactive',
+                      trailing: AppButton(label: 'Reactivate', small: true, primary: true, icon: Icons.play_circle_outline, onPressed: () => _setActive(true)),
+                      child: Text('Its stores and map are hidden from shoppers, its mall admin and store owners until it is reactivated. You can still view them here.', style: ts(12, color: p.muted)),
+                    ),
+                ],
+                lists: [
+                  DetailCard(
+                    title: 'Stores at this branch',
+                    subtitle: _storeCount == 0 ? 'None yet' : '${countOf(_storeCount, 'store', 'stores')}${b.isActive ? '' : ' · hidden while inactive'}',
+                    trailing: storesPath == null ? null : AppButton(label: 'All stores', small: true, icon: Icons.storefront_outlined, onPressed: () => context.go(storesPath)),
+                    child: _stores.isEmpty
+                        ? Text('No store yet.', style: ts(12, color: p.muted))
+                        : Column(
+                            children: [
+                              for (final s in _stores)
+                                RecordRow(
+                                  title: s.name,
+                                  subtitle: s.categoryName ?? 'No category',
+                                  chips: [StatusPill(active: s.isActive), Pill('${s.spaceCount} on map', kind: PillKind.off)],
+                                  onTap: storesPath == null ? null : () => context.go('$storesPath/${s.id}'),
+                                ),
+                              if (_storeCount > _stores.length)
+                                Padding(padding: const EdgeInsets.only(top: 10), child: Text('Showing ${_stores.length} of $_storeCount.', style: ts(11, color: p.muted))),
+                            ],
+                          ),
+                  ),
+                ],
+                after: [
+                  if (canToggle && b.isActive)
+                    DangerZone(actions: [
+                      DangerAction(
+                          label: 'Deactivate',
+                          description: 'Hide this branch and its stores. Store owners and mall admins on it lose access until it is reactivated. Nothing is deleted.',
+                          onTap: () => _setActive(false)),
+                    ]),
+                ],
+              ),
             ],
     );
   }

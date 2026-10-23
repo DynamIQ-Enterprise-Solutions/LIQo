@@ -72,9 +72,7 @@ class _AnnouncementsViewState extends ConsumerState<AnnouncementsView> {
     final ok = await showAppForm(
       context: context,
       title: owner ? 'Submit announcement' : 'Post announcement',
-      subtitle: owner
-          ? 'Your mall admin reviews it before it is published.'
-          : 'Published immediately to the chosen branches for the dates below.',
+      subtitle: owner ? 'Your mall admin reviews it before it is published.' : 'Published immediately to the chosen branches for the dates below.',
       submitLabel: owner ? 'Submit for review' : 'Publish',
       initial: {'startsOn': startsOn, 'endsOn': endsOn},
       fields: announcementFields(owner: owner),

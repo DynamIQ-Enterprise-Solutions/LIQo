@@ -15,6 +15,8 @@ import '../accounts/accounts_service.dart' show roleLabels;
 import '../overview/overview_service.dart';
 import 'analytics_service.dart';
 import 'charts.dart';
+import 'credits_section.dart';
+import '../ai/credits_service.dart' show creditsOverviewProvider;
 import 'csv_download.dart';
 import 'csv_export.dart';
 
@@ -69,6 +71,7 @@ class _AnalyticsViewState extends ConsumerState<AnalyticsView> {
               onPressed: () {
                 ref.invalidate(overviewProvider);
                 ref.invalidate(analyticsReportProvider);
+                ref.invalidate(creditsOverviewProvider);
               },
             ),
           ],
@@ -130,6 +133,11 @@ class _AnalyticsViewState extends ConsumerState<AnalyticsView> {
             announcementsPath: nav.items.where((i) => i.id == 'announcements').firstOrNull?.path,
           ),
         ),
+        // Round 19: AI credits (superadmin: everything; mall owner: their admins, read only).
+        if (nav.role == 'superadmin' || nav.role == 'supervisor') ...[
+          const SizedBox(height: 18),
+          CreditsSection(days: _days, superadmin: nav.role == 'superadmin'),
+        ],
       ],
     );
   }
@@ -184,7 +192,9 @@ class _Sections extends StatelessWidget {
     ];
 
     // --- Accounts ---
-    final roleSlices = [for (var i = 0; i < r.accounts.byRole.length; i++) ChartSlice(name: roleLabels[r.accounts.byRole[i].role] ?? r.accounts.byRole[i].role, value: r.accounts.byRole[i].total, color: col(i))];
+    final roleSlices = [
+      for (var i = 0; i < r.accounts.byRole.length; i++) ChartSlice(name: roleLabels[r.accounts.byRole[i].role] ?? r.accounts.byRole[i].role, value: r.accounts.byRole[i].total, color: col(i))
+    ];
 
     // --- Announcements ---
     final an = r.announcements;
@@ -295,8 +305,16 @@ class _Sections extends StatelessWidget {
                 spacing: 24,
                 runSpacing: 16,
                 children: [
-                  SizedBox(width: 260, child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text('By status', style: ts(11, w: FontWeight.w700, color: p.muted)), const SizedBox(height: 6), CategoryBars(items: statusBars, shown: shown)])),
-                  SizedBox(width: 260, child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text('Approved, by time', style: ts(11, w: FontWeight.w700, color: p.muted)), const SizedBox(height: 6), CategoryBars(items: timeBars, shown: shown)])),
+                  SizedBox(
+                      width: 260,
+                      child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [Text('By status', style: ts(11, w: FontWeight.w700, color: p.muted)), const SizedBox(height: 6), CategoryBars(items: statusBars, shown: shown)])),
+                  SizedBox(
+                      width: 260,
+                      child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [Text('Approved, by time', style: ts(11, w: FontWeight.w700, color: p.muted)), const SizedBox(height: 6), CategoryBars(items: timeBars, shown: shown)])),
                 ],
               ),
             ),
@@ -310,9 +328,7 @@ class _Sections extends StatelessWidget {
         const SizedBox(height: 18),
         _card(
           title: 'Pending review',
-          subtitle: an.decided == 0
-              ? 'Nothing was decided in the last ${r.days} days'
-              : '${an.decided} decided in the last ${r.days} days, average ${an.avgDecisionDays ?? 0} days to a decision',
+          subtitle: an.decided == 0 ? 'Nothing was decided in the last ${r.days} days' : '${an.decided} decided in the last ${r.days} days, average ${an.avgDecisionDays ?? 0} days to a decision',
           child: BreakdownTable(
             columns: const ['Title', 'From', 'Store / branches', 'Submitted', 'Waiting'],
             numericFrom: 4,
@@ -332,7 +348,9 @@ class _Sections extends StatelessWidget {
           child: BreakdownTable(
             columns: const ['Branch', 'Mall', 'Live', 'Pending', 'All time'],
             numericFrom: 2,
-            rows: [for (final b in an.byBranch) [b.branch, b.mall, '${b.live}', '${b.pending}', '${b.total}']],
+            rows: [
+              for (final b in an.byBranch) [b.branch, b.mall, '${b.live}', '${b.pending}', '${b.total}']
+            ],
             emptyText: 'No branches in your scope.',
           ),
         ),
@@ -392,7 +410,9 @@ class _Sections extends StatelessWidget {
               child: BreakdownTable(
                 columns: const ['Email', 'Failures'],
                 widths: const [240, 90],
-                rows: [for (final f in sec.topFailures) [f.name, '${f.count}']],
+                rows: [
+                  for (final f in sec.topFailures) [f.name, '${f.count}']
+                ],
                 emptyText: 'No failed sign-ins in this period.',
               ),
             ),

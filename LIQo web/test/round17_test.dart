@@ -242,7 +242,8 @@ void main() {
     await _steps(tester, 4);
     expect(find.byKey(const ValueKey('map3d-panel')), findsOneWidget);
     expect(find.byKey(const ValueKey('map3d-placeholder')), findsOneWidget);
-    await tester.tap(find.byTooltip('Collapse'));
+    // The button has no tooltip any more (tooltips froze the map editor page), so it is found by its key.
+    await tester.tap(find.byKey(const ValueKey('map3d-collapse')));
     await _steps(tester, 3);
     expect(find.byKey(const ValueKey('map3d-panel')), findsNothing);
     expect(find.byKey(const ValueKey('map3d-expand')), findsOneWidget);

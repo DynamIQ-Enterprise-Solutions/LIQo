@@ -6,6 +6,7 @@ import 'package:intl/intl.dart';
 import '../../core/api_client.dart';
 import '../../core/session.dart';
 import '../../core/theme.dart';
+import '../malls/malls_view.dart' show countOf;
 import '../../shared/forms/app_form_dialog.dart';
 import '../../shared/forms/field_spec.dart';
 import '../../shared/lists/list_scaffold.dart' show StatusPill;
@@ -151,85 +152,112 @@ class _OwnerDetailViewState extends ConsumerState<OwnerDetailView> {
       subtitle: o == null ? '' : 'Store owner · ${o.email}',
       backPath: asOwner ? '/mall-owner/stores' : '/mall-admin/owners',
       backLabel: asOwner ? 'Stores' : 'Store owners',
-      pills: o == null ? const [] : [StatusPill(active: o.isActive), if (o.mustChangePassword) const Pill('Temp password', kind: PillKind.pending)],
+      hero: o == null
+          ? null
+          : RecordHero(
+              mark: HeroMark.initials(initialsOf(o.fullName)),
+              title: o.fullName,
+              sub: o.email,
+              pills: [const Pill('Store owner', kind: PillKind.blue), StatusPill(active: o.isActive), if (o.mustChangePassword) const Pill('Temp password', kind: PillKind.pending)],
+              line: countOf(o.stores.length, 'store', 'stores'),
+            ),
       loading: _loading,
       error: _error,
       onRetry: _load,
       children: o == null
           ? const []
           : [
-              DetailCard(
-                title: 'Details',
-                subtitle: 'Name and email address',
-                trailing: canEdit && _edit == _Edit.none ? AppButton(label: 'Edit', small: true, icon: Icons.edit_outlined, onPressed: () => setState(() => _edit = _Edit.details)) : null,
-                child: _edit == _Edit.details
-                    ? AppFormBody(
-                        fields: _detailFields,
-                        initial: {'fullName': o.fullName, 'email': o.email},
-                        onSubmit: (v) async {
-                          final updated = await _service.updateOwner(o.id, email: v['email'] as String, fullName: v['fullName'] as String);
-                          setState(() => _o = updated);
-                        },
-                        onCancel: () => setState(() => _edit = _Edit.none),
-                        onDone: () {
-                          setState(() => _edit = _Edit.none);
-                          _msg('Updated.');
-                        },
-                      )
-                    : Column(
-                        children: [
-                          DetailRow('Full name', o.fullName),
-                          DetailRow('Email', o.email),
-                          DetailRow('Last sign-in', o.lastLoginAt == null ? 'Never' : _fmt.format(o.lastLoginAt!)),
-                          DetailRow('Password', o.mustChangePassword ? 'Temporary, must be changed at next sign-in' : 'Set by the person'),
-                        ],
-                      ),
-              ),
-              DetailCard(
-                title: 'Stores',
-                subtitle: o.stores.isEmpty ? 'None (the account is deactivated until a store is assigned)' : '${o.stores.length} store${o.stores.length == 1 ? '' : 's'}',
-                trailing: canEdit && _edit == _Edit.none ? AppButton(label: 'Assign a store', small: true, icon: Icons.add_business_outlined, onPressed: () => setState(() => _edit = _Edit.assign)) : null,
-                child: _edit == _Edit.assign
-                    ? AppFormBody(
-                        fields: const [FieldSpec(name: 'store', label: 'Store', kind: FieldKind.lookup, lookup: 'stores', required: true, hint: 'Choose a store…', help: 'An owner can have several stores. A deactivated owner is reactivated when a store is assigned.')],
-                        submitLabel: 'Assign',
-                        onSubmit: (v) async {
-                          final updated = await _service.assignOwner(o.id, (v['store'] as List<LookupItem>?)!.first.id);
-                          setState(() => _o = updated);
-                        },
-                        onCancel: () => setState(() => _edit = _Edit.none),
-                        onDone: () {
-                          setState(() => _edit = _Edit.none);
-                          _msg('Store assigned.');
-                        },
-                      )
-                    : o.stores.isEmpty
-                        ? Text('Assign a store to give this person something to manage.', style: ts(12, color: p.muted))
+              DetailColumns(
+                facts: [
+                  DetailCard(
+                    title: 'Details',
+                    subtitle: 'Name and email address',
+                    trailing: canEdit && _edit == _Edit.none ? AppButton(label: 'Edit', small: true, icon: Icons.edit_outlined, onPressed: () => setState(() => _edit = _Edit.details)) : null,
+                    child: _edit == _Edit.details
+                        ? AppFormBody(
+                            fields: _detailFields,
+                            initial: {'fullName': o.fullName, 'email': o.email},
+                            onSubmit: (v) async {
+                              final updated = await _service.updateOwner(o.id, email: v['email'] as String, fullName: v['fullName'] as String);
+                              setState(() => _o = updated);
+                            },
+                            onCancel: () => setState(() => _edit = _Edit.none),
+                            onDone: () {
+                              setState(() => _edit = _Edit.none);
+                              _msg('Updated.');
+                            },
+                          )
                         : Column(
                             children: [
-                              for (final s in o.stores)
-                                RecordRow(
-                                  title: s.name,
-                                  subtitle: s.branchName,
-                                  chips: [StatusPill(active: s.isActive)],
-                                  actions: [if (canEdit) DangerButton(label: 'Remove', onPressed: () => _unassign(s))],
-                                  onTap: canEdit ? () => context.go('/mall-admin/stores/${s.id}') : (asOwner ? () => context.go('/mall-owner/stores/${s.id}') : null),
-                                ),
+                              DetailRow('Full name', o.fullName),
+                              DetailRow('Email', o.email),
+                              DetailRow('Last sign-in', o.lastLoginAt == null ? 'Never' : _fmt.format(o.lastLoginAt!)),
+                              DetailRow('Password', o.mustChangePassword ? 'Temporary, must be changed at next sign-in' : 'Set by the person'),
                             ],
                           ),
+                  ),
+                  if (canEdit && !o.isActive)
+                    DetailCard(
+                      title: 'Reactivate',
+                      subtitle: 'This owner is inactive',
+                      trailing: AppButton(label: 'Reactivate', small: true, primary: true, icon: Icons.play_circle_outline, onPressed: _reactivate),
+                      child: Text('They cannot sign in until the account is reactivated. Stores stay assigned.', style: ts(12, color: p.muted)),
+                    ),
+                ],
+                lists: [
+                  DetailCard(
+                    title: 'Stores',
+                    subtitle: o.stores.isEmpty ? 'None (the account is deactivated until a store is assigned)' : '${o.stores.length} store${o.stores.length == 1 ? '' : 's'}',
+                    trailing: canEdit && _edit == _Edit.none
+                        ? AppButton(label: 'Assign a store', small: true, icon: Icons.add_business_outlined, onPressed: () => setState(() => _edit = _Edit.assign))
+                        : null,
+                    child: _edit == _Edit.assign
+                        ? AppFormBody(
+                            fields: const [
+                              FieldSpec(
+                                  name: 'store',
+                                  label: 'Store',
+                                  kind: FieldKind.lookup,
+                                  lookup: 'stores',
+                                  required: true,
+                                  hint: 'Choose a store…',
+                                  help: 'An owner can have several stores. A deactivated owner is reactivated when a store is assigned.')
+                            ],
+                            submitLabel: 'Assign',
+                            onSubmit: (v) async {
+                              final updated = await _service.assignOwner(o.id, (v['store'] as List<LookupItem>?)!.first.id);
+                              setState(() => _o = updated);
+                            },
+                            onCancel: () => setState(() => _edit = _Edit.none),
+                            onDone: () {
+                              setState(() => _edit = _Edit.none);
+                              _msg('Store assigned.');
+                            },
+                          )
+                        : o.stores.isEmpty
+                            ? Text('Assign a store to give this person something to manage.', style: ts(12, color: p.muted))
+                            : Column(
+                                children: [
+                                  for (final s in o.stores)
+                                    RecordRow(
+                                      title: s.name,
+                                      subtitle: s.branchName,
+                                      chips: [StatusPill(active: s.isActive)],
+                                      actions: [if (canEdit) DangerButton(label: 'Remove', onPressed: () => _unassign(s))],
+                                      onTap: canEdit ? () => context.go('/mall-admin/stores/${s.id}') : (asOwner ? () => context.go('/mall-owner/stores/${s.id}') : null),
+                                    ),
+                                ],
+                              ),
+                  ),
+                ],
+                after: [
+                  if (canEdit)
+                    DangerZone(actions: [
+                      DangerAction(label: 'Reset password', description: 'Give a new temporary password. The current one stops working.', onTap: _reset),
+                      if (o.isActive) DangerAction(label: 'Deactivate', description: 'Block sign-in. Stores stay assigned for a later reactivation.', onTap: _deactivate),
+                    ]),
+                ],
               ),
-              if (canEdit && !o.isActive)
-                DetailCard(
-                  title: 'Reactivate',
-                  subtitle: 'This owner is inactive',
-                  trailing: AppButton(label: 'Reactivate', small: true, primary: true, icon: Icons.play_circle_outline, onPressed: _reactivate),
-                  child: Text('They cannot sign in until the account is reactivated. Stores stay assigned.', style: ts(12, color: p.muted)),
-                ),
-              if (canEdit)
-                DangerZone(actions: [
-                  DangerAction(label: 'Reset password', description: 'Give a new temporary password. The current one stops working.', onTap: _reset),
-                  if (o.isActive) DangerAction(label: 'Deactivate', description: 'Block sign-in. Stores stay assigned for a later reactivation.', onTap: _deactivate),
-                ]),
             ],
     );
   }

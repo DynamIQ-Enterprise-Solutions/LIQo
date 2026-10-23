@@ -17,7 +17,14 @@ import 'stores_service.dart';
 List<FieldSpec> storeFields({required bool create}) => [
       FieldSpec(name: 'branch', label: 'Branch', kind: FieldKind.lookup, lookup: 'branches', required: true, readOnly: !create, hint: 'Choose a branch…'),
       const FieldSpec(name: 'name', label: 'Store name', required: true, maxLength: 200),
-      const FieldSpec(name: 'category', label: 'Category', kind: FieldKind.lookup, lookup: 'store_categories', lookupParentField: 'branch', hint: 'Choose a category…', help: 'Categories are managed under Option lists.'),
+      const FieldSpec(
+          name: 'category',
+          label: 'Category',
+          kind: FieldKind.lookup,
+          lookup: 'store_categories',
+          lookupParentField: 'branch',
+          hint: 'Choose a category…',
+          help: 'Categories are managed under Option lists.'),
       const FieldSpec(name: 'description', label: 'Description', kind: FieldKind.multiline, maxLength: 1000),
       const FieldSpec(name: 'openingHours', label: 'Opening hours', maxLength: 300, hint: 'Mon–Sun 10:00 AM – 9:00 PM'),
       const FieldSpec(name: 'contactPhone', label: 'Contact phone', maxLength: 50),
@@ -143,7 +150,9 @@ class _StoresViewState extends ConsumerState<StoresView> {
           })),
           searchHint: 'Search stores, branches, categories…',
           emptyText: owner ? 'No stores assigned to you yet.' : 'No stores yet.',
-          filters: const [FilterSpec(name: 'status', label: 'All statuses', options: {'': 'All statuses', 'active': 'Active', 'inactive': 'Inactive'})],
+          filters: const [
+            FilterSpec(name: 'status', label: 'All statuses', options: {'': 'All statuses', 'active': 'Active', 'inactive': 'Inactive'})
+          ],
           onRowTap: (s) => context.go('${nav.prefix}/stores/${s.id}'),
           columns: [
             ListColumn(

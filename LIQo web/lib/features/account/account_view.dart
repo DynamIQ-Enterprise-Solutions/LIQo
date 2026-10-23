@@ -15,7 +15,9 @@ import '../../shared/nav/role_nav.dart';
 import '../../shared/widgets/common.dart';
 import '../../shared/widgets/detail_widgets.dart';
 import '../../shared/widgets/skeleton.dart';
+import '../ai/my_credits.dart';
 import '../auth/auth_service.dart';
+import '../reports/report_problem.dart';
 import 'profile_service.dart';
 
 const _detailFields = [
@@ -41,6 +43,9 @@ class _AccountViewState extends ConsumerState<AccountView> {
   ProfileRequest? _request;
   bool _editing = false;
 
+  /// False until the first refresh finished: the page shows its skeleton (Round 19).
+  bool _ready = false;
+
   @override
   void initState() {
     super.initState();
@@ -54,11 +59,13 @@ class _AccountViewState extends ConsumerState<AccountView> {
       if (!mounted) return;
       await ref.read(sessionProvider.notifier).updateUser(me);
     } catch (_) {}
-    if (ref.read(currentUserProvider)?.role == 'superadmin') return;
-    try {
-      final r = await _service.myRequest();
-      if (mounted) setState(() => _request = r);
-    } catch (_) {}
+    if (ref.read(currentUserProvider)?.role != 'superadmin') {
+      try {
+        final r = await _service.myRequest();
+        if (mounted) setState(() => _request = r);
+      } catch (_) {}
+    }
+    if (mounted && !_ready) setState(() => _ready = true);
   }
 
   void _msg(String text, {bool error = false}) {
@@ -102,9 +109,7 @@ class _AccountViewState extends ConsumerState<AccountView> {
     final profile = DetailCard(
       title: 'Profile',
       subtitle: isSuper ? 'Changes apply at once' : 'Changes are approved by a superadmin',
-      trailing: _editing || waiting != null
-          ? null
-          : AppButton(label: isSuper ? 'Edit' : 'Request a change', small: true, icon: Icons.edit_outlined, onPressed: () => setState(() => _editing = true)),
+      trailing: _editing || waiting != null ? null : AppButton(label: isSuper ? 'Edit' : 'Request a change', small: true, icon: Icons.edit_outlined, onPressed: () => setState(() => _editing = true)),
       child: _editing
           ? AppFormBody(
               fields: _detailFields,
@@ -233,8 +238,23 @@ class _AccountViewState extends ConsumerState<AccountView> {
       ),
     );
 
-    final left = [profile, if (waitingCard != null) waitingCard, accessCard, session];
-    final right = [security, appearance];
+    // Round 19: a mall admin's own AI credits; everyone but a superadmin has My reports.
+    final role = user?.role;
+    final creditsCard = role == 'mall_admin' ? const DetailCard(title: 'AI credits', subtitle: 'For reading floor plans with AI', child: MyCreditsPanel()) : null;
+    final reportsCard = role != null && role != 'superadmin' ? const MyReportsCard() : null;
+
+    final left = [profile, if (waitingCard != null) waitingCard, accessCard, if (reportsCard != null) reportsCard, session];
+    final right = [if (creditsCard != null) creditsCard, security, appearance];
+
+    if (!_ready) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          PageHead(eyebrow: '${nav.name} / My account', title: 'My account', subtitle: 'Your profile, password and how the app looks for you.'),
+          const _AccountSkeleton(),
+        ],
+      );
+    }
     List<Widget> spaced(List<Widget> cards) => [
           for (var i = 0; i < cards.length; i++) ...[if (i > 0) const SizedBox(height: 18), cards[i]],
         ];
@@ -247,10 +267,17 @@ class _AccountViewState extends ConsumerState<AccountView> {
           title: 'My account',
           subtitle: 'Your profile, password and how the app looks for you.',
         ),
-        _Hero(name: user?.fullName ?? '', email: user?.email ?? '', initials: user?.initials ?? '?', roleName: nav.name, roleLine: nav.subtitle, active: user?.isActive == true),
+        // The same header card as every record page (Round 20).
+        RecordHero(
+          mark: HeroMark.initials(user?.initials ?? '?'),
+          title: user?.fullName ?? '',
+          sub: user?.email ?? '',
+          pills: [Pill(nav.name, kind: PillKind.blue), StatusPill(active: user?.isActive == true)],
+          line: nav.subtitle,
+        ),
         const SizedBox(height: 18),
         if (stacked)
-          ...spaced([profile, if (waitingCard != null) waitingCard, accessCard, security, appearance, session])
+          ...spaced([profile, if (waitingCard != null) waitingCard, if (creditsCard != null) creditsCard, accessCard, if (reportsCard != null) reportsCard, security, appearance, session])
         else
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -261,78 +288,6 @@ class _AccountViewState extends ConsumerState<AccountView> {
             ],
           ),
       ],
-    );
-  }
-}
-
-/// The person at a glance: a large avatar in the brand gradient, their name,
-/// email, role and what the role is for.
-class _Hero extends StatelessWidget {
-  const _Hero({required this.name, required this.email, required this.initials, required this.roleName, required this.roleLine, required this.active});
-
-  final String name;
-  final String email;
-  final String initials;
-  final String roleName;
-  final String roleLine;
-  final bool active;
-
-  @override
-  Widget build(BuildContext context) {
-    final p = context.pal;
-    final mobile = Bp.isMobile(context);
-    final avatar = Container(
-      width: mobile ? 64 : 80,
-      height: mobile ? 64 : 80,
-      alignment: Alignment.center,
-      decoration: BoxDecoration(
-        gradient: LinearGradient(begin: Alignment.topLeft, end: Alignment.bottomRight, colors: [p.brand, Pal.brandCrimson]),
-        shape: BoxShape.circle,
-        boxShadow: p.darkOnly(p.glow),
-      ),
-      child: Text(initials, style: ts(mobile ? 22 : 28, w: FontWeight.w800, color: p.avatarFg, ls: -0.5, height: 1.1)),
-    );
-    final who = Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Text(name, overflow: TextOverflow.ellipsis, maxLines: 2, style: ts(mobile ? 20 : 24, w: FontWeight.w800, color: p.ink, ls: -0.5, height: 1.2)),
-        const SizedBox(height: 3),
-        Text(email, overflow: TextOverflow.ellipsis, style: ts(13, color: p.muted)),
-        const SizedBox(height: 12),
-        Wrap(spacing: 8, runSpacing: 8, children: [Pill(roleName, kind: PillKind.blue), StatusPill(active: active)]),
-        const SizedBox(height: 12),
-        Text(roleLine, style: ts(12, color: p.muted)),
-      ],
-    );
-    return Container(
-      padding: EdgeInsets.all(mobile ? 18 : 26),
-      decoration: BoxDecoration(
-        color: p.panel,
-        border: Border.all(color: p.line),
-        borderRadius: BorderRadius.circular(14),
-        boxShadow: p.shadow,
-      ),
-      child: Stack(
-        clipBehavior: Clip.none,
-        children: [
-          // The brand's route line, a thin gradient along the top edge of the card.
-          Positioned(
-            left: 0,
-            right: 0,
-            top: mobile ? -18.0 : -26.0,
-            child: IgnorePointer(
-              child: Container(
-                height: 2,
-                decoration: BoxDecoration(gradient: LinearGradient(colors: [p.panel, p.brand, Pal.brandCrimson, p.panel], stops: const [0, 0.3, 0.7, 1])),
-              ),
-            ),
-          ),
-          mobile
-              ? Column(crossAxisAlignment: CrossAxisAlignment.start, children: [avatar, const SizedBox(height: 14), who])
-              : Row(crossAxisAlignment: CrossAxisAlignment.start, children: [avatar, const SizedBox(width: 22), Expanded(child: who)]),
-        ],
-      ),
     );
   }
 }
@@ -397,6 +352,55 @@ class _ModeChoice extends StatelessWidget {
           option(ThemeMode.light, Icons.light_mode_outlined, 'Light'),
           const SizedBox(width: 4),
           option(ThemeMode.system, Icons.brightness_auto_outlined, 'Device'),
+        ],
+      ),
+    );
+  }
+}
+
+/// My account while it loads: the hero, then two columns of cards (one when narrow).
+class _AccountSkeleton extends StatelessWidget {
+  const _AccountSkeleton();
+
+  @override
+  Widget build(BuildContext context) {
+    final p = context.pal;
+    final stacked = Bp.isTablet(context);
+    const left = [SkeletonCard(child: SkeletonForm(fields: 3)), SizedBox(height: 18), SkeletonCard(child: SkeletonRows(count: 2))];
+    const right = [
+      SkeletonCard(child: SkeletonLines(widths: [0.9, 0.6, 0.4], height: 10)),
+      SizedBox(height: 18),
+      SkeletonCard(child: SkeletonLines(widths: [0.7, 0.5], height: 10))
+    ];
+    return Shimmer(
+      key: const ValueKey('account-skeleton'),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Container(
+            height: 110,
+            decoration: BoxDecoration(color: p.panel, border: Border.all(color: p.line), borderRadius: BorderRadius.circular(14)),
+            padding: const EdgeInsets.all(20),
+            child: const Row(
+              children: [
+                Expanded(child: SkeletonBox(height: 64, radius: 32)),
+                SizedBox(width: 16),
+                Expanded(flex: 9, child: SkeletonLines(widths: [0.4, 0.6, 0.3], height: 11)),
+              ],
+            ),
+          ),
+          const SizedBox(height: 18),
+          if (stacked)
+            ...left + const [SizedBox(height: 18)] + right
+          else
+            const Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(child: Column(children: left)),
+                SizedBox(width: 18),
+                Expanded(child: Column(children: right)),
+              ],
+            ),
         ],
       ),
     );

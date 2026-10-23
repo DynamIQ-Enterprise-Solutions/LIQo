@@ -63,8 +63,7 @@ String reportCsv(AnalyticsReport r) {
     [],
     ['Map coverage'],
     ['Branch', 'Mall', 'State', 'Versions', 'Published version', 'Published on', 'Published by', 'Spaces', 'Named', 'Linked to a store'],
-    for (final m in r.maps.byBranch)
-      [m.branch, m.mall, _mapState[m.state] ?? m.state, m.versions, m.publishedVersion ?? '', _date(m.publishedAt), m.publishedBy ?? '', m.spaces, m.named, m.linked],
+    for (final m in r.maps.byBranch) [m.branch, m.mall, _mapState[m.state] ?? m.state, m.versions, m.publishedVersion ?? '', _date(m.publishedAt), m.publishedBy ?? '', m.spaces, m.named, m.linked],
   ];
   final sec = r.security;
   if (sec != null) {

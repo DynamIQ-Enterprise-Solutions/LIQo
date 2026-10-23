@@ -56,7 +56,9 @@ class _OwnersViewState extends ConsumerState<OwnersView> {
           fetch: _service.owners,
           searchHint: 'Search name or email…',
           emptyText: 'No store owners yet.',
-          filters: const [FilterSpec(name: 'status', label: 'All statuses', options: {'': 'All statuses', 'active': 'Active', 'inactive': 'Inactive'})],
+          filters: const [
+            FilterSpec(name: 'status', label: 'All statuses', options: {'': 'All statuses', 'active': 'Active', 'inactive': 'Inactive'})
+          ],
           onRowTap: (o) => context.go('/mall-admin/owners/${o.id}'),
           columns: [
             ListColumn(

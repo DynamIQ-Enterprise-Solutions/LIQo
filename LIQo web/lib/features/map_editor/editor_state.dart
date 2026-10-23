@@ -353,6 +353,7 @@ class EditorNotifier extends Notifier<EditorData> {
   /// Loads a document without the network. Used by widget tests; with
   /// [autosave] off no timers are created.
   @visibleForTesting
+
   /// [guided] is off by default here: most canvas tests exercise the advanced tools.
   void loadLocal(LayoutDoc doc, {MapCatalog? catalog, bool editable = true, bool autosave = false, bool guided = false}) {
     _saveTimer?.cancel();
@@ -1094,7 +1095,15 @@ class EditorNotifier extends Notifier<EditorData> {
     final lid = newId('lv');
     mutate((_) {
       doc.buildings.add(Building(id: bid, name: name, origin: origin ?? [0, 0], levels: [
-        Level(id: lid, name: 'Ground floor', outline: Poly(outer: [[0, 0], [40, 0], [40, 30], [0, 30]])),
+        Level(
+            id: lid,
+            name: 'Ground floor',
+            outline: Poly(outer: [
+              [0, 0],
+              [40, 0],
+              [40, 30],
+              [0, 30]
+            ])),
       ]));
     });
     state = state.copyWith(levelId: lid, selection: Selection(SelKind.building, bid));

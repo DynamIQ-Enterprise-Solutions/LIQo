@@ -106,8 +106,16 @@ class _Map3dPanelState extends ConsumerState<Map3dPanel> {
                 Icon(Icons.view_in_ar_outlined, size: 16, color: p.brand2),
                 const SizedBox(width: 6),
                 Expanded(child: Text('3D preview', style: ts(12, w: FontWeight.w700, color: p.ink), overflow: TextOverflow.ellipsis)),
-                IconButton(tooltip: 'Reset view', iconSize: 18, visualDensity: VisualDensity.compact, icon: Icon(Icons.center_focus_strong_outlined, color: p.slate), onPressed: _reset.fire),
-                IconButton(tooltip: 'Collapse', iconSize: 18, visualDensity: VisualDensity.compact, icon: Icon(Icons.chevron_right, color: p.slate), onPressed: widget.onCollapse),
+                // No tooltips inside the map editor (their overlay froze the page in debug mode).
+                Semantics(
+                    label: 'Reset view',
+                    button: true,
+                    child: IconButton(iconSize: 18, visualDensity: VisualDensity.compact, icon: Icon(Icons.center_focus_strong_outlined, color: p.slate), onPressed: _reset.fire)),
+                Semantics(
+                    label: 'Collapse',
+                    button: true,
+                    child: IconButton(
+                        key: const ValueKey('map3d-collapse'), iconSize: 18, visualDensity: VisualDensity.compact, icon: Icon(Icons.chevron_right, color: p.slate), onPressed: widget.onCollapse)),
               ],
             ),
           ),

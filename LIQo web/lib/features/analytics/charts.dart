@@ -576,8 +576,16 @@ class DeltaStat extends StatelessWidget {
   Widget build(BuildContext context) {
     final p = context.pal;
     final diff = value - previous;
-    final arrow = diff > 0 ? '▲' : diff < 0 ? '▼' : '•';
-    final tone = diff > 0 ? p.green : diff < 0 ? p.warn : p.muted;
+    final arrow = diff > 0
+        ? '▲'
+        : diff < 0
+            ? '▼'
+            : '•';
+    final tone = diff > 0
+        ? p.green
+        : diff < 0
+            ? p.warn
+            : p.muted;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
@@ -594,6 +602,103 @@ class DeltaStat extends StatelessWidget {
         CountUp(value: value, shown: shown, style: ts(18, w: FontWeight.w800, color: p.ink, height: 1.1)),
         Text('$arrow ${diff.abs()} vs previous ($previous)', style: ts(10, color: tone)),
       ],
+    );
+  }
+}
+
+/// An axis top for small decimal amounts (credits): 1, 2, 5 × 10ⁿ, also below 1.
+double niceMaxFine(double maxValue) {
+  if (maxValue <= 0) return 1;
+  final exp = math.pow(10, (math.log(maxValue) / math.ln10).floor()).toDouble();
+  for (final m in [1, 2, 5, 10]) {
+    if (m * exp >= maxValue - 1e-9) return m * exp;
+  }
+  return 10 * exp;
+}
+
+/// One bar per day for a decimal amount (AI credits used, Round 19). [days]
+/// and [values] line up; days without use are 0.
+class DailyAmountBars extends StatefulWidget {
+  const DailyAmountBars(
+      {super.key, required this.days, required this.values, required this.color, this.unit = 'credits', this.height = 180, this.emptyText = 'Nothing used in this period.', this.shown = true});
+
+  final List<DateTime> days;
+  final List<double> values;
+  final Color color;
+  final String unit;
+  final double height;
+  final String emptyText;
+  final bool shown;
+
+  @override
+  State<DailyAmountBars> createState() => _DailyAmountBarsState();
+}
+
+class _DailyAmountBarsState extends State<DailyAmountBars> with _Reveal {
+  static final _label = DateFormat('MMM d');
+
+  @override
+  bool get shownInput => widget.shown;
+
+  String _n(double v) => v == v.roundToDouble() ? v.toStringAsFixed(0) : v.toStringAsFixed(v < 1 ? 2 : 1);
+
+  @override
+  Widget build(BuildContext context) {
+    final p = context.pal;
+    final values = widget.values;
+    final maxValue = values.fold<double>(0, math.max);
+    if (values.isEmpty || maxValue <= 0) return ChartEmpty(widget.emptyText, height: widget.height);
+    final top = niceMaxFine(maxValue);
+    final xStep = math.max(1, (values.length / 7).ceil());
+    final scale = shown ? 1.0 : 0.0;
+    return SizedBox(
+      height: widget.height,
+      child: BarChart(
+        BarChartData(
+          alignment: BarChartAlignment.spaceAround,
+          minY: 0,
+          maxY: top,
+          barGroups: [
+            for (var i = 0; i < values.length; i++)
+              BarChartGroupData(x: i, barRods: [
+                BarChartRodData(
+                  toY: values[i] * scale,
+                  color: widget.color,
+                  width: values.length > 40 ? 4 : (values.length > 14 ? 8 : 16),
+                  borderRadius: const BorderRadius.vertical(top: Radius.circular(3)),
+                ),
+              ]),
+          ],
+          titlesData: FlTitlesData(
+            rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+            topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+            leftTitles: AxisTitles(
+              sideTitles: SideTitles(showTitles: true, reservedSize: 36, interval: top / 4, getTitlesWidget: (v, meta) => Text(_n(v), style: ts(10, color: p.chartText))),
+            ),
+            bottomTitles: AxisTitles(
+              sideTitles: SideTitles(
+                showTitles: true,
+                reservedSize: 24,
+                getTitlesWidget: (v, meta) {
+                  final i = v.round();
+                  if (i < 0 || i >= widget.days.length || i % xStep != 0) return const SizedBox.shrink();
+                  return Padding(padding: const EdgeInsets.only(top: 6), child: Text(_label.format(widget.days[i]), style: ts(10, color: p.chartText)));
+                },
+              ),
+            ),
+          ),
+          gridData: FlGridData(show: true, drawVerticalLine: false, horizontalInterval: top / 4, getDrawingHorizontalLine: (_) => FlLine(color: p.softLine, strokeWidth: 1)),
+          borderData: FlBorderData(show: false),
+          barTouchData: BarTouchData(
+            touchTooltipData: BarTouchTooltipData(
+              getTooltipColor: (_) => p.ink,
+              getTooltipItem: (group, gi, rod, ri) => BarTooltipItem('${_label.format(widget.days[gi])}: ${_n(values[gi])} ${widget.unit}', ts(11, color: p.panel)),
+            ),
+          ),
+        ),
+        duration: duration,
+        curve: _revealCurve,
+      ),
     );
   }
 }

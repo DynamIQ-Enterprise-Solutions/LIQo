@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../core/theme.dart';
 import 'common.dart';
+import 'logo_image.dart';
 import 'skeleton.dart';
 
 /// The building blocks of a record's page, laid out like the People page:
@@ -20,6 +21,7 @@ class DetailScaffold extends StatelessWidget {
     this.backLabel = 'Back',
     this.actions = const [],
     this.pills = const [],
+    this.hero,
     this.loading = false,
     this.error,
     this.onRetry,
@@ -33,6 +35,9 @@ class DetailScaffold extends StatelessWidget {
   final String backLabel;
   final List<Widget> actions;
   final List<Widget> pills;
+
+  /// The record's header card (Round 20), shown above the cards once loaded.
+  final Widget? hero;
   final bool loading;
   final String? error;
   final VoidCallback? onRetry;
@@ -53,7 +58,7 @@ class DetailScaffold extends StatelessWidget {
             ...actions,
           ],
         ),
-        if (pills.isNotEmpty)
+        if (pills.isNotEmpty && hero == null)
           Padding(
             padding: const EdgeInsets.only(bottom: 18),
             child: Wrap(spacing: 8, runSpacing: 8, children: pills),
@@ -70,23 +75,201 @@ class DetailScaffold extends StatelessWidget {
             ),
           )
         else if (loading)
+          // The page's own shape: the header card, then two columns (Round 20).
           const Shimmer(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                SkeletonCard(child: SkeletonForm(fields: 3)),
+                _HeroSkeleton(),
                 SizedBox(height: 18),
-                SkeletonCard(child: SkeletonRows(count: 3)),
+                DetailColumns(
+                  facts: [
+                    SkeletonCard(child: SkeletonForm(fields: 3)),
+                    SkeletonCard(child: SkeletonLines(widths: [0.8, 0.6, 0.4], height: 10))
+                  ],
+                  lists: [SkeletonCard(child: SkeletonRows(count: 3))],
+                ),
               ],
             ),
           )
-        else
+        else ...[
+          if (hero != null) ...[hero!, const SizedBox(height: 18)],
           for (var i = 0; i < children.length; i++) ...[
             if (i > 0) const SizedBox(height: 18),
             children[i],
           ],
+        ],
       ],
     );
+  }
+}
+
+class _HeroSkeleton extends StatelessWidget {
+  const _HeroSkeleton();
+
+  @override
+  Widget build(BuildContext context) {
+    final p = context.pal;
+    return Container(
+      height: 120,
+      padding: const EdgeInsets.all(22),
+      decoration: BoxDecoration(color: p.panel, border: Border.all(color: p.line), borderRadius: BorderRadius.circular(14)),
+      child: const Row(
+        children: [
+          Expanded(child: SkeletonBox(height: 72, radius: 36)),
+          SizedBox(width: 18),
+          Expanded(flex: 9, child: SkeletonLines(widths: [0.45, 0.3, 0.25], height: 12)),
+        ],
+      ),
+    );
+  }
+}
+
+/// The mark at the start of a [RecordHero]: initials (people), a logo (malls,
+/// stores), or an icon (everything else).
+class HeroMark extends StatelessWidget {
+  const HeroMark.initials(String this.initials, {super.key})
+      : logoUrl = null,
+        logoName = null,
+        icon = null;
+  const HeroMark.logo({super.key, required this.logoUrl, required String name})
+      : logoName = name,
+        initials = null,
+        icon = null;
+  const HeroMark.icon(IconData this.icon, {super.key})
+      : initials = null,
+        logoUrl = null,
+        logoName = null;
+
+  final String? initials;
+  final String? logoUrl;
+  final String? logoName;
+  final IconData? icon;
+
+  @override
+  Widget build(BuildContext context) {
+    final p = context.pal;
+    final size = Bp.isMobile(context) ? 64.0 : 80.0;
+    if (logoName != null) return LogoImage(url: logoUrl, name: logoName!, size: size);
+    if (icon != null) {
+      return Container(
+        width: size,
+        height: size,
+        decoration: BoxDecoration(color: p.soft, shape: BoxShape.circle, border: Border.all(color: p.line)),
+        child: Icon(icon, size: size * 0.42, color: p.brand2),
+      );
+    }
+    return Container(
+      width: size,
+      height: size,
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        gradient: LinearGradient(begin: Alignment.topLeft, end: Alignment.bottomRight, colors: [p.brand, Pal.brandCrimson]),
+        shape: BoxShape.circle,
+        boxShadow: p.darkOnly(p.glow),
+      ),
+      child: Text(initials ?? '?', style: ts(size * 0.35, w: FontWeight.w800, color: p.avatarFg, ls: -0.5, height: 1.1)),
+    );
+  }
+}
+
+/// A record's header card, as on My account (Round 20): its mark, name, a sub
+/// line, pills and one short line of facts.
+class RecordHero extends StatelessWidget {
+  const RecordHero({super.key, required this.mark, required this.title, this.sub, this.pills = const [], this.line});
+
+  final Widget mark;
+  final String title;
+  final String? sub;
+  final List<Widget> pills;
+  final String? line;
+
+  @override
+  Widget build(BuildContext context) {
+    final p = context.pal;
+    final mobile = Bp.isMobile(context);
+    final who = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(title, overflow: TextOverflow.ellipsis, maxLines: 2, style: ts(mobile ? 20 : 24, w: FontWeight.w800, color: p.ink, ls: -0.5, height: 1.2)),
+        if (sub != null && sub!.isNotEmpty) ...[
+          const SizedBox(height: 3),
+          Text(sub!, overflow: TextOverflow.ellipsis, maxLines: 2, style: ts(13, color: p.muted)),
+        ],
+        if (pills.isNotEmpty) ...[
+          const SizedBox(height: 12),
+          Wrap(spacing: 8, runSpacing: 8, children: pills),
+        ],
+        if (line != null && line!.isNotEmpty) ...[
+          const SizedBox(height: 12),
+          Text(line!, style: ts(12, color: p.muted)),
+        ],
+      ],
+    );
+    return Container(
+      key: const ValueKey('record-hero'),
+      padding: EdgeInsets.all(mobile ? 18 : 26),
+      decoration: BoxDecoration(color: p.panel, border: Border.all(color: p.line), borderRadius: BorderRadius.circular(14), boxShadow: p.shadow),
+      child: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          // The brand's route line, a thin gradient along the top edge of the card.
+          Positioned(
+            left: 0,
+            right: 0,
+            top: mobile ? -18.0 : -26.0,
+            child: IgnorePointer(
+              child: Container(
+                height: 2,
+                decoration: BoxDecoration(gradient: LinearGradient(colors: [p.panel, p.brand, Pal.brandCrimson, p.panel], stops: const [0, 0.3, 0.7, 1])),
+              ),
+            ),
+          ),
+          mobile
+              ? Column(crossAxisAlignment: CrossAxisAlignment.start, children: [mark, const SizedBox(height: 14), who])
+              : Row(crossAxisAlignment: CrossAxisAlignment.start, children: [mark, const SizedBox(width: 22), Expanded(child: who)]),
+        ],
+      ),
+    );
+  }
+}
+
+/// A record page's cards (owner decision 2026-10-23, layout A): the short
+/// cards ([facts]: details, map, sign-in, reactivate…) side by side in pairs
+/// under the header card, then every list full width ([lists]), then [after]
+/// (the danger zone, so it stays last). One column at tablet width and below.
+class DetailColumns extends StatelessWidget {
+  const DetailColumns({super.key, required this.facts, this.lists = const [], this.after = const []});
+
+  final List<Widget> facts;
+  final List<Widget> lists;
+  final List<Widget> after;
+
+  static List<Widget> _spaced(List<Widget> cards) => [
+        for (var i = 0; i < cards.length; i++) ...[if (i > 0) const SizedBox(height: 18), cards[i]],
+      ];
+
+  @override
+  Widget build(BuildContext context) {
+    final stacked = Bp.isTablet(context);
+    final rows = <Widget>[
+      if (stacked)
+        ...facts
+      else
+        for (var i = 0; i < facts.length; i += 2)
+          // An odd card out spans the full width rather than leaving a gap.
+          i + 1 < facts.length
+              ? Row(
+                  key: ValueKey('detail-facts-${i ~/ 2}'),
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [Expanded(child: facts[i]), const SizedBox(width: 18), Expanded(child: facts[i + 1])],
+                )
+              : facts[i],
+      ...lists,
+      ...after,
+    ];
+    return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: _spaced(rows));
   }
 }
 
@@ -183,7 +366,11 @@ class RecordRow extends StatelessWidget {
       child: stacked
           ? Column(
               crossAxisAlignment: CrossAxisAlignment.start,
-              children: [who, if (chips.isNotEmpty) ...[const SizedBox(height: 8), chipWrap], if (actions.isNotEmpty || onTap != null) ...[const SizedBox(height: 8), actionWrap]],
+              children: [
+                who,
+                if (chips.isNotEmpty) ...[const SizedBox(height: 8), chipWrap],
+                if (actions.isNotEmpty || onTap != null) ...[const SizedBox(height: 8), actionWrap]
+              ],
             )
           : Row(
               crossAxisAlignment: CrossAxisAlignment.center,
@@ -444,4 +631,12 @@ class _TypedConfirmState extends State<_TypedConfirm> {
       ],
     );
   }
+}
+
+/// Up to two initials of a name, for a [HeroMark].
+String initialsOf(String name) {
+  final parts = name.trim().split(RegExp(r'\s+')).where((w) => w.isNotEmpty).toList();
+  if (parts.isEmpty) return '?';
+  if (parts.length == 1) return parts.first.substring(0, 1).toUpperCase();
+  return (parts[0].substring(0, 1) + parts[1].substring(0, 1)).toUpperCase();
 }

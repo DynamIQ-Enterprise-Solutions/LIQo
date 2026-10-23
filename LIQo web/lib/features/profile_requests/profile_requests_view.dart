@@ -5,7 +5,7 @@ import 'package:intl/intl.dart';
 
 import '../../core/theme.dart';
 import '../../shared/lists/list_scaffold.dart';
-import '../../shared/widgets/common.dart';
+import '../../shared/widgets/common.dart' show Pill, PillKind;
 import '../accounts/accounts_service.dart' show roleLabels;
 import '../account/profile_service.dart';
 
@@ -25,15 +25,16 @@ class RequestStatusPill extends StatelessWidget {
       };
 }
 
-/// Superadmin: people's requests to change their own name and email.
-class ProfileRequestsView extends ConsumerStatefulWidget {
-  const ProfileRequestsView({super.key});
+/// Superadmin: people's requests to change their own name and email, as the
+/// "Profile changes" tab of Requests & reports (Round 19).
+class ProfileRequestsList extends ConsumerStatefulWidget {
+  const ProfileRequestsList({super.key});
 
   @override
-  ConsumerState<ProfileRequestsView> createState() => _ProfileRequestsViewState();
+  ConsumerState<ProfileRequestsList> createState() => _ProfileRequestsListState();
 }
 
-class _ProfileRequestsViewState extends ConsumerState<ProfileRequestsView> {
+class _ProfileRequestsListState extends ConsumerState<ProfileRequestsList> {
   final _list = ListController();
   final _service = ProfileService();
   static final _fmt = DateFormat('MMM d, yyyy h:mm a');
@@ -47,52 +48,42 @@ class _ProfileRequestsViewState extends ConsumerState<ProfileRequestsView> {
   @override
   Widget build(BuildContext context) {
     final p = context.pal;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        const PageHead(
-          eyebrow: 'Superadmin / Profile requests',
-          title: 'Profile requests',
-          subtitle: 'People asking to change their own name or email. Nothing changes until you approve. Click a row to open it.',
+    return ListScaffold<ProfileRequest>(
+      controller: _list,
+      fetch: _service.list,
+      searchHint: 'Search…',
+      emptyText: 'No requests here.',
+      onRowTap: (r) => context.go('/superadmin/profile-requests/${r.id}'),
+      filters: const [
+        FilterSpec(name: 'status', label: 'Waiting', options: {'': 'Waiting', 'approved': 'Approved', 'rejected': 'Rejected', 'cancelled': 'Cancelled', 'all': 'All'}),
+      ],
+      columns: [
+        ListColumn(
+          label: 'Person',
+          flex: 3,
+          cell: (c, r) => Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(r.currentName, style: ts(12, w: FontWeight.w700, color: p.ink)),
+              Text(roleLabels[r.role] ?? r.role, style: ts(11, color: p.muted)),
+            ],
+          ),
         ),
-        ListScaffold<ProfileRequest>(
-          controller: _list,
-          fetch: _service.list,
-          searchHint: 'Search…',
-          emptyText: 'No requests here.',
-          onRowTap: (r) => context.go('/superadmin/profile-requests/${r.id}'),
-          filters: const [
-            FilterSpec(name: 'status', label: 'Waiting', options: {'': 'Waiting', 'approved': 'Approved', 'rejected': 'Rejected', 'cancelled': 'Cancelled', 'all': 'All'}),
-          ],
-          columns: [
-            ListColumn(
-              label: 'Person',
-              flex: 3,
-              cell: (c, r) => Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(r.currentName, style: ts(12, w: FontWeight.w700, color: p.ink)),
-                  Text(roleLabels[r.role] ?? r.role, style: ts(11, color: p.muted)),
-                ],
-              ),
-            ),
-            ListColumn(
-              label: 'Requested',
-              flex: 4,
-              cell: (c, r) => Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(r.requestedName, style: ts(12, w: r.pending && r.nameChanged ? FontWeight.w700 : FontWeight.w400, color: p.ink)),
-                  Text(r.requestedEmail, style: ts(11, color: r.pending && r.emailChanged ? p.brand2 : p.muted)),
-                ],
-              ),
-            ),
-            ListColumn(label: 'Sent', flex: 2, hideOnMobile: true, cell: (c, r) => Text(_fmt.format(r.createdAt), style: ts(11, color: p.muted))),
-            ListColumn(label: 'Status', flex: 2, cell: (c, r) => Align(alignment: Alignment.centerLeft, child: RequestStatusPill(r.status))),
-          ],
+        ListColumn(
+          label: 'Requested',
+          flex: 4,
+          cell: (c, r) => Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(r.requestedName, style: ts(12, w: r.pending && r.nameChanged ? FontWeight.w700 : FontWeight.w400, color: p.ink)),
+              Text(r.requestedEmail, style: ts(11, color: r.pending && r.emailChanged ? p.brand2 : p.muted)),
+            ],
+          ),
         ),
+        ListColumn(label: 'Sent', flex: 2, hideOnMobile: true, cell: (c, r) => Text(_fmt.format(r.createdAt), style: ts(11, color: p.muted))),
+        ListColumn(label: 'Status', flex: 2, cell: (c, r) => Align(alignment: Alignment.centerLeft, child: RequestStatusPill(r.status))),
       ],
     );
   }

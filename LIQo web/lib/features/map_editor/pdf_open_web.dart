@@ -88,7 +88,8 @@ class _BrowserPdf implements PdfDocument {
       // Paper white under the drawing: many CAD exports have no background.
       ctx.fillStyle = 'white'.toJS;
       ctx.fillRect(0, 0, canvas.width, canvas.height);
-      await p.render(_Obj()
+      await p
+          .render(_Obj()
             ..['canvas'] = canvas
             ..['canvasContext'] = ctx
             ..['viewport'] = vp)
