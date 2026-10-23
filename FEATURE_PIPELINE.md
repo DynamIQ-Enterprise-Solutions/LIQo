@@ -104,7 +104,10 @@ Active entries only. Done entries are in §6.
 - [x] Accounts, created through step-by-step wizards (US-006)
 - [x] Malls and branches (US-007, US-008)
 - [x] Mall-owner assignments (US-009)
-- [x] Platform settings (US-010)
+- [x] Platform settings (US-010), in two columns (AI floor-plan reading; Sign-in & security and General) with − / + numbers and one save bar (`docs/round-18-accuracy-3d-easy-editor.md`, `round-19`)
+- [x] Record pages: a header card, short cards side by side in pairs, lists full width, the danger zone last (`docs/round-20-record-pages.md`)
+- [x] Requests & reports: profile changes, AI credit requests and problem reports in tabs with counts; problem reports from the top bar with a thread (`docs/round-19-ai-credits.md`)
+- [ ] Owner: try Requests & reports and a problem report in a browser (TESTING Phase 18)
 - [ ] Audit log: let the superadmin filter by person (US-011; the server already supports it)
 - [ ] Owner: say whether the Overview still needs sign-in and map-edit cards (US-005)
 
@@ -185,6 +188,9 @@ Active entries only. Done entries are in §6.
 - [ ] Tune the AI instructions from that test reading and note the cost
 - [x] Measured walls, rooms shaped by the walls, scale from a written dimension (tested offline and with a stand-in AI service)
 - [ ] Owner: approve one paid re-read of the penthouse plan with the measured walls
+- [x] Credits shown as a status bar against the last top-up, green, yellow and red (Settings and the map editor)
+- [x] AI credits per mall admin: start 3, at most 20, never more than the wallet, requests, monitored in Analytics (`docs/round-19-ai-credits.md`)
+- [ ] Owner: give credits to a mall admin and watch a paid reading come off them (TESTING Phase 18)
 - [ ] Read one CAD plan with AI in a browser
 
 #### P1-06 — 3D preview
@@ -275,6 +281,7 @@ Active entries only. Done entries are in §6.
 | PR | none yet |
 
 - [x] Finish the port from the demo app (159 tests pass, analyzer clean, debug and release APKs build)
+- [x] Owner feedback 2026-10-23: search in category lists; lighter dark-mode map; map screen laid out like Google Maps (search bar with the mall, chips, Layers panel, floor picker, Directions and my-location buttons; compact turn banner that shrinks after 4 s, with a shine and arrow slide toward the turn; bottom bar with Pause and End; red evacuation); the map faces the way you walk by default; closed or under-repair places still get directions with their status shown; chip lists preview a row's way and only its Directions button starts the trip; the floor picker folds to your floor (166 tests pass)
 - [ ] Run the main flows on an Android emulator or phone (this machine has no emulator image yet); iOS is checked on paper only (no Mac)
 - [ ] Owner: have a fluent speaker review the Tagalog added for the new screens
 

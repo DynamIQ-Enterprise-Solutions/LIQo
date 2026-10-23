@@ -158,6 +158,7 @@ Priority → pipeline tier: High → P0/P1, Medium → P2, Low → P3. Tiers con
 - The result is a proposal that changes nothing until accepted; unsure pieces are marked.
 - Accepting is one undo step; discarding leaves the map unchanged; nothing is ever published automatically.
 - Every reading records its model and cost; an empty wallet or missing model is explained before reading.
+- Each mall admin reads with credits of their own (a share of the wallet: 3 to start, at most 20), asks the superadmin for more, and the superadmin gives, takes back and monitors them in Analytics (Round 19).
 - On a CAD plan, walls sit exactly on the drawing's lines.
 **Out of scope:** reading plans in the browser without the server.
 

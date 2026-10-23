@@ -18,6 +18,7 @@ Architectural pivots, newest first. Each one says why, so nobody reopens it with
 
 | Date | Pivot | Why |
 |---|---|---|
+| 2026-10-23 | Round 19: **AI credits per mall admin** (a share of the gateway wallet set aside per admin: start 3, cap 20, never more than the wallet; superadmins read from the free part). Reverses Round 15's "only the gateway wallet limits use". Profile requests became **Requests & reports** (profile changes, AI credit requests, problem reports). | Owner decision: the superadmin wants to set, see and monitor each admin's AI use. |
 | 2026-10-22 | Round 17: a map now **starts from its floor plan**; a three.js 3D preview sits beside the 2D canvas. | Owner decision. US-036 needs a real 3D view; three.js allowed for this one use (`EXCEPTIONS.md` #2). |
 | 2026-10-22 | Round 16: plans may be SVG, DXF or DWG, read on the server; DWG through ODA File Converter. | Owner decision. CAD gives exact walls and an exact scale. Settles user-story open item 3. |
 | 2026-10-22 | Round 15: the free raster "Detect" was **removed** and replaced by AI reading through **IQGateway** (not the Anthropic API directly). Only the gateway wallet limits use; the platform's daily cap is no longer enforced. | Owner decision. One company gateway, one wallet, several AI providers. Settles user-story open item 2. |
@@ -205,7 +206,7 @@ LIQo/
                    widgets/ (app_shell, detail_widgets, skeleton, reveal_on_scroll, action_label,
                    logo_image, common)
     lib/features/  account accounts ai analytics announcements audit auth malls map_editor
-                   overview profile_requests settings stores
+                   overview profile_requests reports requests settings stores
     web/           map3d/ pdfjs/ plan_convert/ index.html favicons
     tool/crop_brand.mjs   test/ (incl. overflow_sweep_test, page_transition_test, support/fake_api)
   LIQo mobile/
@@ -322,13 +323,25 @@ Index: `ix_stores_branch`.
 `id` PK · `user_id` FK · `full_name` · `email` · `status` CHECK in (`pending`,`approved`,`rejected`,`cancelled`) default `pending` · `reason` · `reviewed_by`, `reviewed_at` · `created_at`.
 Indexes: `ux_profile_requests_one_pending` filtered unique (one waiting request per person); `ix_profile_requests_status` (the review queue).
 
+### 3.16a AI credits (012)
+- `ai_credit_balances`: `user_id` PK FK · `balance` DECIMAL(12,4) · `full_mark` (the last top-up, for the bar) · `updated_at`.
+- `ai_credit_ledger`: `id` · `user_id` FK · `delta` · `balance_after` · `kind` CHECK in (`start`,`grant`,`remove`,`reading`,`returned`,`request`) · `conversion_id` FK → `map_conversions` · `request_id` FK · `actor_id` · `note` · `created_at`. Indexes by user and by day.
+- `ai_credit_requests`: `id` · `user_id` FK · `amount` > 0 · `status` CHECK in (`pending`,`approved`,`declined`,`cancelled`) · `decided_amount` · `decided_by` · `decline_reason` · `created_at`, `decided_at`. `ux_ai_credit_requests_one_pending` filtered unique.
+- Settings `ai_start_credits` (3), `ai_credit_cap` (20); `ai_wallet_full`, `ai_wallet_last` keep the wallet's last top-up.
+
+### 3.16b Problem reports (012)
+- `problem_reports`: `id` · `reporter_id` FK · `type` CHECK in (`broken`,`wrong_data`,`question`,`idea`) · `subject` (120) · `body` (2000) · `page_path` · `status` CHECK in (`new`,`in_progress`,`resolved`,`closed`) · `created_at`, `updated_at`, `closed_at`, `closed_by`.
+- `problem_report_messages`: `id` · `report_id` FK · `author_id` FK · `body` (2000) · `created_at`.
+
 ### 3.17 Growth
 
 | Table | Grows with | Policy |
 |---|---|---|
 | `audit_log` | every write, sign-in, map editing stretch | **Open** — retention period to be decided (PRD open items) |
 | `map_versions` | every publish / rollback | Kept forever (rollback needs them) |
-| `map_conversions` | every paid AI call | **Open** |
+| `map_conversions` | every paid AI call | **Open** (a clean-up must first clear `ai_credit_ledger.conversion_id`) |
+| `ai_credit_ledger` | every credit change and paid reading | **Open** |
+| `problem_reports` / messages | every report and reply | **Open** |
 | `uploads/backdrops` | every uploaded plan | Deleted with the plan |
 
 ---
@@ -387,6 +400,11 @@ Each module: purpose · rules · routes · files. User stories in brackets.
 - Routes: `/announcements` (list, defaults, get, post, put, delete/detach, `/:id/approve`, `/:id/reject`).
 - Files: `routes/announcements.js`, `repos/announcements.js`; web `features/announcements/`. Tests `owner_round14.test.js`, `flows.test.js`.
 
+### 4.8a Requests & reports, problem reports [Round 19]
+- One superadmin page with tabs and waiting counts (`GET /requests/counts`): profile changes (§4.8), AI credit requests (§4.15a), problem reports. The sidebar count is the total.
+- Problem reports: mall owners, mall admins and store owners send one from the top bar (type, subject, description, the page). A thread with the superadmin; statuses only move forward (new → in progress → resolved or closed); no messages after. Reporters see theirs in My account. All audited.
+- Routes: `/reports` (post, mine, list, get, messages, status), `/requests/counts`. Files: `routes/reports.js`, `repos/reports.js`; web `features/requests/`, `features/reports/`. Test `reports.test.js`. Decisions: `round-19`.
+
 ### 4.8 Profile change requests [Round 8]
 - A superadmin changes their own name and email at once. Everyone else sends a request; one waits at a time (filtered unique index); a superadmin approves (applied in one transaction, email re-checked) or rejects with a reason.
 - Routes: `/profile` (put, access, request get/post/delete), `/profile-requests` (list, get, approve, reject).
@@ -405,7 +423,7 @@ Each module: purpose · rules · routes · files. User stories in brackets.
 - Files: `middleware/audit.js`, `repos/audit.js`, `routes/audit.js`, `utils/redact.js`; web `features/audit/`.
 
 ### 4.11 Platform settings [US-010]
-- Superadmin edits the settings in §3.2; out-of-range values are refused with the setting's label. The AI card chooses `ai_model` from the gateway's available chat models (`PUT /ai/model`, audited `ai_model_changed`) and shows the wallet.
+- Superadmin edits the settings in §3.2 in two columns (AI floor-plan reading; one card with Sign-in & security and General) with one save bar; out-of-range values are refused with the setting's label. The AI tile chooses `ai_model` from the gateway's available chat models (`PUT /ai/model`, audited `ai_model_changed`), shows the wallet with what is given and free, and holds the starting credits and cap.
 - Files: `routes/settings.js`, `repos/settings.js`, `routes/ai.js`; web `features/settings/`, `features/ai/`.
 
 ### 4.12 Map document, validator & catalog [US-026–US-031, US-038]
@@ -437,10 +455,19 @@ Each module: purpose · rules · routes · files. User stories in brackets.
 - Mall admins (and superadmins) read a whole plan or a boxed part. The server crops, shrinks to ≤ 2 000 px, draws the reference grid, and sends the picture, its size in metres, the branch's store names and a strict JSON schema to IQGateway with the `ai_model` setting. CAD plans also send layers and texts; `snapToCad()` lays walls on the exact CAD lines.
 - The answer is checked by zod (one retry on unreadable JSON), tidied (spec §10.4), mapped through the calibration, validated inside a copy of the draft, and matched to stores (score ≥ 0.8).
 - The result is only a **proposal**: teal on the canvas, unsure pieces amber; accepted as one undo step; never published automatically.
-- Every paid call is a `map_conversions` row and an audit entry (`map_converted` / `map_convert_failed`) with its cost. Only the gateway wallet limits use.
+- Every paid call is a `map_conversions` row and an audit entry (`map_converted` / `map_convert_failed`) with its cost. Since Round 19 a mall admin needs credits of their own (§4.15a); a superadmin reads from the wallet's free part.
 - Full-screen scan dialog while reading; new pieces draw themselves in.
 - Files: `src/ai/gateway.js`, `src/ai/floorplan.js`, `routes/ai.js`, `routes/backdrops.js`; web `features/ai/`, `map_editor/ai_scan_dialog.dart`, `blueprint_panel.dart`. Tests `ai_reading.test.js`, `floorplan.test.js` (fake gateway only).
 - Not proven live: no paid reading has run (wallet empty, model not chosen).
+
+### 4.15a AI credits per mall admin [Round 19]
+- A balance is a share of the gateway wallet set aside for one mall admin; giving moves no money. Given = active admins' positive balances; Free = wallet − given.
+- Giving (grant, approved request, start credits) checks the cap (`ai_credit_cap`), that given never exceeds the wallet, and refuses everything while over-given; all writes in one transaction under an application lock. Removing never goes below 0.
+- A reading: refused at a balance ≤ 0 (mall admin) or with nothing free (superadmin); the paid cost is taken after (may end slightly below 0), linked to its `map_conversions` row.
+- New mall admins (and reactivated ones) get `ai_start_credits` as far as free; deactivation returns credits and cancels the open request. Existing admins started at 0.
+- Requests: an amount, one open per admin; approved (maybe less) or declined by a superadmin.
+- Who sees: superadmin all (Analytics: wallet split, admins table with Add/Remove, credits per day, history); mall owner their admins, read only; mall admin only their own (My account, the editor).
+- Routes: `/ai/credits` (overview, history, `:userId/adjust`, mine, requests...). Files: `src/ai/credits.js`, `src/ai/creditOps.js`, `repos/credits.js`, `routes/credits.js`; web `features/ai/credits_service.dart`, `my_credits.dart`, `features/analytics/credits_section.dart`. Test `ai_credits.test.js`. Decisions: `round-19`.
 
 ### 4.16 3D preview [US-036]
 - Always beside the 2D canvas (collapsible, divider 25–65%). Walls, doors, rooms, outline slab, features, connectors, all levels stacked with the current one solid; AI proposal in teal; pieces named in warnings in the danger colour, never hidden. Without WebGL a flat outline preview with a note.

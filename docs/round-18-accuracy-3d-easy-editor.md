@@ -82,3 +82,31 @@ The owner also found the 2D editor too hard: "a tiny mistake or click can ruin t
 ## Not checked by machine
 - The real penthouse plan has not been re-read with the new measurer through the gateway (it costs credits). Offline, at the right scale, the measurer follows its real walls; some gaps remain for the AI walls to close.
 - Dragging, handles and the new 3D look need a look in the browser (TESTING Phase 17).
+
+## Follow-up: the credit status bar (2026-10-23)
+The owner asked for the credits to be a status bar instead of text only.
+
+| Topic | Decision |
+|---|---|
+| Full bar | **The last top-up.** The server remembers the balance right after the last top-up (`ai_wallet_full`, `ai_wallet_last` in `platform_settings`, kept by `GET /ai/status` through `walletMark`); a rise in the balance is a top-up and makes the bar full again. The first balance ever seen counts as full. |
+| Where | Settings (full size) and above "Read with AI" in the editor (easy editor and Blueprint, compact) |
+| Low credits | Brand colour normally; **amber** with "Running low" below 25% left; **red** with "Almost out" below 10%; red "Out of credits" when empty or the gateway refuses readings |
+
+- `CreditBar` (`features/ai/credit_bar.dart`): the text line stays; under it the wallet bar grows in (still with reduced motion), with "N% of the last top-up (X) left" and the status word. A daily cap from the gateway adds a thinner "Today's limit" bar.
+- Tests: `test/credit_bar_test.dart` (8); backend `ai_reading.test.js` adds the full-mark rules and saves and restores the real mark around the tests. The status test's expected wallet now includes `full` (decision comment in the test).
+
+## Follow-up: the Settings page as topic tiles (2026-10-23)
+The owner found Platform settings too spacious: each card spanned the whole width for a few numbers. The cause was a bug as well as the design. The page's `ConstrainedBox(maxWidth: 560)` sat in a stretching column, which forced the full width.
+
+| Topic | Decision |
+|---|---|
+| Layout | **Topic tiles** (chosen from three proposals: setting rows in two cards, topic tiles, an AI strip with a form grid) |
+| Credit bar | **Green → yellow → red**, same switch points (25% and 10% of the last top-up) |
+
+- **Tiles** (`features/settings/settings_tiles.dart`): Sign-in & security (password length, session timeout, failed sign-ins), Announcements (default length), AI floor-plan reading (model, credits, largest plan file). A setting the page does not know goes to an "Other" tile under the server's label. New settings belong in `settingInfo`.
+- **Numbers:** − [box] + with the unit, the hint and the allowed range under the name, and a brand dot when changed. The box is a `FieldBuilder(bare: true)`; − / + stop at the ends. Messages use the short name.
+- **Grid:** 3 tiles across from 1000 px of content, 2 from 640 px, else 1; never wider than 380 px each; left-aligned.
+- **One save bar** appears only with changes ("2 changes not saved yet", Discard, Save settings). It saves the numbers (`PUT /settings`) and the model (`PUT /ai/model`); the AI card's own "Save model" is gone. `AiSettingsCard` became `AiModelField`, `AiCredits`, `AiNotConfigured` and `AiRetry`.
+- **Colours:** new `Pal` tokens `caution` (yellow fill) and `cautionText` (a darker yellow for words in light mode); green is `p.green`, red is `p.danger`.
+- **Also fixed:** the zoom buttons (Round 18) and the 3D panel's Reset view and Collapse (Round 17) had tooltips inside the map editor, which an earlier fix had banned (their overlay froze the page in debug mode). They now carry screen-reader labels instead. `round17_test.dart` finds Collapse by its key, with a comment saying why.
+- **Tests:** `test/settings_tiles_test.dart` (8). `round15_test.dart` saves the model through the page's save bar, and `credit_bar_test.dart` checks green and yellow; both have decision comments.
