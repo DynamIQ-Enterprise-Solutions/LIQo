@@ -15,6 +15,8 @@ import { fileURLToPath } from 'node:url';
 
 const ROOT = process.env.FILES_ROOT || path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const PLANS = path.join(ROOT, 'uploads/backdrops');
+/** Where plan files are kept (tests check them here; FILES_ROOT moves it). */
+export const PLANS_DIR = PLANS;
 const MAPS = path.join(ROOT, 'data/maps');
 
 fs.mkdirSync(PLANS, { recursive: true });
@@ -75,6 +77,10 @@ export const mapFiles = {
     const f = path.join(dir, `${Number(version)}.json`);
     if (fs.existsSync(f)) throw new Error(`Map version ${version} of branch ${branchId} already exists and cannot be rewritten.`);
     fs.writeFileSync(f, JSON.stringify(doc), { flag: 'wx' });
+  },
+  /** Drops a version file whose publish failed before it was recorded (never a recorded one). */
+  discardUnrecordedVersion(branchId, version) {
+    fs.rmSync(path.join(branchDir(branchId), 'versions', Number(version) + '.json'), { force: true });
   },
   /** Removes a branch's map files (when its map is deleted). */
   removeBranch(branchId) {

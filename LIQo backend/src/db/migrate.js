@@ -2,12 +2,18 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { getPool, sql } from './pool.js';
+import { config } from '../config.js';
 
 const migrationsDir = path.join(path.dirname(fileURLToPath(import.meta.url)), 'migrations');
 
 /** Apply every migration file in src/db/migrations not yet recorded, in filename order.
- *  Each file runs in its own transaction. Applied files are never re-run or edited. */
+ *  Each file runs in its own transaction. Applied files are never re-run or edited.
+ *  Firestore has no schema: nothing to do there (P1-06A). */
 export async function runMigrations() {
+  if (config.db.driver === 'firestore') {
+    console.log('Firestore: no migrations to run');
+    return 0;
+  }
   const pool = await getPool();
 
   await pool.request().batch(`

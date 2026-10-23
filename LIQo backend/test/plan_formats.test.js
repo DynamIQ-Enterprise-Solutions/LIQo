@@ -18,9 +18,10 @@ import { readSvg, looksLikeSvg, parseTransform } from '../src/maps/vector/svg.js
 import { looksLikeDwg } from '../src/maps/vector/dwg.js';
 import { layoutFor, renderVector } from '../src/maps/vector/render.js';
 import { apply } from '../src/maps/vector/common.js';
+import { PLANS_DIR } from '../src/storage/files.js';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
-const UPLOADS = path.resolve(HERE, '../uploads/backdrops');
+const UPLOADS = PLANS_DIR;
 
 // ---- fixtures ----
 

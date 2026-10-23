@@ -9,13 +9,14 @@ import { fileURLToPath } from 'node:url';
 import { PNG } from 'pngjs';
 import { startServer, stopServer, api, makeFixtures, cleanFixtures, giveTestCredits, PASSWORD } from './helpers.js';
 import { config } from '../src/config.js';
-import { query, sql } from '../src/db/pool.js';
+import * as db from './support/testDb.js';
 import * as settings from '../src/repos/settings.js';
 import * as gateway from '../src/ai/gateway.js';
+import { PLANS_DIR } from '../src/storage/files.js';
 
 const tag = `ai${Date.now().toString(36)}`;
 const KEY = 'gws_test_only_not_a_real_key';
-const UPLOADS = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../uploads/backdrops');
+const UPLOADS = PLANS_DIR;
 
 let server;
 let base;
@@ -187,8 +188,8 @@ test('model list is for superadmins; choosing a model checks it against the gate
   const ok = await call('PUT', '/ai/model', { token: tokens.superadmin, body: { model: 'test-vision-1' } });
   assert.equal(ok.status, 200);
   assert.equal(await settings.getText('ai_model'), 'test-vision-1');
-  const audit = await query(`SELECT details FROM audit_log WHERE action = 'ai_model_changed' AND actor_email = @e`, { e: `superadmin.${tag}@test.local` });
-  assert.equal(audit.recordset.length, 1);
+  const audit = await db.auditRows({ action: 'ai_model_changed', actorEmail: `superadmin.${tag}@test.local` });
+  assert.equal(audit.length, 1);
 
   // The gateway key never travels to the browser.
   assert.ok(!JSON.stringify(list.body).includes(KEY));
@@ -300,14 +301,14 @@ test('reading a plan: the picture and schema go to the gateway; a tidy proposal 
   assert.equal(after2.body.map.draft.buildings[0].levels[0].walls.length, 0);
 
   // Recorded with its cost; the key is in neither record.
-  const conv = await query('SELECT TOP 1 * FROM map_conversions WHERE branch_id = @b ORDER BY id DESC', { b: { type: sql.Int, value: fx.branchA } });
-  assert.equal(conv.recordset[0].used_ai, true);
-  assert.equal(conv.recordset[0].model, 'test-vision-1');
-  assert.equal(Number(conv.recordset[0].credits), 0.5);
-  const audit = await query(`SELECT TOP 1 details FROM audit_log WHERE action = 'map_converted' AND actor_email = @e ORDER BY id DESC`, { e: `mall_admin.${tag}@test.local` });
-  const details = JSON.parse(audit.recordset[0].details);
+  const conv = await db.latestConversion(fx.branchA);
+  assert.equal(conv.used_ai, true);
+  assert.equal(conv.model, 'test-vision-1');
+  assert.equal(Number(conv.credits), 0.5);
+  const audit = (await db.auditRows({ action: 'map_converted', actorEmail: `mall_admin.${tag}@test.local` })).reverse();
+  const details = JSON.parse(audit[0].details);
   assert.equal(details.credits, 0.5);
-  assert.ok(!audit.recordset[0].details.includes(KEY));
+  assert.ok(!audit[0].details.includes(KEY));
 });
 
 test('reading a boxed part maps the answer into that part of the plan', async () => {
@@ -332,9 +333,9 @@ test('an unreadable answer is retried once, then refused; both paid calls are re
   assert.equal(r.status, 502);
   assert.match(r.body.error, /could not be read/);
   assert.equal(seen.length, 2);
-  const conv = await query('SELECT TOP 1 * FROM map_conversions WHERE branch_id = @b ORDER BY id DESC', { b: { type: sql.Int, value: fx.branchA } });
-  assert.equal(Number(conv.recordset[0].credits), 1);
-  assert.equal(conv.recordset[0].wall_count, 0);
+  const conv = await db.latestConversion(fx.branchA);
+  assert.equal(Number(conv.credits), 1);
+  assert.equal(conv.wall_count, 0);
 });
 
 test('"not a floor plan" and an answer cut short get clear messages', async () => {
@@ -425,14 +426,11 @@ test('without a chosen model, or without a key, reading is refused with a clear 
 });
 
 test("Round 19: each paid reading came off the mall admin's credits, linked to its record", async () => {
-  const r = await query(
-    `SELECT l.delta, l.conversion_id, mc.credits FROM ai_credit_ledger l JOIN map_conversions mc ON mc.id = l.conversion_id
-      WHERE l.user_id = @u AND l.kind = 'reading'`,
-    { u: { type: sql.Int, value: fx.mallAdminId } },
-  );
-  assert.ok(r.recordset.length > 0, 'readings were charged');
-  for (const x of r.recordset) assert.equal(Number(x.delta), -Number(x.credits));
-  const left = await query(`SELECT balance FROM ai_credit_balances WHERE user_id = @u`, { u: { type: sql.Int, value: fx.mallAdminId } });
-  const spent = r.recordset.reduce((a, x) => a + Number(x.credits), 0);
-  assert.equal(Math.round(Number(left.recordset[0].balance) * 10000), Math.round((100 - spent) * 10000));
+  const charged = (await db.ledger(fx.mallAdminId)).filter((l) => l.kind === 'reading');
+  const rows = await Promise.all(charged.map(async (l) => ({ delta: l.delta, credits: (await db.conversion(l.conversion_id)).credits })));
+  assert.ok(rows.length > 0, 'readings were charged');
+  for (const x of rows) assert.equal(Number(x.delta), -Number(x.credits));
+  const left = await db.balanceRow(fx.mallAdminId);
+  const spent = rows.reduce((a, x) => a + Number(x.credits), 0);
+  assert.equal(Math.round(Number(left.balance) * 10000), Math.round((100 - spent) * 10000));
 });

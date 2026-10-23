@@ -4,7 +4,7 @@
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { startServer, stopServer, api, makeFixtures, cleanFixtures, PASSWORD } from './helpers.js';
-import { query } from '../src/db/pool.js';
+import * as db from './support/testDb.js';
 
 const tag = `rp${Date.now()}`;
 let server;
@@ -73,7 +73,7 @@ test('a thread until it is resolved; statuses only move forward; every step audi
   assert.ok(x.body.report.closedBy);
   assert.equal((await reply(tokens.mall_admin, 'Another thing')).status, 409, 'no messages once resolved');
   assert.equal((await call('PUT', `/reports/${r.id}/status`, { token: tokens.superadmin, body: { status: 'in_progress' } })).status, 409, 'no going back');
-  const actions = (await query(`SELECT action FROM audit_log WHERE entity_type = 'problem_report' AND entity_id = @id`, { id: String(r.id) })).recordset.map((a) => a.action);
+  const actions = (await db.auditRows({ entityType: 'problem_report', entityId: r.id })).map((a) => a.action);
   for (const a of ['problem_reported', 'problem_report_message', 'problem_report_status']) assert.ok(actions.includes(a), a);
 });
 

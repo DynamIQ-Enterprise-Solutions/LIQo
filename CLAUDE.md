@@ -24,7 +24,8 @@ npm install
 npm run migrate        # applies src/db/migrations/*.sql in order
 npm run seed           # superadmin admin@liqo.local / Admin@123
 npm run dev            # node --watch, http://localhost:3000
-npm test               # node --test test/
+npm test               # the suite on SQL Server, then on the Firestore emulator (needs Java 17+)
+npm run test:mssql     # SQL Server only; test:firestore for the emulator only
 
 # frontend (inside "LIQo web")
 flutter pub get
@@ -45,7 +46,7 @@ Layout rule: `test/overflow_sweep_test.dart` renders every page of every role at
 
 ## Conventions
 
-- Backend: raw parameterized SQL (SQL Server via the `mssql` driver) only, and only inside `src/repos/`. Routes validate with zod, call repos, return `{error}` on failure and `{items,totalCount,page,pageSize}` for lists. Every scoped read and write goes through `src/utils/scope.js`. Migrations are never edited once applied; add a new numbered file.
+- Backend data layer (P1-06A, `docs/p1-06a-firestore-data-layer.md`): `DB_DRIVER=mssql|firestore` picks the database. Each `src/repos/<name>.js` front loads `src/repos/mssql/<name>.js` (raw parameterized SQL, the only place with SQL) or `src/repos/firestore/<name>.js` (firebase-admin), which keep the same functions and return shapes; change both in the same step and keep `npm test` green on both. Firestore keeps integer ids (counters), guard docs for unique rules (raising SQL's error numbers 2627/547), daily running totals for audit-based analytics, and map documents on disk (`src/storage/files.js`); it assumes one API process. Tests touch data only through `test/support/testDb.js`. Routes validate with zod, call repos, return `{error}` on failure and `{items,totalCount,page,pageSize}` for lists. Every scoped read and write goes through `src/utils/scope.js`. Migrations are never edited once applied; add a new numbered file.
 - Auth: JWT (8h) + bcrypt cost 10 via `src/utils/password.js`. `must_change_password` blocks every route except change-password and me.
 - Audit: `src/middleware/audit.js` writes on `res.on('finish')` for POST/PUT/PATCH/DELETE with secrets redacted. Login success and failure are audited explicitly.
 - Frontend: `lib/core` (config, api client, session, theme, router), `lib/shared` (widgets, forms, lists, messaging), `lib/features/<name>/{models,services,providers,views}`. Color literals live only in `lib/core/theme.dart`. No `ScaffoldMessenger.showSnackBar`; use the shared message overlay. Forms are built from `FieldSpec`s, not bare `TextFormField`s. User-facing errors go through `formatApiError`.

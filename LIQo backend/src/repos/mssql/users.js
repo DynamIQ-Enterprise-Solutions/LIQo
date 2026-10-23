@@ -5,7 +5,9 @@ const COLUMNS =
   'id, email, password_hash, full_name, role, is_active, must_change_password, last_login_at, created_by, created_at, updated_at, failed_logins, locked_until, reports_to';
 const U_COLUMNS = COLUMNS.split(', ').map((c) => `u.${c}`).join(', ');
 
-export const LOCK_MINUTES = 15;
+import { LOCK_MINUTES } from '../shared/users.js';
+
+export { LOCK_MINUTES };
 
 export async function findByEmail(email) {
   const r = await query(`SELECT ${COLUMNS} FROM users WHERE email = @email`, { email });

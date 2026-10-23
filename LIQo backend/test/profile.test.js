@@ -3,7 +3,7 @@
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { startServer, stopServer, api, makeFixtures, cleanFixtures, PASSWORD } from './helpers.js';
-import { query } from '../src/db/pool.js';
+import * as db from './support/testDb.js';
 
 const tag = `r${Date.now().toString(36)}`;
 let server;
@@ -27,7 +27,7 @@ after(async () => {
   await stopServer(server);
 });
 
-const actions = async (userId) => (await query(`SELECT action FROM audit_log WHERE entity_type = 'user' AND entity_id = @id`, { id: String(userId) })).recordset.map((a) => a.action);
+const actions = async (userId) => (await db.auditRows({ entityType: 'user', entityId: userId })).map((a) => a.action);
 
 test("a superadmin changes their own details at once; a taken email is refused", async () => {
   const ok = await call('PUT', '/profile', { token: tokens.superadmin, body: { fullName: `Super Renamed ${tag}`, email: `superadmin.${tag}@test.local` } });
@@ -102,10 +102,10 @@ test('an email taken between request and approval blocks the approval and keeps 
   const grab = await call('PUT', '/profile', { token: tokens.superadmin, body: { fullName: `Super Renamed ${tag}`, email: wanted } });
   assert.equal(grab.status, 409, 'the waiting request already reserves it');
   // Force the clash through the database to test the approval-time check.
-  await query(`UPDATE users SET email = @e WHERE id = @id`, { e: wanted, id: String(fx.ownerId) });
+  await db.setUser(fx.ownerId, { email: wanted });
   const approve = await call('POST', `/profile-requests/${sent.body.request.id}/approve`, { token: tokens.superadmin });
   assert.equal(approve.status, 409);
   const still = await call('GET', `/profile-requests/${sent.body.request.id}`, { token: tokens.superadmin });
   assert.equal(still.body.request.status, 'pending');
-  await query(`UPDATE users SET email = @e WHERE id = @id`, { e: `store_owner.${tag}@test.local`, id: String(fx.ownerId) });
+  await db.setUser(fx.ownerId, { email: `store_owner.${tag}@test.local` });
 });

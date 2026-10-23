@@ -2,7 +2,7 @@
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { startServer, stopServer, api, makeFixtures, cleanFixtures, PASSWORD } from './helpers.js';
-import { query, sql } from '../src/db/pool.js';
+import * as db from './support/testDb.js';
 
 const tag = `p${Date.now().toString(36)}`;
 let server;
@@ -103,7 +103,7 @@ test('an owner creates a mall admin inside their branches; it reports to them an
   });
   assert.equal(r.status, 201, JSON.stringify(r.body));
   assert.equal(r.body.user.reportsTo.id, fx.supervisorId);
-  const row = (await query(`SELECT actor_id, details FROM audit_log WHERE action = 'account_created' AND entity_id = @id`, { id: String(r.body.user.id) })).recordset[0];
+  const row = (await db.auditRows({ action: 'account_created', entityId: r.body.user.id }))[0];
   assert.equal(row.actor_id, fx.supervisorId);
   assert.match(row.details, /"createdByRole":"supervisor"/);
   // Visible in the superadmin audit log too.
@@ -146,5 +146,4 @@ test('from the mall page: add an owner, set an admin branches and owner, remove 
   const drop = await call('DELETE', `/malls/${fx.mallA}/admins/${admin.body.user.id}`, { token: tokens.superadmin });
   assert.equal(drop.status, 200);
   assert.equal(drop.body.branches.length, 0);
-  void sql;
 });

@@ -3,7 +3,7 @@
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { startServer, stopServer, api, makeFixtures, cleanFixtures, PASSWORD } from './helpers.js';
-import { query } from '../src/db/pool.js';
+import * as db from './support/testDb.js';
 
 const tag = `s${Date.now().toString(36)}`;
 let server;
@@ -40,7 +40,7 @@ async function secondSuperadmin(name) {
 }
 
 const auditActions = async (entityId) =>
-  (await query(`SELECT action FROM audit_log WHERE entity_id = @id`, { id: String(entityId) })).recordset.map((a) => a.action);
+  (await db.auditRows({ entityId })).map((a) => a.action);
 
 test('a superadmin opens, deactivates and reactivates another superadmin; it is audited and sign-in follows', async () => {
   const b = await secondSuperadmin('saB');
@@ -96,7 +96,7 @@ test('only the superadmin can clear a map edit lock; it is audited with the prev
 
   const map = await call('GET', `/maps/${fx.branchA}`, { token: tokens.superadmin });
   assert.equal(map.body.map.lock, null, 'the lock is gone');
-  const audit = (await query(`SELECT details FROM audit_log WHERE action = 'map_lock_force_released' AND entity_id = @id`, { id: String(created.body.map?.id ?? map.body.map.id) })).recordset;
+  const audit = await db.auditRows({ action: 'map_lock_force_released', entityId: created.body.map?.id ?? map.body.map.id });
   assert.equal(audit.length, 1);
   assert.match(audit[0].details, /previousHolder/);
 

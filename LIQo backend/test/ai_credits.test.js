@@ -6,7 +6,7 @@ import assert from 'node:assert/strict';
 import http from 'node:http';
 import { startServer, stopServer, api, makeFixtures, cleanFixtures, PASSWORD } from './helpers.js';
 import { config } from '../src/config.js';
-import { query, sql } from '../src/db/pool.js';
+import * as db from './support/testDb.js';
 import * as settings from '../src/repos/settings.js';
 import * as credits from '../src/repos/credits.js';
 import { walletSplit, refuseGive, refuseRemove, startCredits } from '../src/ai/credits.js';
@@ -91,8 +91,8 @@ test('a new mall admin starts with 3 credits; an existing one has 0', async () =
   assert.equal(r.body.startCredits, 3);
   assert.equal(r.body.startNote, null);
   assert.equal(await balance(r.body.user.id), 3);
-  const led = await query(`SELECT kind, delta FROM ai_credit_ledger WHERE user_id = @u`, { u: { type: sql.Int, value: r.body.user.id } });
-  assert.deepEqual(led.recordset.map((x) => [x.kind, Number(x.delta)]), [['start', 3]]);
+  const led = await db.ledger(r.body.user.id);
+  assert.deepEqual(led.map((x) => [x.kind, x.delta]), [['start', 3]]);
   // A mall owner creating an admin in their branch: the same.
   const o = await newAdmin(tokens.supervisor, 'ownermade');
   assert.equal(o.status, 201, JSON.stringify(o.body));
@@ -122,9 +122,9 @@ test('giving and taking back: the cap of 20, never below 0, audited', async () =
   assert.equal((await give(-2)).body.balance, 18);
   assert.equal((await give(1, tokens.mall_admin)).status, 403, 'admins cannot give themselves credits');
   assert.equal((await give(1, tokens.supervisor)).status, 403, 'owners cannot give credits');
-  const audit = await query(`SELECT action FROM audit_log WHERE actor_email = @e AND action IN ('ai_credits_granted', 'ai_credits_removed')`, { e: `superadmin.${tag}@test.local` });
-  assert.ok(audit.recordset.some((x) => x.action === 'ai_credits_granted'));
-  assert.ok(audit.recordset.some((x) => x.action === 'ai_credits_removed'));
+  const audit = await db.auditRows({ actorEmail: `superadmin.${tag}@test.local`, actions: ['ai_credits_granted', 'ai_credits_removed'] });
+  assert.ok(audit.some((x) => x.action === 'ai_credits_granted'));
+  assert.ok(audit.some((x) => x.action === 'ai_credits_removed'));
   // Only active mall admins hold credits.
   const owner = await call('POST', `/ai/credits/${fx.supervisorId}/adjust`, { token: tokens.superadmin, body: { delta: 1 } });
   assert.equal(owner.status, 400);
@@ -182,9 +182,9 @@ test('requests: an amount, one at a time; cancel, approve (maybe less) and decli
   assert.equal(mine.body.balance, 5);
   assert.equal(mine.body.cap, 20);
   assert.equal(mine.body.request.status, 'declined');
-  const audit = await query(`SELECT action FROM audit_log WHERE action LIKE 'ai_credit_request%' AND entity_id = @u`, { u: String(id) });
+  const audit = await db.auditRows({ actionPrefix: 'ai_credit_request', entityId: id });
   for (const a of ['ai_credit_requested', 'ai_credit_request_cancelled', 'ai_credit_request_approved', 'ai_credit_request_declined']) {
-    assert.ok(audit.recordset.some((x) => x.action === a), a);
+    assert.ok(audit.some((x) => x.action === a), a);
   }
 });
 
@@ -214,7 +214,7 @@ test('deactivating returns the credits and closes the request; reactivating star
   const r = await call('POST', `/accounts/${id}/reactivate`, { token: tokens.superadmin });
   assert.equal(r.body.startCredits, 3);
   assert.equal(await balance(id), 3);
-  const kinds = (await query(`SELECT kind FROM ai_credit_ledger WHERE user_id = @u ORDER BY id`, { u: { type: sql.Int, value: id } })).recordset.map((x) => x.kind);
+  const kinds = (await db.ledger(id)).map((x) => x.kind);
   assert.deepEqual(kinds, ['start', 'returned', 'start']);
 });
 

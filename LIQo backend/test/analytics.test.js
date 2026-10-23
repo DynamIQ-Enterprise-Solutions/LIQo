@@ -3,7 +3,7 @@
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { startServer, stopServer, api, makeFixtures, cleanFixtures, PASSWORD } from './helpers.js';
-import { query, sql } from '../src/db/pool.js';
+import * as db from './support/testDb.js';
 
 const tag = `a${Date.now().toString(36)}`;
 let server;
@@ -91,7 +91,7 @@ test('superadmin: a store, an announcement, a map save and a publish show up tod
 
 test('supervisor of mall A sees nothing from mall B and no security section', async () => {
   // A store and an announcement that live only in mall B.
-  const storeB = (await query(`INSERT INTO stores (branch_id, name) OUTPUT inserted.id VALUES (@b, @n)`, { b: { type: sql.Int, value: fx.branchB }, n: `Store B ${tag}` })).recordset[0].id;
+  const storeB = await db.insertStore(fx.branchB, `Store B ${tag}`);
   const annB = await call('POST', '/announcements', {
     token: tokens.superadmin,
     body: { title: `Mall B only ${tag}`, body: 'x', startsOn: today, endsOn: today, branchIds: [fx.branchB] },

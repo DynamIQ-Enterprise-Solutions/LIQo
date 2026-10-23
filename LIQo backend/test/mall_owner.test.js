@@ -4,7 +4,7 @@
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { startServer, stopServer, api, makeFixtures, cleanFixtures, PASSWORD } from './helpers.js';
-import { query } from '../src/db/pool.js';
+import * as db from './support/testDb.js';
 
 const tag = `o${Date.now().toString(36)}`;
 let server;
@@ -90,7 +90,8 @@ test("an owner's recent activity includes what their mall admins did", async () 
   // branch-level owner first): an earlier test here made a branch-level owner of
   // branch A, so the fixture admin now reports to them. Take that branch back so
   // the admin reports to the whole-mall owner again, as this test needs.
-  const bo = (await query(`SELECT id FROM users WHERE email = @e`, { e: `branchowner.${tag}@test.local` })).recordset[0];
+  const boId = await db.userIdByEmail(`branchowner.${tag}@test.local`);
+  const bo = boId ? { id: boId } : undefined;
   if (bo) {
     const freed = await call('PUT', `/assignments/supervisors/${bo.id}`, { token: tokens.superadmin, body: { mallIds: [], branchIds: [] } });
     assert.equal(freed.status, 200);

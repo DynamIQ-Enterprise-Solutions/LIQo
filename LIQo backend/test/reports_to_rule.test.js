@@ -5,7 +5,7 @@
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { startServer, stopServer, api, makeFixtures, cleanFixtures, PASSWORD } from './helpers.js';
-import { query } from '../src/db/pool.js';
+import * as db from './support/testDb.js';
 
 const tag = `r${Date.now().toString(36)}`;
 let server;
@@ -46,12 +46,12 @@ test('the first-linked whole-mall owner keeps the admin; a branch-level owner ta
   const branchOwner = await makeOwner('branchboss', { mallIds: [], branchIds: [fx.branchA] });
   assert.equal(await superiorOf(fx.mallAdminId), branchOwner, 'the branch\'s own owner comes first');
 
-  const audit = await query(`SELECT COUNT(*) AS n FROM audit_log WHERE action = 'reports_to_recomputed' AND details LIKE @d`, { d: `%${fx.mallAdminId}%` });
-  assert.ok(audit.recordset[0].n > 0, 'the change is audited');
+  const audit = await db.auditRows({ action: 'reports_to_recomputed', detailsContains: String(fx.mallAdminId) });
+  assert.ok(audit.length > 0, 'the change is audited');
 });
 
 test('an inactive owner is skipped, and their admins come back when they are reactivated', async () => {
-  const branchOwner = (await query(`SELECT id FROM users WHERE email = @e`, { e: `branchboss.${tag}@test.local` })).recordset[0].id;
+  const branchOwner = await db.userIdByEmail(`branchboss.${tag}@test.local`);
   const off = await call('POST', `/accounts/${branchOwner}/deactivate`, { token: tokens.superadmin });
   assert.equal(off.status, 200);
   assert.equal(await superiorOf(fx.mallAdminId), fx.supervisorId);
@@ -87,7 +87,7 @@ test('moving an admin moves their superior; a branch nobody owns means "No owner
 });
 
 test('removing an owner from a mall hands their admins to the next owner by the rule', async () => {
-  const second = (await query(`SELECT id FROM users WHERE email = @e`, { e: `second.${tag}@test.local` })).recordset[0].id;
+  const second = await db.userIdByEmail(`second.${tag}@test.local`);
   const removed = await call('DELETE', `/malls/${fx.mallA}/owners/${fx.supervisorId}`, { token: tokens.superadmin });
   assert.equal(removed.status, 200);
   assert.equal(removed.body.linksCleared, 1);

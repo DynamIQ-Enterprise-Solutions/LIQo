@@ -2,7 +2,7 @@
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { startServer, stopServer, api, makeFixtures, cleanFixtures, PASSWORD } from './helpers.js';
-import { query, sql } from '../src/db/pool.js';
+import * as db from './support/testDb.js';
 
 const tag = `t${Date.now().toString(36)}`;
 let server;
@@ -42,24 +42,22 @@ test('login for an unknown email gives the same error', async () => {
 });
 
 test('failed and successful logins are audited; a failed guess has no actor id', async () => {
-  const rows = (
-    await query(`SELECT action, actor_id FROM audit_log WHERE actor_email = @e ORDER BY id`, { e: `superadmin.${tag}@test.local` })
-  ).recordset;
+  const rows = await db.auditRows({ actorEmail: `superadmin.${tag}@test.local` });
   assert.ok(rows.some((r) => r.action === 'login_success' && r.actor_id === fx.superadminId));
   assert.ok(rows.some((r) => r.action === 'login_failed' && r.actor_id === null));
 });
 
 test('a deactivated account cannot sign in', async () => {
-  await query(`UPDATE users SET is_active = 0 WHERE id = @id`, { id: { type: sql.Int, value: fx.ownerId } });
+  await db.setUser(fx.ownerId, { is_active: false });
   const r = await login(`store_owner.${tag}@test.local`);
   assert.equal(r.status, 403);
   assert.match(r.body.error, /deactivated/i);
-  await query(`UPDATE users SET is_active = 1 WHERE id = @id`, { id: { type: sql.Int, value: fx.ownerId } });
+  await db.setUser(fx.ownerId, { is_active: true });
 });
 
 test('a temporary-password user is blocked until the password is changed', async () => {
   // The fixture user tempUserId was created with must_change_password = 1.
-  const temp = (await query(`SELECT email FROM users WHERE id = @id`, { id: { type: sql.Int, value: fx.tempUserId } })).recordset[0].email;
+  const temp = (await db.userRow(fx.tempUserId)).email;
   const t = await login(temp);
   assert.equal(t.status, 200);
   assert.equal(t.body.user.mustChangePassword, true);
@@ -91,7 +89,7 @@ test('a garbage token is refused', async () => {
 
 test('too many wrong passwords lock the account; an admin reset unlocks it', async () => {
   const email = `mall_admin.${tag}@test.local`;
-  await query(`UPDATE platform_settings SET setting_value = '3' WHERE setting_key = 'max_login_attempts'`);
+  await db.setSetting('max_login_attempts', 3);
   const { invalidate } = await import('../src/repos/settings.js');
   invalidate();
   try {
@@ -101,7 +99,7 @@ test('too many wrong passwords lock the account; an admin reset unlocks it', asy
     const right = await login(email);
     assert.equal(right.status, 423, 'correct password is refused while locked');
 
-    const row = (await query(`SELECT locked_until FROM users WHERE id = @id`, { id: { type: sql.Int, value: fx.mallAdminId } })).recordset[0];
+    const row = await db.userRow(fx.mallAdminId);
     assert.ok(row.locked_until, 'locked_until is set');
 
     // An admin reset (new password) clears the lock.
@@ -112,9 +110,9 @@ test('too many wrong passwords lock the account; an admin reset unlocks it', asy
     assert.equal(after.status, 200);
     assert.equal(after.body.user.mustChangePassword, true);
   } finally {
-    await query(`UPDATE platform_settings SET setting_value = '5' WHERE setting_key = 'max_login_attempts'`);
+    await db.setSetting('max_login_attempts', 5);
     invalidate();
-    await query(`UPDATE users SET failed_logins = 0, locked_until = NULL WHERE id = @id`, { id: { type: sql.Int, value: fx.mallAdminId } });
+    await db.setUser(fx.mallAdminId, { failed_logins: 0, locked_until: null });
   }
 });
 
@@ -123,7 +121,7 @@ test('a superadmin can create another superadmin, and it is audited as such', as
   const r = await call('POST', '/accounts', { token: admin.body.token, body: { email: `sa2.${tag}@test.local`, fullName: 'Second Super', role: 'superadmin' } });
   assert.equal(r.status, 201);
   assert.equal(r.body.user.role, 'superadmin');
-  const audit = (await query(`SELECT action FROM audit_log WHERE entity_type = 'user' AND entity_id = @id`, { id: String(r.body.user.id) })).recordset;
+  const audit = await db.auditRows({ entityType: 'user', entityId: r.body.user.id });
   assert.ok(audit.some((a) => a.action === 'superadmin_created'));
   // The new superadmin can sign in with the temp password and must change it.
   const l = await login(`sa2.${tag}@test.local`, r.body.tempPassword);

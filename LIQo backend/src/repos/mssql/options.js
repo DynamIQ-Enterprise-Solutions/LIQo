@@ -1,6 +1,8 @@
 import { query, sql } from '../../db/pool.js';
 
-export const KINDS = ['store_category', 'unit_type', 'floor_label'];
+import { KINDS } from '../shared/options.js';
+
+export { KINDS };
 
 function toPublic(row) {
   return {

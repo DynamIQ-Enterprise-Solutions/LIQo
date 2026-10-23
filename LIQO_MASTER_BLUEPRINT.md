@@ -49,10 +49,12 @@ the PRD, a docs/round-N.md file or CLAUDE.md is asked of the owner, never invent
 ```xml
 <tech_stack_constraints>
 ALLOW
-  Backend:  Node.js (ES modules) + Express + mssql driver, raw parameterized SQL, zod,
+  Backend:  Node.js (ES modules) + Express + mssql driver, raw parameterized SQL, firebase-admin
+            (Firestore driver, P1-06A), zod,
             jsonwebtoken, bcryptjs, helmet, cors, express-rate-limit, multer,
             pngjs/jpeg-js (pictures), dxf-parser, fast-xml-parser, svg-pathdata (plans).
-  Database: Microsoft SQL Server (local). Production DB on GCP: open (EXCEPTIONS #1).
+  Database: Microsoft SQL Server (local development) and Firestore (deployed, Spark plan),
+            picked by DB_DRIVER, both tested (EXCEPTIONS #1, docs/p1-06a-firestore-data-layer.md).
   Admin web: Flutter Web, Riverpod, go_router, dio, fl_chart, file_picker, package:web.
   Shopper app: Flutter (Android + iOS), Riverpod, go_router.
   JS inside the web app (EXCEPTIONS #2, #3): three.js for the 3D preview only; pdf.js,
@@ -119,18 +121,19 @@ PINNED (read from lockfiles / installed packages, 2026-10-22)
 ### Cross-cutting invariants & known traps
 
 1. **Scope first.** Every scoped read and write calls `resolveScope(user)` (`src/utils/scope.js`). There is no company/tenant column; scope (malls → branches → stores) is the tenancy predicate.
-2. **SQL lives only in `src/repos/`**, parameterized. Lists of ids go through `inList()`. Sort keys go through an allow-list.
+2. **SQL lives only in `src/repos/mssql/`**, parameterized. Lists of ids go through `inList()`. Sort keys go through an allow-list. Every repo has a Firestore twin in `src/repos/firestore/` with the same functions and return shapes; the front `src/repos/<name>.js` picks one by `DB_DRIVER`. Change both together; `npm test` runs the suite on both.
 3. **Dates.** `DATE` columns travel as `yyyy-MM-dd` strings. The pool runs with `useUTC: false` because `SYSDATETIME()` is server-local. Do not mix UTC and local clocks in one comparison.
 4. **Migrations are frozen** once applied. Add a new numbered file. `node --watch` does not watch `.sql` files: run `npm run migrate` after adding one.
 5. **Mall owner = `supervisor`.** Never rename the key; only words change.
 6. **`reports_to` is computed** by `applyReportsToRule()` after every ownership or placement change. `PUT /accounts/:id/reports-to` answers 410.
-7. **At least one active superadmin**, enforced inside one SQL statement (`users.deactivateKeepingASuperadmin`).
+7. **At least one active superadmin**, enforced inside one SQL statement (`users.deactivateKeepingASuperadmin`), and on Firestore inside one transaction.
 8. **The IQGateway key** exists only as `IQ_GATEWAY_KEY` in `LIQo backend/.env`. Never in responses, logs, audit or the web app.
 9. **Colours** live only in `lib/core/theme.dart` (`Pal`). Blend with `p.pick` / `p.mix` / `p.darkOnly`; never `p.dark ? a : b` for a colour.
 10. **No overlay portals in the map editor** (Tooltip, PopupMenuButton, MenuAnchor, Slider, OverlayPortal): they froze the page in debug mode.
 11. **The shell never scrolls.** Each page scrolls inside its own `ShellPage`.
-12. **Uploaded plans are stored on the local disk** (`LIQo backend/uploads/backdrops`). A container host with a throwaway disk (Cloud Run) loses them: deployment must move them to object storage first (FEATURE_PIPELINE P1-10).
+12. **Files live on the server PC's disk** (`src/storage/files.js`): plans and drawings under `uploads/backdrops`, and on Firestore the map documents under `data/maps/<branch>/` (`draft.json`, `versions/<n>.json`, never rewritten). `FILES_ROOT` moves them. A host with a throwaway disk (Cloud Run) loses them: moving to object storage comes with real customers (FEATURE_PIPELINE P1-10).
 13. **Node patch scripts:** use `split`/`join`, never `String.replace` with a replacement string containing `$'` (it inserts the rest of the file).
+14. **Firestore assumes one API process.** Map writes per branch and every AI credits step are serialised inside the process, and ids come from counter documents. Never run two API processes against one Firestore database. Unique rules are guard documents (`_unique/<kind>:<value>`) that raise SQL Server's error numbers (2627, 547), so routes stay the same.
 
 ---
 
@@ -189,16 +192,19 @@ LIQo/
   docs/round-N-*.md            decision record per round (2–17)
   LIQo backend/
     src/server.js  app.js  config.js
-    src/db/        pool.js  migrate.js  migrate-cli.js  seed.js  migrations/NNN_*.sql
+    src/db/        pool.js  firestore.js  migrate.js  migrate-cli.js  seed.js  migrations/NNN_*.sql
     src/middleware/ auth  requireRole  validate  audit  errors
     src/routes/    auth accounts malls branches assignments settings ai audit lookups
                    announcements stores options owners maps backdrops profile analytics
-    src/repos/     analytics announcements assignments audit backdrops branches malls maps
-                   options owners profileRequests settings stores users
+    src/repos/     fronts: analytics announcements assignments audit backdrops branches credits
+                   lookups malls maps options owners profileRequests reports scope settings stores
+                   users; mssql/ and firestore/ (same names), shared/ (constants)
+    src/storage/   files.js (plans, drawings, map documents on disk)
     src/utils/     scope ownership pagination password tokens dates redact
     src/maps/      catalog validator checks ids image  vector/{common,dxf,dwg,svg,render}
     src/ai/        gateway floorplan
-    test/*.test.js  docs/TESTING.md  uploads/backdrops/
+    test/*.test.js  test/support/testDb.js  tool/firestore-suite.mjs  firebase.json (emulator)
+    docs/TESTING.md  uploads/backdrops/  data/maps/
   LIQo web/
     lib/core/      api_client config router session theme theme_mode favicon*
     lib/shared/    forms/ (field_spec, field_builder, app_form_dialog, wizard_dialog, lookup_picker)
@@ -244,7 +250,7 @@ Audit redaction: `src/utils/redact.js` removes secrets (passwords, tokens) befor
 | Topology | Status | Limits |
 |---|---|---|
 | Local development: SQL Server + `npm run dev` (3000) + `flutter run -d chrome` | In use | Single machine. |
-| Internal test (owner, 2026-10-23): Firebase Hosting on Spark (web) + the API on a PC behind Cloudflare Tunnel + Firestore on Spark; files on that PC's disk | Planned (`EXCEPTIONS.md` #1, #4) | SQL Server stays for local development, with both data layers tested (`docs/shopper-hybrid-decisions.md` §4). Firebase Storage needs the Blaze plan, so files stay on the PC until real users come. Spark limits: ~50k reads / 20k writes per day, 1 GB. Phones need a stable tunnel address (named tunnel + domain). No runbook yet. |
+| Internal test (owner, 2026-10-23): Firebase Hosting on Spark (web) + the API on a PC behind Cloudflare Tunnel + Firestore on Spark; files on that PC's disk | Planned; the Firestore data layer is built (P1-06A) (`EXCEPTIONS.md` #1, #4) | SQL Server stays for local development, with both data layers tested (`docs/shopper-hybrid-decisions.md` §4, `docs/p1-06a-firestore-data-layer.md`). Firebase Storage needs the Blaze plan, so files stay on the PC until real users come. Spark limits: ~50k reads / 20k writes per day, 1 GB. Phones need a stable tunnel address (named tunnel + domain). No runbook yet. |
 
 ---
 

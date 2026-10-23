@@ -225,20 +225,22 @@ Active entries only. Done entries are in §6.
 | Why this tier | The owner chose Firestore as the deployed database (2026-10-23); the shopper service is built on it, so it comes first. |
 | Tier | P1 |
 | PRD / Blueprint | PRD §6.17 · Blueprint Part 2.6 · `EXCEPTIONS.md` #1 |
-| DB | Firestore collections mirroring the tables (to be designed) |
-| Backend | `src/repos/` (Firestore implementation behind the same interface), test runner for both |
+| DB | Firestore collections named like the tables, integer ids from counters, guard docs for unique rules, daily running totals; map documents on disk |
+| Backend | `src/repos/{mssql,firestore,shared}/` behind driver fronts (`DB_DRIVER`), `src/db/firestore.js`, `src/storage/files.js`, `test/support/testDb.js`, `tool/firestore-suite.mjs` |
 | Frontend | none |
 | Effort | L |
 | Dependencies | — |
-| Status | `PLANNED` |
+| Status | `IN PROGRESS` |
 | Intent | Owner decision 2026-10-23 |
-| Spec | `docs/shopper-hybrid-decisions.md` §4 |
-| Plan | — |
-| PR | n/a |
+| Spec | `docs/shopper-hybrid-decisions.md` §4 · `docs/p1-06a-firestore-data-layer.md` |
+| Plan | `docs/p1-06a-firestore-data-layer.md` |
+| PR | 3c79170 (fronts, file store) and the Firestore driver commit |
 
 - [x] Owner: choose the deployed database (Firestore; SQL Server kept locally; both tested; start fresh; exception approved)
-- [ ] Design the collections and the repo interface split
-- [ ] Build the Firestore repos; full suite green on both databases
+- [x] Design the collections and the repo interface split
+- [x] Build the Firestore repos; full suite green on both databases (146 tests each)
+- [ ] Firestore rules that refuse browser access, and the one composite index, ready to deploy
+- [ ] Owner: create the Firebase project (Spark) with Firestore, and a service-account key kept outside the repo
 
 #### P1-07 — Shopper data service
 

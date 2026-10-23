@@ -37,3 +37,7 @@ Thumbs.db
 /USER_STORY(ADMIN).md
 /LIQO Brand Guidelines Presentation.png
 /LIQO Indoor Navigation Brand Board.png
+
+# Firestore emulator logs (P1-06A)
+LIQo backend/firestore-debug.log
+LIQo backend/firebase-debug.log

@@ -2,7 +2,7 @@
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { startServer, stopServer, api, makeFixtures, cleanFixtures, PASSWORD } from './helpers.js';
-import { query, sql } from '../src/db/pool.js';
+import * as db from './support/testDb.js';
 
 const tag = `x${Date.now().toString(36)}`;
 let server;
@@ -115,14 +115,14 @@ test('"Active" counts leave out deactivated stores and accounts', async () => {
   const before = (await call('GET', '/analytics/overview', { token: tokens.supervisor })).body.counts;
   const off = await call('POST', `/stores/${fx.storeA}/deactivate`, { token: tokens.mall_admin });
   assert.equal(off.status, 200, JSON.stringify(off.body));
-  await query(`UPDATE users SET is_active = 0 WHERE id = @id`, { id: { type: sql.Int, value: fx.ownerId } });
+  await db.setUser(fx.ownerId, { is_active: false });
   try {
     const after = (await call('GET', '/analytics/overview', { token: tokens.supervisor })).body.counts;
     assert.equal(after.stores, before.stores - 1);
     assert.equal(after.accounts, before.accounts - 1);
   } finally {
     await call('POST', `/stores/${fx.storeA}/reactivate`, { token: tokens.mall_admin });
-    await query(`UPDATE users SET is_active = 1 WHERE id = @id`, { id: { type: sql.Int, value: fx.ownerId } });
+    await db.setUser(fx.ownerId, { is_active: true });
   }
 });
 

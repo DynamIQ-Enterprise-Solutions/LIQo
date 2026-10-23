@@ -4,7 +4,7 @@
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { startServer, stopServer, api, makeFixtures, cleanFixtures, PASSWORD } from './helpers.js';
-import { query, sql } from '../src/db/pool.js';
+import * as db from './support/testDb.js';
 import * as settings from '../src/repos/settings.js';
 
 const tag = `f${Date.now().toString(36)}`;
@@ -211,7 +211,7 @@ test('mall impact counts active branches, active stores and distinct mall admins
   const branch = await call('POST', '/branches', { token: tokens.superadmin, body: { mallId: mall.body.mall.id, name: `Branch C ${tag}` } });
   assert.equal(branch.status, 201);
   for (const n of ['C1', 'C2']) {
-    await query(`INSERT INTO stores (branch_id, name) VALUES (@b, @n)`, { b: { type: sql.Int, value: branch.body.branch.id }, n: `Store ${n} ${tag}` });
+    await db.insertStore(branch.body.branch.id, `Store ${n} ${tag}`);
   }
   const admin = await call('POST', '/accounts', {
     token: tokens.superadmin,
@@ -255,7 +255,7 @@ test('deactivating a mall hides its branches and stores from scoped roles and pi
 });
 
 test('session length follows the session_timeout_hours setting', async () => {
-  await query(`UPDATE platform_settings SET setting_value = '2' WHERE setting_key = 'session_timeout_hours'`);
+  await db.setSetting('session_timeout_hours', 2);
   settings.invalidate();
   try {
     const r = await call('POST', '/auth/login', { body: { email: `superadmin.${tag}@test.local`, password: PASSWORD } });
@@ -263,7 +263,7 @@ test('session length follows the session_timeout_hours setting', async () => {
     const hours = (payload.exp - payload.iat) / 3600;
     assert.ok(Math.abs(hours - 2) < 0.01, `token lasts ${hours} h`);
   } finally {
-    await query(`UPDATE platform_settings SET setting_value = '8' WHERE setting_key = 'session_timeout_hours'`);
+    await db.setSetting('session_timeout_hours', 8);
     settings.invalidate();
   }
 });
@@ -276,7 +276,7 @@ test('an option value can be read by id inside scope only', async () => {
   assert.equal(mine.status, 200);
   assert.equal(mine.body.option.name, `Floor ${tag}`);
   // An option on a branch the mall admin is not assigned to (branch B) is out of their scope.
-  const other = (await query(`INSERT INTO branch_options (branch_id, kind, name) OUTPUT inserted.id VALUES (@b, 'floor_label', @n)`, { b: { type: sql.Int, value: fx.branchB }, n: `Other ${tag}` })).recordset[0].id;
+  const other = await db.insertOption(fx.branchB, 'floor_label', `Other ${tag}`);
   const outsider = await call('GET', `/options/${other}`, { token: tokens.mall_admin });
   assert.equal(outsider.status, 403);
 });

@@ -5,7 +5,7 @@
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { startServer, stopServer, api, makeFixtures, cleanFixtures, PASSWORD } from './helpers.js';
-import { query, sql } from '../src/db/pool.js';
+import * as db from './support/testDb.js';
 
 const tag = `w${Date.now().toString(36)}`;
 let server;
@@ -30,7 +30,7 @@ after(async () => {
 });
 
 const check = (role, params) => call('GET', `/accounts/check?${new URLSearchParams(params)}`, { token: tokens[role] });
-const setActive = (id, on) => query(`UPDATE users SET is_active = @a WHERE id = @id`, { a: { type: sql.Bit, value: on ? 1 : 0 }, id: { type: sql.Int, value: id } });
+const setActive = (id, on) => db.setUser(id, { is_active: on });
 
 test('email: free, taken and inactive; only a superadmin learns who holds it', async () => {
   const free = await check('superadmin', { email: `nobody.${tag}@test.local` });

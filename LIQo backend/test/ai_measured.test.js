@@ -11,8 +11,9 @@ import { startServer, stopServer, api, makeFixtures, cleanFixtures, giveTestCred
 import { drawnPlan } from './plan_fixtures.js';
 import { config } from '../src/config.js';
 import * as settings from '../src/repos/settings.js';
+import { PLANS_DIR } from '../src/storage/files.js';
 
-const UPLOADS = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../uploads/backdrops');
+const UPLOADS = PLANS_DIR;
 const tag = `am${Date.now().toString(36)}`;
 let server, base, call, fx, token, saved, previousModel, key, levelId, gatewayServer;
 let answer = null;
