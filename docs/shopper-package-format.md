@@ -223,8 +223,8 @@ GET /api/shopper/branches/:id/live        ETag; answers 304 to If-None-Match
   - A store with no space at all is not sent.
 - **`outOfService`** lists connector ids from the published map. Routes avoid them, and the map draws them crossed out.
 - **No people, emails or drafts.** Only active stores of an active, published branch of an active mall.
-- **** is a number, the same as the package's `places[].storeId`, so saved stores match by plain equality.
-- **** are `store_spaces.space_key`, the layout space ids, so they match the package's `places[].id`.
+- **`storeId`** is a number, the same as the package's `places[].storeId`, so saved stores match by plain equality.
+- **`spaceIds`** are `store_spaces.space_key`, the layout space ids, so they match the package's `places[].id`.
 - **One open/close range per day** (no split days such as a lunch break), the same on the web and in the app.
 - **ETag:** a hash of the body without `generatedAt`, so an unchanged store list answers 304.
 - **An inactive, unpublished or unknown branch** answers `404 {error}`. The app keeps its last copy and asks again only after the next directory refresh.
