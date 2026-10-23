@@ -250,7 +250,7 @@ Audit redaction: `src/utils/redact.js` removes secrets (passwords, tokens) befor
 | Topology | Status | Limits |
 |---|---|---|
 | Local development: SQL Server + `npm run dev` (3000) + `flutter run -d chrome` | In use | Single machine. |
-| Internal test (owner, 2026-10-23): Firebase Hosting on Spark (web) + the API on a PC behind Cloudflare Tunnel + Firestore on Spark; files on that PC's disk | Planned; the Firestore data layer is built (P1-06A) (`EXCEPTIONS.md` #1, #4) | SQL Server stays for local development, with both data layers tested (`docs/shopper-hybrid-decisions.md` §4, `docs/p1-06a-firestore-data-layer.md`). Firebase Storage needs the Blaze plan, so files stay on the PC until real users come. Spark limits: ~50k reads / 20k writes per day, 1 GB. Phones need a stable tunnel address (named tunnel + domain). No runbook yet. |
+| Internal test (owner, 2026-10-23): Firebase Hosting on Spark (`liqo-12a80.web.app`) + the API on this PC (port 3100, `npm run serve:internal`) behind a Cloudflare quick tunnel until a domain gives it a fixed address + Firestore on Spark; files on that PC's disk | In use since 2026-10-23 (`docs/internal-deploy.md`, `EXCEPTIONS.md` #1, #4) | SQL Server stays for local development, with both data layers tested (`docs/shopper-hybrid-decisions.md` §4, `docs/p1-06a-firestore-data-layer.md`). Firebase Storage needs the Blaze plan, so files stay on the PC until real users come. Spark limits: ~50k reads / 20k writes per day, 1 GB. Phones need a fixed address (named tunnel + domain) before the shopper service ships; the quick tunnel's address changes at every start and the web app is redeployed with it. |
 
 ---
 

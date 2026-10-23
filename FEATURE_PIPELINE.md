@@ -26,7 +26,7 @@ This file answers two questions and no others: **what is the state of X**, and *
 
 **Live page.** https://claude.ai/artifact/8QeFNHg6Xhp1jSQaMsSUx1 shows this file to the team. `tool/pipeline-data.mjs` reads it, and a project hook (`.claude/settings.json`) rebuilds the page data after every edit and has the session push it. So that the page reads well and parses: every active entry ends with a checklist of what is left, written in plain words; an item waiting on the product owner starts with `Owner:`; the build order in §4 is a numbered list.
 
-**Current totals** *(counted by hand 2026-10-23)*: active P0 3 · P1 9 · P2 2 · P3 2 · archived 8 · total 24
+**Current totals** *(counted by hand 2026-10-23)*: active P0 3 · P1 8 · P2 2 · P3 2 · archived 9 · total 24
 
 **Before the full artifact chain exists** (P1-11), the `Intent`, `Spec`, `Plan` and `PR` rows point at what plays those parts today: the user story or owner request (intent) and the round's decision doc in `docs/` (spec and plan). The git repository (https://github.com/DynamIQ-Enterprise-Solutions/LIQo) started on 2026-10-22: `PR` reads "n/a (built before the repository)" for work done before then, "none yet" for work still to come, and names the commit or pull request from now on.
 
@@ -217,31 +217,6 @@ Active entries only. Done entries are in §6.
 - [x] Nicer look: see-through glass, door frames, accent entrances, floor finishes and edges (`docs/round-18-accuracy-3d-easy-editor.md`)
 - [ ] Check the new look in a browser
 
-#### P1-06A — Firestore data layer
-
-| | |
-|---|---|
-| Description | A second implementation of `src/repos/` on Firestore for the deployed system; SQL Server stays for local development. The full backend suite runs against both (SQL Server and the Firestore emulator). Rules SQL Server enforces today move into code; analytics use running totals. Firestore starts fresh from the seed. |
-| Why this tier | The owner chose Firestore as the deployed database (2026-10-23); the shopper service is built on it, so it comes first. |
-| Tier | P1 |
-| PRD / Blueprint | PRD §6.17 · Blueprint Part 2.6 · `EXCEPTIONS.md` #1 |
-| DB | Firestore collections named like the tables, integer ids from counters, guard docs for unique rules, daily running totals; map documents on disk |
-| Backend | `src/repos/{mssql,firestore,shared}/` behind driver fronts (`DB_DRIVER`), `src/db/firestore.js`, `src/storage/files.js`, `test/support/testDb.js`, `tool/firestore-suite.mjs` |
-| Frontend | none |
-| Effort | L |
-| Dependencies | — |
-| Status | `IN PROGRESS` |
-| Intent | Owner decision 2026-10-23 |
-| Spec | `docs/shopper-hybrid-decisions.md` §4 · `docs/p1-06a-firestore-data-layer.md` |
-| Plan | `docs/p1-06a-firestore-data-layer.md` |
-| PR | 3c79170 (fronts, file store) and the Firestore driver commit |
-
-- [x] Owner: choose the deployed database (Firestore; SQL Server kept locally; both tested; start fresh; exception approved)
-- [x] Design the collections and the repo interface split
-- [x] Build the Firestore repos; full suite green on both databases (146 tests each)
-- [ ] Firestore rules that refuse browser access, and the one composite index, ready to deploy
-- [ ] Owner: create the Firebase project (Spark) with Firestore, and a service-account key kept outside the repo
-
 #### P1-07 — Shopper data service
 
 | | |
@@ -330,16 +305,19 @@ Active entries only. Done entries are in §6.
 | Backend | `DB_DRIVER=mssql|firestore` driver switch (P1-06A); files stay on the server PC's disk (`routes/backdrops.js` `UPLOAD_DIR`) during the internal test |
 | Frontend | `--dart-define=API_BASE=...`; `CORS_ORIGINS` set |
 | Effort | L |
-| Dependencies | P1-11 — deploy from a versioned, CI-checked repo · P1-06A — the Firestore data layer · **owner: named tunnel and domain** |
-| Status | `PLANNED` |
+| Dependencies | P1-11 — deploy from a versioned, CI-checked repo · P1-06A — the Firestore data layer · **owner: a domain for the fixed address** |
+| Status | `IN PROGRESS` |
 | Intent | `EXCEPTIONS.md` #1, #4 |
-| Spec | — |
-| Plan | — |
-| PR | n/a |
+| Spec | `docs/internal-deploy.md` |
+| Plan | `docs/internal-deploy.md` |
+| PR | the internal deploy commit |
 
 - [x] Owner: choose the production database (Firestore, 2026-10-23)
 - [x] Owner: choose the hosting (Firebase Hosting on Spark; the API on a PC behind Cloudflare Tunnel; files on that PC) (2026-10-23)
-- [ ] Owner: a named Cloudflare tunnel and a domain, so phones have a stable address
+- [x] Internal test live: https://liqo-12a80.web.app, the API on this PC through a Cloudflare quick tunnel (`npm run serve:internal`; owner chose to start without a domain, 2026-10-23)
+- [ ] Owner: sign in as the first superadmin and change its password; run the end-to-end check (mall, branch, admin, credits, plan, AI reading, publish, restart)
+- [ ] Owner: a domain on a free Cloudflare account, for the fixed address phones need (before the shopper service ships)
+- [ ] ODA File Converter on this PC, for DWG plans
 - [ ] Later, with real users: Firebase Storage (Blaze) for files
 - [ ] Deployment runbook and a deploy plan per release
 
@@ -545,6 +523,7 @@ Adapted from `Engineering Standards.html` §9 to LIQo's files and commands. Ever
 
 | ID | Feature | Shipped in | What changed from the plan |
 |---|---|---|---|
+| P1-06A | Firestore data layer | — (pre-release) | Built as planned, plus: map documents on disk (Firestore's 1 MB limit), one-process locks for maps and AI credits, daily running totals for audit-based charts; the internal deploy went out on a quick tunnel because there is no domain yet. |
 | P1-03 | Admin web look and feel | — (pre-release) | Brand reference switched mid-way to the guidelines PNG (Round 12); side panels (Round 5) were replaced by record pages (Round 7); loading overflow found in the running app led to per-page scrolling and the 16 ms transition test. |
 | P1-02 | Analytics | — (pre-release) | Grew from summary cards to six charted sections with real CSV export (Round 3). Store owners get no analytics page; shopper metrics wait for P1-07. |
 | P1-01 | Profile change requests | — (pre-release) | Not in the user stories; added by the owner while answering a Round 8 question. |
@@ -707,3 +686,22 @@ Adapted from `Engineering Standards.html` §9 to LIQo's files and commands. Ever
 | Spec | `docs/round-5` to `round-7`, `round-11` to `round-13` |
 | Plan | same docs |
 | PR | n/a |
+
+#### P1-06A — Firestore data layer
+
+| | |
+|---|---|
+| Description | A second implementation of `src/repos/` on Firestore for the deployed system; SQL Server stays for local development. The full backend suite runs against both (SQL Server and the Firestore emulator). Rules SQL Server enforces today move into code; analytics use running totals. Firestore starts fresh from the seed. |
+| Why this tier | The owner chose Firestore as the deployed database (2026-10-23); the shopper service is built on it, so it comes first. |
+| Tier | P1 |
+| PRD / Blueprint | PRD §6.17 · Blueprint Part 2.6 · `EXCEPTIONS.md` #1 |
+| DB | Firestore collections named like the tables, integer ids from counters, guard docs for unique rules, daily running totals; map documents on disk |
+| Backend | `src/repos/{mssql,firestore,shared}/` behind driver fronts (`DB_DRIVER`), `src/db/firestore.js`, `src/storage/files.js`, `test/support/testDb.js`, `tool/firestore-suite.mjs` |
+| Frontend | none |
+| Effort | L |
+| Dependencies | — |
+| Status | `DONE` |
+| Intent | Owner decision 2026-10-23 |
+| Spec | `docs/shopper-hybrid-decisions.md` §4 · `docs/p1-06a-firestore-data-layer.md` |
+| Plan | `docs/p1-06a-firestore-data-layer.md` |
+| PR | 3c79170 (fronts, file store), 4587ce6 (Firestore driver, both suites), the internal deploy commit (rules, index) |

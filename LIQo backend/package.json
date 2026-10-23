@@ -13,7 +13,10 @@
     "seed:demo": "node src/db/seed-demo.js",
     "test": "npm run test:mssql && npm run test:firestore",
     "test:mssql": "node --test --test-concurrency=1",
-    "test:firestore": "firebase emulators:exec --only firestore --project demo-liqo \"node tool/firestore-suite.mjs\""
+    "test:firestore": "firebase emulators:exec --only firestore --project demo-liqo \"node tool/firestore-suite.mjs\"",
+    "serve:internal": "node tool/internal.mjs serve",
+    "deploy:internal": "node tool/internal.mjs deploy",
+    "seed:internal": "node tool/internal.mjs seed"
   },
   "engines": {
     "node": ">=20"

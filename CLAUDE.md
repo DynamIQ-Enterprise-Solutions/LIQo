@@ -26,6 +26,7 @@ npm run seed           # superadmin admin@liqo.local / Admin@123
 npm run dev            # node --watch, http://localhost:3000
 npm test               # the suite on SQL Server, then on the Firestore emulator (needs Java 17+)
 npm run test:mssql     # SQL Server only; test:firestore for the emulator only
+npm run serve:internal # the internal deploy: API on Firestore (3100) + tunnel + web redeploy (docs/internal-deploy.md)
 
 # frontend (inside "LIQo web")
 flutter pub get

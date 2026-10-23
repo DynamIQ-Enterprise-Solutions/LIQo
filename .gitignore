@@ -41,3 +41,6 @@ Thumbs.db
 # Firestore emulator logs (P1-06A)
 LIQo backend/firestore-debug.log
 LIQo backend/firebase-debug.log
+# Firebase CLI deploy cache.
+.firebase/
+firestore-debug.log
