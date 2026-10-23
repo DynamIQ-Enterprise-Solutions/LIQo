@@ -1,8 +1,8 @@
-# Shopper package format (draft for review)
+# Shopper package format
 
-What the server builds at publish (P1-08) and the phone downloads per branch and version. It is written by the mobile session for the web/backend session to review. Decisions behind it: `docs/shopper-hybrid-decisions.md`.
+What the server builds at publish (P1-08) and the phone downloads per branch and version. It was written by the mobile session and reviewed against the editor's catalog (`src/maps/catalog.js`) and validator by the web/backend session; the owner's answers are folded in (2026-10-23). Decisions behind it: `docs/shopper-hybrid-decisions.md`.
 
-The phone draws the map from **section 2** and routes on **section 3** without any geometry work of its own. Everything shoppers see change often (hours, status, phone, logo, out of service) is **not** in the package; it comes from `/live`.
+The phone draws the map from **section 2** and routes on **section 3** without any geometry work of its own. Everything that changes often (store names and hours, status, phone, logo, out of service) is **not** in the package; it comes from `/live`.
 
 ## 1. Envelope
 
@@ -29,11 +29,17 @@ The phone draws the map from **section 2** and routes on **section 3** without a
 
 **The envelope itself**
 - `formatVersion` goes up only for changes an older app can't read. The app refuses a higher number than it knows, keeps its old copy and asks to update.
-- **Checksum:** SHA-256 of the exact bytes served, sent with the metadata (`/package` headers or `/directory`). The app checks it before swapping the new copy in. The body is gzipped on the wire and the checksum covers the un-gzipped bytes.
-- **Order matters.** The app's routing breaks ties by insertion order, so the builder must emit every array in a stable order (by id) for the same input. The same published map always gives the same bytes and the same routes on every phone.
+- **Checksum:** SHA-256 of the un-gzipped bytes. It travels in two places:
+  - `/directory` carries `{branchId, version, formatVersion, checksum, sizeBytes}` per branch, so the app knows an update exists and how big it is (for the Wi-Fi / mobile-data rule);
+  - `/package` sends `ETag` = checksum and `X-Package-Checksum`, and answers `If-None-Match`.
+
+  The app checks the bytes before swapping the new copy in. The body is gzipped on the wire.
+- **Order matters.** The app's routing breaks ties by insertion order, so the builder emits every array in a stable order (by id) for the same input. The same published map always gives the same bytes and the same routes on every phone.
 
 **Coordinates and levels**
-- **Units:** metres. Plan coordinates `x` (east) and `y` (south, downward on screen). The web's `z` becomes `y`. The plan origin is kept as in the editor; the app reads `bounds` and fits the view itself.
+- **Units:** metres.
+- **One branch-wide frame.** The editor's building origin and rotation and each level's offset and rotation are applied by the builder, so the app never sees per-building frames.
+- **Axes:** `x` points east and `y` points south (downward on screen). The editor's `z` becomes `y`. The app reads `bounds` and fits the view itself.
 - **Levels:** `levels` are ordered **lowest to highest**. A level's index in this array is the `lv` used everywhere else.
 
 ## 2. Drawing
@@ -43,28 +49,29 @@ The phone draws the map from **section 2** and routes on **section 3** without a
 { "id": "L1", "name": "Ground floor", "short": "G", "elev": 0, "height": 4.5, "ground": true,
   "outline": { "outer": [[x,y],...], "holes": [[[x,y],...]] } }
 ```
-- Exactly one level has `ground: true`.
-- `short` is at most 3 characters, for the floor picker.
+- `ground` is worked out by the builder: the level whose elevation is closest to 0, the lowest one on a tie. Exactly one level has it.
+- `short` is worked out from the name, at most 3 characters: "Ground floor" → `G`, "Level 2" → `2`, "Basement 1" → `B1`. A matching floor-label option wins if one exists. Owner: worked out, not an editor field.
 
 **Spaces**
 ```json
 { "id": "sp_abc", "lv": 0, "name": "Unit 101", "type": "retail", "shape": [[x,y],...],
   "storeId": 345, "walkable": false, "outdoor": false, "label": [x,y] }
 ```
-- One entry per space.
-- `storeId` comes from `store_spaces`, or `null`.
-- `walkable` covers corridors and atria.
+- One entry per space. `storeId` comes from `store_spaces`, or `null`.
+- `type` is the editor's space type: retail, food, anchor, service, office, storage, atrium, corridor, restroom, parking, outdoor, custom.
+- **Walkable:** corridor, atrium, outdoor and parking, plus each level's free area inside the outline.
+- **Outdoor:** outdoor and parking.
 - `label` is where the name is drawn: the centre of the polygon's largest inscribed area, or its centroid.
 
 **Walls, openings and features**
 ```json
-{ "lv": 0, "a": [x,y], "b": [x,y], "t": 0.2, "kind": "solid|glass|partition" }
-{ "id": "op_1", "lv": 0, "kind": "door|entrance|shutter|passage|gate", "at": [x,y], "w": 1.8, "angle": 0.0 }
-{ "id": "ft_1", "lv": 0, "type": "restroom|atm|info|...", "at": [x,y], "label": "ATM" }
+{ "lv": 0, "a": [x,y], "b": [x,y], "t": 0.2, "kind": "solid|glass|partition|boundary" }
+{ "id": "op_1", "lv": 0, "kind": "door|entrance|gate|passage|shutter|window", "at": [x,y], "w": 1.8, "angle": 0.0, "walkable": true }
+{ "id": "ft_1", "lv": 0, "type": "atm", "at": [x,y], "label": "ATM" }
 ```
 - Wall `t` is the thickness.
-- Opening `at` is the opening's centre, already worked out from the host wall.
-- Features are the editor catalog's facility and access types.
+- Opening `at` is the opening's centre, worked out from its host wall. `window` is drawn only (`walkable: false`); every other opening kind is walkable.
+- Feature `type` is the editor's catalog key, so the app picks the icon. Every feature is drawn; only catalog features with `target: true` also become places (§3).
 
 **Buildings**
 ```json
@@ -80,7 +87,7 @@ These feed the Layers panel's "Go to" buttons and the whole-site view.
 ```
 - `out`: outdoors.
 - `inner`: inside a store on a cut-through, never anyone's "nearest point".
-- `emergencyOnly`: used by evacuation only.
+- `emergencyOnly`: always `false` in format 1, because there are no fire-only stairs yet (owner: not now). The field is kept so a later version can use it without a format change.
 
 **Edges** (listed once each)
 ```json
@@ -95,43 +102,54 @@ These feed the Layers panel's "Go to" buttons and the whole-site view.
 - `conn`: the connector id, for hops.
 - `label`: a bridge or entrance name, for directions.
 
-**How the builder makes the walkways** (agreed approach, details are the builder's)
-- A network of centre-lines through walkable spaces and the free area of each level's outline. A straight-skeleton or medial-axis style path is fine; it does not have to be grid-aligned.
-- Every opening joins the two sides it connects with a short `enter` edge.
-- A store with two or more doors gets `through` edges across its floor, as today's sample malls do.
+**How the builder makes the walkways** (the details are the builder's)
+- A network of centre-lines through walkable spaces and the free area of each level's outline. It doesn't have to be grid-aligned.
+- Every walkable opening joins the two sides it connects with a short `enter` edge. The builder finds the sides by probing either side of the host wall.
+- A store with two or more doors gets `through` edges across its floor.
 - Each connector stop is a node joined to the walkway.
 
 **Places**
 ```json
-{ "id": "sp_abc", "storeId": 345, "lv": 0, "name": "Unit 101", "cat": "fashion",
+{ "id": "sp_abc", "storeId": 345, "lv": 0, "name": "Unit 101", "cat": "fashion", "type": "retail",
   "kind": "store|box|svc|zone|conn", "at": [x,y], "doors": [[x,y],...], "nodes": ["n40","n41"],
   "wing": "b1", "exit": false }
 ```
-- One entry per thing a shopper can look up and go to: stores, rooms with a name, restrooms, ATMs, desks, parking zones and exits.
-- `nodes` are the door nodes the route ends at. Saved places use `storeId` when there is one and `id` otherwise (decided).
-- `cat` uses the app's categories: `food`, `fashion`, `tech`, `books`, `services`, `other`, `restroom`, `atm`, `info`, `exit`, `parking`. The mapping from the web's store categories and space types is agreed below.
-- The store's display name, hours, status and so on come from `/live` by `storeId`. `name` is the space's own name, a fallback for a space with no store.
+- One entry per thing a shopper can look up and go to: stores, named rooms, target features, parking zones and exits.
+- `nodes` are the door nodes a route ends at. Saved places use `storeId` when there is one and `id` otherwise.
+- `type` is the editor's space type or catalog key, for icons.
+- **`cat`**, one of: `food`, `fashion`, `tech`, `books`, `services`, `other`, `restroom`, `atm`, `info`, `exit`, `parking`.
+  - **A store:** the **App category** the mall admin set on that store-category option (owner decision: each store-category option on the web gets an App category pick from Food, Fashion, Tech, Books, Services, Other, defaulting to Other).
+  - **A space with no store:** food → food, restroom → restroom, parking → parking, service → services, everything else → other. Office, storage and custom spaces become places only when they have a name.
+  - **Target features:**
+    - `restroom` → restroom;
+    - `atm` → atm;
+    - `info_desk`, `customer_service`, `concierge`, `directory_sign`, `lost_found` → info;
+    - `entrance`, `exit`, `fire_exit` → exit;
+    - `parking_entrance` → parking;
+    - other target features (prayer room, nursing room, first aid, AED, security, charging, water fountain, locker, kiosk, taxi bay, bus stop, stage, play area, fountain, marker) → services.
+  - Features with `target: false` (fire extinguisher, hose, seating, column and the like) are drawn only.
+- A store's display name, hours and status come from `/live` by `storeId`. `name` is the space's own name, a fallback for a space with no store.
 
 **Connectors**
 ```json
 { "id": "cn_1", "type": "lift|escalator|stairs|ramp|walkway", "name": "West lifts",
-  "stops": [{ "lv": 0, "node": "n90" }, { "lv": 1, "node": "n91" }], "oneWay": null, "building": "b1",
-  "emergencyOnly": false }
+  "stops": [{ "lv": 0, "node": "n90" }, { "lv": 1, "node": "n91" }], "oneWay": false, "building": "b1" }
 ```
-- `stops` are ordered low to high; hops join neighbouring stops.
-- `oneWay` is `null` (both ways) or `"up"` / `"down"`, for escalators.
+- **Types:** editor `elevator` → `lift`, `moving_walkway` → `walkway`, `stairs`, `escalator` and `ramp` as they are. `bridge` is not a connector; it becomes `bridge` walk edges with a label. `vehicle_ramp` is left out of the shopper graph, because it is for cars.
+- **`oneWay`** is a boolean. When `true`, the stops keep the editor's endpoint order and hops run from each stop to the next only, which covers escalators and same-level moving walkways. When `false`, the stops are ordered low to high and hops run both ways.
 - Out-of-service marks come from `/live` by connector id; the app takes those hops out of routing and draws the connector crossed out.
 
 **Exits**
 ```json
-{ "id": "ex_1", "name": "Grand Court north doors", "node": "n5" }
+{ "id": "ex_1", "name": "Grand Court north doors", "node": "n5", "assembly": false }
 ```
-Ways out for evacuation, each with a node just outside the door.
+- Ways out for evacuation: `entrance` openings on `boundary` walls, plus `exit` and `fire_exit` features, each with a node just outside.
+- `assembly_point` features are listed with `assembly: true` as places to head for once outside.
 
-## 4. What the publish gate checks (decided rule, messages to agree)
+## 4. What the publish gate checks
 
 Publishing is refused, with each problem listed in plain words, when:
-1. A space linked to a store, or a named room, has no route on foot from any entrance (`kind: entrance` opening). Example: "Uniqlo (Unit 101) can't be reached: it has no door to a corridor".
+1. A space linked to a store, or a named room, has no route on foot from any entrance. Entrances are `entrance` openings and `entrance`, `exit` and `parking_entrance` features. Example: "Uniqlo (Unit 101) can't be reached: it has no door to a corridor".
 2. A connector stop sits outside walkable area. Example: "West lifts, level 2: the lift door isn't on a walkway".
 3. A level has no walkway at all. Example: "Level 3 has no corridor".
 
@@ -139,11 +157,12 @@ Publishing **warns, without blocking,** when a space or store from the previous 
 
 ## 5. Size
 
-Gzipped, a large branch is expected to be a few MB. The server refuses to publish above a set limit, proposed at 20 MB uncompressed, with a clear message.
+A large branch is expected to be a few MB gzipped. Publishing is refused above **20 MB uncompressed**, with a clear message.
 
-## 6. To agree (web/backend session)
+## 6. Settled
 
-- The category mapping: web store categories and space types to the app's `cat` values.
-- Whether the editor has emergency-only (fire) stairs, as a connector flag or a stairs type.
-- Which space types count as `walkable` and as `outdoor`.
-- Endpoint naming, and whether the checksum travels in `/directory` or in `/package` headers (or both).
+- Endpoint names as drafted in `docs/shopper-hybrid-decisions.md` §3.
+- The checksum travels in both `/directory` and `/package` (see §1).
+- Fire-only stairs: not now.
+- Store category to app category: an App category pick per store-category option on the web.
+- Floor short label and ground floor: worked out from the levels, with no editor field.

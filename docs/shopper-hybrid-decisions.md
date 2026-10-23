@@ -45,6 +45,10 @@ Everything works offline for a downloaded mall. The internet only brings new mal
   - The Map tab is the full mall chooser, with "Get there" opening Google Maps (Apple Maps on iPhone).
 - With a mall picked, Home shows the mall first and the LIQo-wide sections below it.
 
+**Directions in real malls**
+- No automatic trip. Opening the Map just shows the map, and trips start only when the shopper asks. The sample malls in debug builds and tests keep their demo trip.
+- Real navigation is driven by beacons (P2-02). Until then, and as the fallback afterwards, the simulated walk stays: Start moves the dot at the chosen pace, and the "Are you at …?" questions keep it honest.
+
 **Being in a mall**
 - Ways in: picking it, the phone's location being inside its area, beacons (later), or setting "Where are you?" there.
 - **Confirmed visit:**
@@ -85,6 +89,9 @@ Everything works offline for a downloaded mall. The internet only brings new mal
 - **Out of service:** mall admins mark a lift, escalator or stairs. It is kept separately from map versions, keyed by branch and connector id, and reaches phones through the live refresh. Publishing a version without that connector clears the mark, noted in the audit log.
 - **Branch location:** the admin pastes a Google Maps link. Short `maps.app.goo.gl` links are followed once on the server. The pin's place name is shown back to the admin to confirm. The numbers stay hidden.
 - **Announcement pictures:** one optional picture per announcement, size-limited, stored with the floor plans.
+- **App category:** each store-category option on the web gets an "App category" pick (Food, Fashion, Tech, Books, Services, Other), set by the mall admin and defaulting to Other. It sorts stores into the app's chips and lists.
+- **Fire-only stairs:** not now. All stairs are normal stairs.
+- **Package format:** `docs/shopper-package-format.md`, reviewed by both sessions.
 - **Shopper package:**
   - Built at publish in the same transaction, by a pure module (`src/maps/shopper/`). It derives the walkway graph, which spaces each opening joins, store doors and the area around each connector end.
   - It is immutable, versioned, with a format version and a checksum.
