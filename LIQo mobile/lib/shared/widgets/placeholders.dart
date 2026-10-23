@@ -2,9 +2,12 @@
 // 2026-10-22: no images of real brands): an initials tile for a logo, and a
 // drawn storefront for a photo.
 import 'dart:math' as math;
+import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/data/picture_cache.dart';
 import '../../core/theme.dart';
 import 'glyphs.dart';
 
@@ -112,4 +115,56 @@ class _ArtPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(_ArtPainter o) => o.motif != motif || o.base != base || o.paper != paper || o.seed != seed;
+}
+
+/// A store's logo once it is on the phone, else its initials tile.
+class StoreLogo extends StatelessWidget {
+  const StoreLogo({super.key, required this.name, required this.url, this.size = 44});
+  final String name;
+  final String? url;
+  final double size;
+  @override
+  Widget build(BuildContext context) => SizedBox(
+        width: size,
+        height: size,
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(size * .24),
+          child: CachedPicture(url: url, fit: BoxFit.contain, fallback: InitialsTile(name, size: size)),
+        ),
+      );
+}
+
+/// A picture from the shopper server (a post's picture, a store's logo), kept on the phone by
+/// the picture cache. Until it is there, and whenever it can't be had (offline, broken), the
+/// [fallback] shows instead: the drawn art or the initials tile.
+class CachedPicture extends ConsumerStatefulWidget {
+  const CachedPicture({super.key, required this.url, required this.fallback, this.fit = BoxFit.cover});
+  final String? url;
+  final Widget fallback;
+  final BoxFit fit;
+  @override
+  ConsumerState<CachedPicture> createState() => _CachedPictureState();
+}
+
+class _CachedPictureState extends ConsumerState<CachedPicture> {
+  Future<Uint8List?>? _bytes;
+  String? _for;
+
+  @override
+  Widget build(BuildContext context) {
+    final url = widget.url;
+    if (url == null || url.isEmpty) return widget.fallback;
+    if (_for != url) {
+      _for = url;
+      _bytes = ref.read(pictureCacheProvider).get(url);
+    }
+    return FutureBuilder<Uint8List?>(
+      future: _bytes,
+      builder: (context, snap) {
+        final b = snap.data;
+        if (b == null) return widget.fallback;
+        return Image.memory(b, fit: widget.fit, gaplessPlayback: true, errorBuilder: (_, _, _) => widget.fallback);
+      },
+    );
+  }
 }

@@ -95,6 +95,7 @@ PlaceInfo _published(PackageVenue v, Place p) {
     placeId: p.id,
     week: week,
     hoursNote: week == null ? st?.hoursNote : null,
+    logoUrl: st?.logoUrl,
     unknown: week == null && (st?.hoursNote ?? '').isEmpty,
     phone: st?.phone,
     about: about,

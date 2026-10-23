@@ -11,6 +11,7 @@ import 'package:liqo_mobile/app.dart';
 import 'package:liqo_mobile/core/clock.dart';
 import 'package:liqo_mobile/core/data/blob_store.dart';
 import 'package:liqo_mobile/core/data/net.dart';
+import 'package:liqo_mobile/core/data/picture_cache.dart';
 import 'package:liqo_mobile/core/data/shopper_api.dart';
 import 'package:liqo_mobile/core/haptics.dart';
 import 'package:liqo_mobile/core/storage/keys.dart';
@@ -108,6 +109,8 @@ Future<AppHarness> pumpApp(
       blobStoreProvider.overrideWithValue(h.blobs),
       shopperApiProvider.overrideWithValue(api ?? h.api),
       netProvider.overrideWithValue(h.net),
+      // no network in tests: pictures fall back to the drawn art
+      pictureFetchProvider.overrideWithValue((url) async => throw Exception('no network in tests')),
       ...overrides,
     ],
     child: const LiqoApp(),

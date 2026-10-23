@@ -148,6 +148,7 @@ class _PlaceListViewState extends ConsumerState<PlaceListView> {
                   last: i == shown.length - 1,
                   onTap: () => context.push('/place/$mallId/${shown[i].id}'),
                   status: placeStatus(shown[i], placeInfoFor(s.v, shown[i]), now, w),
+                  logoUrl: placeInfoFor(s.v, shown[i]).logoUrl,
                   sub: _sub(shown[i], t.levelName(shown[i].lv), s.distOf(shown[i]), t.fmtM, w.tr),
                 ),
             ],
@@ -161,12 +162,13 @@ class _PlaceListViewState extends ConsumerState<PlaceListView> {
 }
 
 class _PlaceRow extends StatelessWidget {
-  const _PlaceRow({required this.place, required this.last, required this.onTap, required this.status, required this.sub});
+  const _PlaceRow({required this.place, required this.last, required this.onTap, required this.status, required this.sub, this.logoUrl});
   final Place place;
   final bool last;
   final VoidCallback onTap;
   final PlaceStatus status;
   final String sub;
+  final String? logoUrl;
 
   @override
   Widget build(BuildContext context) {
@@ -188,7 +190,7 @@ class _PlaceRow extends StatelessWidget {
           ),
           child: Row(
             children: [
-              InitialsTile(place.name, size: 44),
+              StoreLogo(name: place.name, url: logoUrl),
               const SizedBox(width: 12),
               Expanded(
                 child: Column(

@@ -1,23 +1,21 @@
 // Home: the board's Categories / Explore screen. The mall in the header, a way
-// into search, the category tiles, and the posts carousel. Until posts by
-// stores, malls, mall owners and the superadmin exist, the carousel shows five
-// clearly labelled sample posts per mall (owner decisions 2026-10-22).
+// into search, the category tiles, and the mall's posts as a feed down the
+// page, newest first, 10 at a time with "More posts"; offline it keeps the last
+// loaded posts and says when they are from; pull down to refresh (owner
+// decisions 2026-10-23). Debug builds show the stand-in server's sample posts.
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../../core/i18n/words.dart';
 import '../../../core/theme.dart';
 import '../../../shared/widgets/brand.dart';
 import '../../../shared/widgets/mall_switcher.dart';
-import '../../../shared/widgets/placeholders.dart';
 import '../../malls/providers/mall_provider.dart';
 import '../../malls/views/update_card.dart';
 import '../../places/models/category.dart';
-import '../../places/services/place_info_catalog.dart' show stableHash;
 import '../../settings/providers/words_provider.dart';
-import '../data/sample_posts.dart';
-import '../models/sample_post.dart';
+import '../providers/posts_provider.dart';
+import 'post_widgets.dart';
 
 class HomeView extends ConsumerWidget {
   const HomeView({super.key});
@@ -25,12 +23,17 @@ class HomeView extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final p = context.pal, w = ref.watch(wordsProvider), mallId = ref.watch(mallProvider);
-    final posts = mallId == null ? const <SamplePost>[] : postsFor(mallId);
+    final ps = ref.watch(postsProvider), postsN = ref.read(postsProvider.notifier), today = postsN.today();
+    final posts = mallId == null ? const [] : ps.visible(today);
+    final loc = MaterialLocalizations.of(context);
     return ColoredBox(
       color: p.bg,
       child: SafeArea(
         bottom: false,
-        child: ListView(
+        child: RefreshIndicator(
+          onRefresh: postsN.refresh,
+          child: ListView(
+          physics: const AlwaysScrollableScrollPhysics(),
           padding: const EdgeInsets.fromLTRB(16, 10, 16, 24),
           children: [
             const Row(children: [
@@ -72,16 +75,29 @@ class HomeView extends ConsumerWidget {
                 for (final cat in categories) SizedBox(width: tw, child: _CategoryTile(cat: cat, label: w.tr(cat.label))),
               ]);
             }),
-            if (posts.isNotEmpty) ...[
+            if (mallId != null && (posts.isNotEmpty || ps.offline)) ...[
               const SizedBox(height: 22),
-              Row(children: [
-                Expanded(child: Semantics(header: true, child: Text(w.tr('Posts'), style: ts(20, w: FontWeight.w800, color: p.ink)))),
-                const SampleLabel(),
-              ]),
+              Semantics(header: true, child: Text(w.tr('Posts'), style: ts(20, w: FontWeight.w800, color: p.ink))),
+              if (ps.offline && ps.loadedAt != null) ...[
+                const SizedBox(height: 4),
+                Text(
+                  w.tr("You're offline · showing posts from ${loc.formatShortMonthDay(ps.loadedAt!)}, ${loc.formatTimeOfDay(TimeOfDay.fromDateTime(ps.loadedAt!))}"),
+                  key: const ValueKey('posts-offline'),
+                  style: ts(12.5, w: FontWeight.w600, color: p.muted),
+                ),
+              ],
               const SizedBox(height: 10),
-              _PostsCarousel(posts: posts, w: w),
+              if (posts.isEmpty) Text(w.tr('No posts right now.'), style: ts(14, color: p.muted)),
+              for (final post in posts) ...[PostFeedCard(post: post), const SizedBox(height: 12)],
+              if (ps.more(today))
+                OutlinedButton(
+                  key: const ValueKey('posts-more'),
+                  onPressed: ps.loading ? null : postsN.more,
+                  child: Text(w.tr('More posts')),
+                ),
             ],
           ],
+        ),
         ),
       ),
     );
@@ -120,104 +136,6 @@ class _CategoryTile extends StatelessWidget {
           ]),
         ),
       ),
-    );
-  }
-}
-
-/// The posts, swiping sideways.
-class _PostsCarousel extends StatelessWidget {
-  const _PostsCarousel({required this.posts, required this.w});
-  final List<SamplePost> posts;
-  final Words w;
-
-  @override
-  Widget build(BuildContext context) {
-    final scale = MediaQuery.textScalerOf(context).scale(1).clamp(1.0, 2.0);
-    final height = 120 + 132 * scale;
-    return SizedBox(
-      height: height,
-      child: LayoutBuilder(builder: (context, c) {
-        final cardW = (c.maxWidth * .84).clamp(200.0, 420.0);
-        return ListView.separated(
-          key: const ValueKey('posts'),
-          scrollDirection: Axis.horizontal,
-          clipBehavior: Clip.none,
-          itemCount: posts.length,
-          separatorBuilder: (_, _) => const SizedBox(width: 12),
-          itemBuilder: (context, i) => SizedBox(width: cardW, child: PostCard(post: posts[i], w: w)),
-        );
-      }),
-    );
-  }
-}
-
-/// One post's card: the picture, who wrote it, the title and the start of the text.
-class PostCard extends StatelessWidget {
-  const PostCard({super.key, required this.post, required this.w});
-  final SamplePost post;
-  final Words w;
-
-  @override
-  Widget build(BuildContext context) {
-    final p = context.pal;
-    return Semantics(
-      button: true,
-      label: '${w.tr('Sample post')}. ${post.title.of(w.lang)}. ${authorLabel(post, w)}',
-      excludeSemantics: true,
-      onTap: () => context.push('/post/${post.id}'),
-      child: InkWell(
-        key: ValueKey('post-${post.id}'),
-        borderRadius: BorderRadius.circular(16),
-        onTap: () => context.push('/post/${post.id}'),
-        child: Ink(
-          decoration: BoxDecoration(color: p.panel, borderRadius: BorderRadius.circular(16), border: Border.all(color: p.line, width: p.lineW), boxShadow: p.shadow),
-          child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-            SizedBox(
-              height: 110,
-              child: ClipRRect(
-                borderRadius: const BorderRadius.vertical(top: Radius.circular(15)),
-                child: Stack(fit: StackFit.expand, children: [
-                  DrawnArt(motif: post.motif, tone: stableHash(post.id), seed: post.id.length),
-                  const Positioned(left: 10, top: 10, child: SampleLabel()),
-                ]),
-              ),
-            ),
-            Expanded(
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
-                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  Text(authorLabel(post, w), maxLines: 1, overflow: TextOverflow.ellipsis, style: ts(12, w: FontWeight.w700, color: p.brand2)),
-                  const SizedBox(height: 2),
-                  Text(post.title.of(w.lang), maxLines: 2, overflow: TextOverflow.ellipsis, style: ts(16, w: FontWeight.w800, color: p.ink, height: 1.25)),
-                  const SizedBox(height: 4),
-                  Expanded(child: Text(post.body.of(w.lang), maxLines: 3, overflow: TextOverflow.ellipsis, style: ts(13, color: p.muted))),
-                ]),
-              ),
-            ),
-          ]),
-        ),
-      ),
-    );
-  }
-}
-
-/// "Bayview Grand · Mall" / "FreshMart · Store" / "Meridian Management · Mall management".
-String authorLabel(SamplePost post, Words w) => '${post.authorName} · ${w.tr(switch (post.author) {
-      PostAuthor.mall => 'Mall',
-      PostAuthor.store => 'Store',
-      PostAuthor.management => 'Mall management',
-    })}';
-
-/// The "Sample" label on made-up content.
-class SampleLabel extends ConsumerWidget {
-  const SampleLabel({super.key});
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final p = context.pal, w = ref.watch(wordsProvider);
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-      decoration: BoxDecoration(color: p.soonBg, borderRadius: BorderRadius.circular(999), border: Border.all(color: p.soon.withValues(alpha: .4))),
-      child: Text(w.tr('Sample'), style: ts(11, w: FontWeight.w800, color: p.soon, ls: .4)),
     );
   }
 }

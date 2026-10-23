@@ -9,6 +9,8 @@ import '../../../core/data/shopper_api.dart';
 import '../../../core/engine/kit/kit_venue.dart';
 import '../../../core/engine/package/package_export.dart';
 import '../../../core/engine/package/package_venue.dart';
+import '../../home/data/sample_posts.dart';
+import '../../home/models/sample_post.dart';
 import '../models/saved_mall.dart';
 import 'registry.dart';
 
@@ -52,6 +54,30 @@ class SampleShopperApi implements ShopperApi {
 
   @override
   Future<AppConfig> appConfig() async => const AppConfig();
+
+  /// The sample posts (five per mall), labelled as samples, always on.
+  @override
+  Future<({Map<String, Object?> json, String? etag})?> posts(String branchId, {String? cursor, String? etag}) async {
+    calls.add('posts:$branchId');
+    if (cursor == null && etag == 'sample') return null;
+    final b = venueRegistry.any((e) => e.id == branchId) ? sampleBranch(branchId) : null;
+    return (
+      json: <String, Object?>{
+        'items': [
+          for (final p in postsFor(branchId))
+            {
+              'id': p.id, 'title': p.title.en, 'body': p.body.en, 'titleTl': p.title.tl, 'bodyTl': p.body.tl, 'motif': p.motif, 'sample': true,
+              'author': {'kind': p.author == PostAuthor.store ? 'store' : 'mall', 'name': p.authorName},
+              'placeId': ?p.placeId,
+              'startsOn': '2026-01-01', 'endsOn': '2099-12-31',
+              'branch': {'id': branchId, 'name': b?.name ?? branchId, 'mallName': sampleMallName},
+            },
+        ],
+        'nextCursor': null,
+      },
+      etag: 'sample',
+    );
+  }
 
   /// The samples keep their made-up sample details: no live store info.
   @override

@@ -290,7 +290,7 @@ Active entries only. Done entries are in §6.
 - [x] Offline core, part 1: malls read from shopper packages (same routes as before, proven), downloads checked and saved whole, the directory picker grouped by mall, Saved malls, updates (Wi-Fi automatic, mobile data asks, after a trip), "Connect once", greyed saved places, "Update LIQo", sample malls only in debug builds and tests (207 tests pass)
 - [x] Offline core, part 2: live store info (per-day hours with special days and notes, mall hours as fallback, the old free-text note, statuses, phone and description), kept offline; out-of-service lifts avoided with a mid-trip note; stores not on the map yet listed with "Update now" (217 tests pass)
 - [ ] Home and Map without a mall; being in a mall (confirm, location, 200 m area, leaving); Get there; search across malls
-- [ ] Posts from announcements with offline rules and picture cache
+- [x] Posts from announcements: Home feed newest first, 10 at a time with More posts, ended posts hidden even offline, offline line, pull to refresh, Directions from a store's post, heart and Comment waiting for accounts, picture cache (posts and store logos, 50 MB) (221 tests pass)
 - [ ] Anonymous counts and the privacy note (owner: the company's privacy text)
 
 #### P1-10 — Pilot deployment

@@ -30,6 +30,14 @@ class FakeShopperApi implements ShopperApi {
   final _live = <String, Map<String, Object?>>{}, _liveTag = <String, String>{};
   var _tags = 0;
 
+  final _posts = <String, List<Map<String, Object?>>>{}, _postsTag = <String, String>{};
+
+  /// Sets a branch's posts, newest first (a new ETag each time); served 10 per page.
+  void setPosts(String id, List<Map<String, Object?>> posts) {
+    _posts[id] = posts;
+    _postsTag[id] = 'p${++_tags}';
+  }
+
   /// Sets a branch's live store info (a new ETag each time).
   void setLive(String id, Map<String, Object?> json) {
     _live[id] = json;
@@ -82,8 +90,25 @@ class FakeShopperApi implements ShopperApi {
   }
 
   @override
+  Future<({Map<String, Object?> json, String? etag})?> posts(String branchId, {String? cursor, String? etag}) async {
+    calls.add('posts:$branchId${cursor == null ? '' : '@$cursor'}');
+    _net();
+    final all = _posts[branchId] ?? const <Map<String, Object?>>[];
+    if (cursor == null && etag != null && etag == _postsTag[branchId]) return null;
+    final from = int.tryParse(cursor ?? '0') ?? 0, to = (from + 10).clamp(0, all.length);
+    return (json: <String, Object?>{'items': all.sublist(from.clamp(0, all.length), to), 'nextCursor': to < all.length ? '$to' : null}, etag: cursor == null ? _postsTag[branchId] : null);
+  }
+
+  @override
   Future<AppConfig> appConfig() async {
     _net();
     return AppConfig(mustUpdateBelow: mustUpdateBelow);
   }
 }
+
+/// A post as the server sends it (§8), for tests.
+Map<String, Object?> fakePost(int id, {String branch = 'bayview', String title = 'Post', String starts = '2026-10-20', String ends = '2026-10-30', int? storeId, String? imageUrl}) => {
+      'id': id, 'title': '$title $id', 'body': 'Body of post $id', 'imageUrl': ?imageUrl,
+      'author': storeId == null ? {'kind': 'mall', 'name': 'Bayview Grand'} : {'kind': 'store', 'storeId': storeId, 'name': 'Store $storeId'},
+      'startsOn': starts, 'endsOn': ends, 'branch': {'id': branch, 'name': 'Bayview Grand', 'mallName': 'LIQo sample malls'},
+    };

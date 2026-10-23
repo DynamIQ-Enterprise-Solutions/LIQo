@@ -106,6 +106,9 @@ abstract class ShopperApi {
   /// A branch's live store info (docs/shopper-package-format.md §7), or null when it hasn't
   /// changed since [etag].
   Future<({Map<String, Object?> json, String? etag})?> live(String branchId, {String? etag});
+
+  /// A page of a branch's posts (§8), newest first; null when the first page hasn't changed since [etag].
+  Future<({Map<String, Object?> json, String? etag})?> posts(String branchId, {String? cursor, String? etag});
 }
 
 /// SHA-256 of [bytes], as lowercase hex (the package checksum).
@@ -146,6 +149,14 @@ class HttpShopperApi implements ShopperApi {
   @override
   Future<({Map<String, Object?> json, String? etag})?> live(String branchId, {String? etag}) async {
     final r = await _get('/branches/$branchId/live', headers: {'If-None-Match': ?etag}, allow304: true);
+    if (r.statusCode == 304) return null;
+    return (json: _json(r), etag: r.headers['etag']);
+  }
+
+  @override
+  Future<({Map<String, Object?> json, String? etag})?> posts(String branchId, {String? cursor, String? etag}) async {
+    final q = 'branch=${Uri.encodeQueryComponent(branchId)}${cursor == null ? '' : '&cursor=${Uri.encodeQueryComponent(cursor)}'}';
+    final r = await _get('/posts?$q', headers: {'If-None-Match': ?(cursor == null ? etag : null)}, allow304: true);
     if (r.statusCode == 304) return null;
     return (json: _json(r), etag: r.headers['etag']);
   }

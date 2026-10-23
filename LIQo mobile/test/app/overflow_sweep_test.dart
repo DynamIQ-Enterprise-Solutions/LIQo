@@ -67,7 +67,12 @@ void main() {
   for (final v in variants) {
     for (final w in widths) {
       testWidgets('every screen at $w px, ${v.name}', (tester) async {
-        final api = FakeShopperApi();
+        // long posts: a store's and the mall's, more than one page
+        final api = FakeShopperApi()
+          ..setPosts('bayview', [
+            for (var i = 14; i >= 1; i--)
+              fakePost(i, title: 'Grand opening weekend sale with surprises for the whole family at the', storeId: i.isEven ? 345 : null, imageUrl: i == 1 ? 'https://example.com/p.png' : null),
+          ]);
         final h = await pumpApp(tester, size: Size(w, w >= 800 ? 1180 : 780), textScale: v.textScale, prefs: v.prefs, api: api, packages: longPackages);
         final router = h.c.read(routerProvider);
         final nav = h.c.read(navProvider.notifier), map = h.c.read(mapProvider.notifier);
@@ -87,7 +92,7 @@ void main() {
         for (final loc in ['/home', '/home/category/shops', '/home/category/lift', '/home/category/parking', '/saved?tab=places', '/saved?tab=routes', '/more']) {
           await page(loc);
         }
-        for (final loc in ['/search', '/place/bayview/G-WDS', '/place/bayview/CONN:M-L1', '/place/bayview/NP-GA', '/route', '/route-options', '/post/bay-1', '/login', '/signup', '/more/settings', '/more/help', '/more/about', '/malls', '/more/malls']) {
+        for (final loc in ['/search', '/place/bayview/G-WDS', '/place/bayview/CONN:M-L1', '/place/bayview/NP-GA', '/route', '/route-options', '/post/14', '/login', '/signup', '/more/settings', '/more/help', '/more/about', '/malls', '/more/malls']) {
           await page(loc, push: true);
           router.pop();
           await h.step(4);

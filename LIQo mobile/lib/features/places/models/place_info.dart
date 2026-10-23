@@ -49,7 +49,7 @@ class Bilingual {
 
 @immutable
 class PlaceInfo {
-  const PlaceInfo({required this.placeId, this.hours, this.week, this.hoursNote, this.phone, this.website, required this.about, required this.art, this.allDay = false, this.unknown = false});
+  const PlaceInfo({required this.placeId, this.hours, this.week, this.hoursNote, this.phone, this.website, required this.about, required this.art, this.allDay = false, this.unknown = false, this.logoUrl});
   final String placeId;
 
   /// A published mall's hours per weekday with special days (live store info, Philippine time).
@@ -60,6 +60,9 @@ class PlaceInfo {
 
   /// The store's old free-text hours, shown as written when no hours are set (owner, 2026-10-23).
   final String? hoursNote;
+
+  /// The store's logo (live store info), shown once it is on the phone.
+  final String? logoUrl;
 
   /// Null when the place has no hours (an exit, a parking zone) or is open all day.
   final OpeningHours? hours;

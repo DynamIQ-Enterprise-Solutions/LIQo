@@ -23,6 +23,9 @@ const Map<String, String> _exact = {
   'The download didn\'t work. Please try again.': 'Hindi gumana ang pag-download. Pakisubukan ulit.',
   'Update LIQo to get this mall\'s map.': 'I-update ang LIQo para makuha ang mapa ng mall na ito.',
   'Not enough space on your phone for this map.': 'Kulang ang espasyo sa phone mo para sa mapang ito.',
+  // posts (owner decisions 2026-10-23)
+  'Heart': 'Puso', 'Comment': 'Komento', 'More posts': 'Iba pang post', 'No posts right now.': 'Walang post sa ngayon.',
+  'Sign in to react and comment · Accounts are coming soon': 'Mag-sign in para mag-react at mag-komento · Paparating na ang mga account',
   // live store info (owner decisions 2026-10-23)
   'Temporarily closed': 'Pansamantalang sarado', 'Closed today': 'Sarado ngayong araw', 'Closed now': 'Sarado ngayon',
   'Not on the map yet': 'Wala pa sa mapa', 'Directions come with the next map update': 'Darating ang direksyon sa susunod na update ng mapa',
@@ -234,6 +237,9 @@ String _hand(String s) => s == 'left' ? 'kaliwa' : 'kanan';
 final List<(RegExp, String Function(Match))> _rules = [
   // ----- LIQo mobile -----
   (RegExp(r'^Open · Closes (.+)$'), (m) => 'Bukas · Magsasara nang ${m[1]}'),
+  (RegExp(r'^Until (.+)$'), (m) => 'Hanggang ${m[1]}'),
+  (RegExp(r"^You're offline · showing posts from (.+)$"), (m) => 'Offline ka · ipinapakita ang mga post mula ${m[1]}'),
+  (RegExp(r'^See (.+)$'), (m) => 'Tingnan ang ${m[1]}'),
   (RegExp(r'^Closed now · Opens tomorrow (.+)$'), (m) => 'Sarado ngayon · Magbubukas bukas nang ${m[1]}'),
   (RegExp(r'^Closed now · Opens (.+)$'), (m) => 'Sarado ngayon · Magbubukas nang ${m[1]}'),
   (RegExp(r'^(.+): out of service$'), (m) => '${m[1]}: hindi gumagana'),

@@ -77,6 +77,7 @@ class _PlaceDetailsViewState extends ConsumerState<PlaceDetailsView> {
             aspectRatio: 16 / 10,
             child: Stack(fit: StackFit.expand, children: [
               DrawnArt(motif: info.art.motif, tone: info.art.tone, seed: info.art.seed, semanticLabel: w.tr('A drawing of ${place.name}')),
+              if (info.logoUrl != null) Positioned(left: 14, bottom: 14, child: StoreLogo(name: place.name, url: info.logoUrl, size: 64)),
               Positioned(left: 12, top: MediaQuery.paddingOf(context).top + 8, child: BackBtn(label: w.tr('Back'), onDark: true)),
               if (place.kind != 'conn')
                 Positioned(
