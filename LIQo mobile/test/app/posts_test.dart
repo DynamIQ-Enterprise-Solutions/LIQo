@@ -61,6 +61,18 @@ void main() {
     expect(find.byKey(const ValueKey('post-1')), findsOneWidget);
   });
 
+  testWidgets('a branch the server no longer publishes (404) keeps its last posts and does not say offline', (tester) async {
+    final api = FakeShopperApi()..setPosts('bayview', [fakePost(1)]);
+    final h = await pumpApp(tester, api: api);
+    await h.step(10);
+    api.switchOff('bayview');
+    await h.c.read(postsProvider.notifier).refresh();
+    await h.step(5);
+    expect(h.c.read(postsProvider).offline, isFalse);
+    expect(find.byKey(const ValueKey('posts-offline')), findsNothing);
+    expect(find.byKey(const ValueKey('post-1')), findsOneWidget);
+  });
+
   testWidgets("a store's post has Directions to the store; the heart asks to sign in", (tester) async {
     final h = await pumpApp(tester); // the stand-in server's sample posts
     await h.step(10);

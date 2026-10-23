@@ -93,6 +93,7 @@ class FakeShopperApi implements ShopperApi {
   Future<({Map<String, Object?> json, String? etag})?> posts(String branchId, {String? cursor, String? etag}) async {
     calls.add('posts:$branchId${cursor == null ? '' : '@$cursor'}');
     _net();
+    if (_off.contains(branchId)) throw const ServerException(404, 'Not Found');
     final all = _posts[branchId] ?? const <Map<String, Object?>>[];
     if (cursor == null && etag != null && etag == _postsTag[branchId]) return null;
     final from = int.tryParse(cursor ?? '0') ?? 0, to = (from + 10).clamp(0, all.length);

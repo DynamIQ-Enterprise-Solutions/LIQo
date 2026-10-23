@@ -112,6 +112,9 @@ class PostsController extends Notifier<PostsState> {
       _etag = r.etag;
       state = state.copyWith(items: pg.items, nextCursor: pg.nextCursor, clearCursor: pg.nextCursor == null, loadedAt: _now, offline: false, loading: false, shown: page);
       _keep();
+    } on ServerException {
+      // reached, but no posts for it (a branch no longer published answers 404): not offline
+      if (state.branchId == id) state = state.copyWith(offline: false, loading: false);
     } on Exception {
       if (state.branchId == id) state = state.copyWith(offline: true, loading: false);
     }
