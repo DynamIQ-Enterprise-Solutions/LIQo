@@ -244,7 +244,7 @@ Audit redaction: `src/utils/redact.js` removes secrets (passwords, tokens) befor
 | Topology | Status | Limits |
 |---|---|---|
 | Local development: SQL Server + `npm run dev` (3000) + `flutter run -d chrome` | In use | Single machine. |
-| Firebase Hosting (web) + Cloud Run (API, with ODA and `xvfb-run` in the image) + managed DB | Planned (`EXCEPTIONS.md` #1, #4) | Production DB not chosen. Uploaded plans must move from local disk to object storage first (Part 1 trap 12). No runbook yet. |
+| Internal test (owner, 2026-10-23): Firebase Hosting on Spark (web) + the API on a PC behind Cloudflare Tunnel + Firestore on Spark; files on that PC's disk | Planned (`EXCEPTIONS.md` #1, #4) | SQL Server stays for local development, with both data layers tested (`docs/shopper-hybrid-decisions.md` §4). Firebase Storage needs the Blaze plan, so files stay on the PC until real users come. Spark limits: ~50k reads / 20k writes per day, 1 GB. Phones need a stable tunnel address (named tunnel + domain). No runbook yet. |
 
 ---
 
@@ -484,11 +484,11 @@ Each module: purpose · rules · routes · files. User stories in brackets.
 
 ### 4.18 Mobile shopper app
 - Flutter app `liqo_mobile` (`com.dynamiqes.liqo`, Android + iOS), ported from `demo_app` ("Gabay Demo"). Offline engine (venue, walkway graph, routing fastest/shortest, directions, rerouting) with three sample malls; Home with categories and sample posts; Map with simulated walk; Saved; More (settings, Tagalog, evacuation). Login and sign-up are look-only.
-- Not connected to the backend; no real positioning. Plan: `C:\Users\User\.claude\plans\do-you-know-what-starry-stearns.md` (approved 2026-10-22).
+- Not connected to the backend yet; no real positioning. Next: hybrid offline/online per `docs/shopper-hybrid-decisions.md` (downloaded branches work offline; directory, live store info, posts and anonymous counts online).
 - Files: `LIQo mobile/lib/core/engine/*`, `lib/features/*`. Tests `test/engine`, `test/logic`.
 
 ### 4.19 Shopper integration API — not built
-Reserved for published maps, announcements and store data to the shopper app. Contract, auth model, caching and rollout are undecided (user-story open item 4; owner planning). Every current route needs an admin sign-in.
+Decided 2026-10-23 (`docs/shopper-hybrid-decisions.md`): public, read-only `/api/shopper/*` routes mounted before the sign-in middleware, never audited, own per-IP limiter (stricter on counts), serving the directory, an immutable per-version shopper package built at publish (`src/maps/shopper/`, same transaction; publish refused for unwalkable maps), live store info and out-of-service marks, approved announcements, and receiving anonymous counts. A written exception to the `utils/scope.js` rule. Built after the Firestore data layer. Every current route still needs an admin sign-in.
 
 ### 4.20 Beacon positioning — not built
 Reserved for MOKO Smart H2 BLE beacons in the shopper app. Placement, calibration, data model and admin tooling undecided.

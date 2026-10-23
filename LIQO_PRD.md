@@ -171,14 +171,23 @@ Priority → pipeline tier: High → P0/P1, Medium → P2, Low → P3. Tiers con
 **Out of scope:** editing in 3D.
 
 ### 6.14 Shopper data service (Priority: High)
-**Description:** A service that gives the shopper app published maps, stores and active announcements (the shopper half of US-044). [US-044, user-story open item 4]
-**Acceptance criteria:** *to be written after the owner's integration decisions.*
-**Out of scope:** to be decided.
+**Description:** A public, read-only service that gives the shopper app the LIQo directory, each branch's shopper package, live store info and out-of-service marks, approved announcements as posts, and receives anonymous counts (the shopper half of US-044). Decisions: `docs/shopper-hybrid-decisions.md`. [US-044, user-story open item 4]
+**Acceptance criteria:**
+- No sign-in; only published, active or approved data; never drafts, people or emails; rate-limited.
+- Store hours per weekday with branch default and special days; store status set by mall admins or store owners; lifts and escalators can be marked out of service.
+- Branch location comes from a pasted Google Maps link (short links followed).
+- Announcements can carry one picture.
+- Counts carry no person or device ID and are tagged by mall, branch and store.
+**Out of scope:** shopper accounts; the role-analytics screens (§6.18).
 
 ### 6.15 Map publishing to the shopper app (Priority: High)
-**Description:** When a mall admin publishes a map, shoppers receive the new version safely. [user-story open item 4]
-**Acceptance criteria:** *to be written after the owner's integration decisions.*
-**Out of scope:** to be decided.
+**Description:** When a mall admin publishes a map, a ready shopper package is built and phones pick it up safely. [user-story open item 4]
+**Acceptance criteria:**
+- Publishing builds an immutable, versioned package with a checksum, and is refused if any store or room can't be reached from an entrance or a connector end sits outside walkable area (problems listed in plain words).
+- Publishing warns when spaces from the previous version will disappear.
+- Phones check on opening; map updates download automatically on Wi-Fi and are offered on mobile data; an update found during a trip is switched in after it.
+- A phone that can't read a newer package keeps its copy and asks to update the app.
+**Out of scope:** background checks while the app is closed.
 
 ### 6.16 Shopper app (Priority: High)
 **Description:** The LIQo app for Android and iPhone: pick a mall, search places, get turn-by-turn directions across levels, save places, English and Tagalog.
@@ -186,11 +195,12 @@ Priority → pipeline tier: High → P0/P1, Medium → P2, Low → P3. Tiers con
 - A shopper can pick a mall, search a place and start directions to it.
 - Directions cross levels by stairs, escalators or elevators and can avoid stairs or escalators.
 - Saved places and route history stay on the phone.
+- A downloaded mall works fully offline (map, search, directions, evacuation, store details as last saved); the internet only brings new malls, updates, posts and sends anonymous counts (`docs/shopper-hybrid-decisions.md`).
 - The app follows the brand in dark, light and high-contrast modes.
-**Out of scope:** accounts (look-only for now), live position (§6.19), posts (§6.21).
+**Out of scope:** accounts (look-only for now), live position (§6.19), a separate posts feature (§6.21; announcements serve as posts).
 
 ### 6.17 Pilot deployment (Priority: High)
-**Description:** LIQo runs online for one mall group: web on Firebase Hosting, API on Cloud Run, a managed database.
+**Description:** LIQo runs online, first for the owner's internal test (2026-10-23): web on Firebase Hosting (Spark), the API on a PC behind Cloudflare Tunnel, Firestore (Spark) as the deployed database, files on the server PC (Firebase Storage needs Blaze, later). Then for one mall group.
 **Acceptance criteria:**
 - The admin platform and API are reachable over HTTPS from the pilot mall offices.
 - Uploaded plans survive a server restart.
@@ -263,7 +273,7 @@ From `USER_STORY(ADMIN).md` "Items requiring confirmation":
 | 1 | Meaning of "rulings" | **Settled 2026-10-21:** physical validity only. |
 | 2 | AI extraction scope | **Settled 2026-10-22 (Round 15):** AI reads outline, walls, doors and named rooms. |
 | 3 | CAD conversion | **Settled 2026-10-22 (Round 16):** SVG, DXF, DWG supported. |
-| 4 | Shopper integration contract | **Open** — owner planning (§6.14, §6.15). |
+| 4 | Shopper integration contract | **Settled 2026-10-23:** `docs/shopper-hybrid-decisions.md` (§6.14, §6.15); endpoint names and the package format still to agree between the sessions. |
 | 5 | Separate company / owner record | **Open.** |
 | 6 | Detailed opening rules | **Partly settled 2026-10-21:** openings follow their host wall. Placement limits, shapes, dimensions and custom-property rules still open. |
 

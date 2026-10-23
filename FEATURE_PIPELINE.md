@@ -26,7 +26,7 @@ This file answers two questions and no others: **what is the state of X**, and *
 
 **Live page.** https://claude.ai/artifact/8QeFNHg6Xhp1jSQaMsSUx1 shows this file to the team. `tool/pipeline-data.mjs` reads it, and a project hook (`.claude/settings.json`) rebuilds the page data after every edit and has the session push it. So that the page reads well and parses: every active entry ends with a checklist of what is left, written in plain words; an item waiting on the product owner starts with `Owner:`; the build order in §4 is a numbered list.
 
-**Current totals** *(counted by hand 2026-10-22)*: active P0 3 · P1 8 · P2 2 · P3 2 · archived 8 · total 23
+**Current totals** *(counted by hand 2026-10-23)*: active P0 3 · P1 9 · P2 2 · P3 2 · archived 8 · total 24
 
 **Before the full artifact chain exists** (P1-11), the `Intent`, `Spec`, `Plan` and `PR` rows point at what plays those parts today: the user story or owner request (intent) and the round's decision doc in `docs/` (spec and plan). The git repository (https://github.com/DynamIQ-Enterprise-Solutions/LIQo) started on 2026-10-22: `PR` reads "n/a (built before the repository)" for work done before then, "none yet" for work still to come, and names the commit or pull request from now on.
 
@@ -217,55 +217,80 @@ Active entries only. Done entries are in §6.
 - [x] Nicer look: see-through glass, door frames, accent entrances, floor finishes and edges (`docs/round-18-accuracy-3d-easy-editor.md`)
 - [ ] Check the new look in a browser
 
+#### P1-06A — Firestore data layer
+
+| | |
+|---|---|
+| Description | A second implementation of `src/repos/` on Firestore for the deployed system; SQL Server stays for local development. The full backend suite runs against both (SQL Server and the Firestore emulator). Rules SQL Server enforces today move into code; analytics use running totals. Firestore starts fresh from the seed. |
+| Why this tier | The owner chose Firestore as the deployed database (2026-10-23); the shopper service is built on it, so it comes first. |
+| Tier | P1 |
+| PRD / Blueprint | PRD §6.17 · Blueprint Part 2.6 · `EXCEPTIONS.md` #1 |
+| DB | Firestore collections mirroring the tables (to be designed) |
+| Backend | `src/repos/` (Firestore implementation behind the same interface), test runner for both |
+| Frontend | none |
+| Effort | L |
+| Dependencies | — |
+| Status | `PLANNED` |
+| Intent | Owner decision 2026-10-23 |
+| Spec | `docs/shopper-hybrid-decisions.md` §4 |
+| Plan | — |
+| PR | n/a |
+
+- [x] Owner: choose the deployed database (Firestore; SQL Server kept locally; both tested; start fresh; exception approved)
+- [ ] Design the collections and the repo interface split
+- [ ] Build the Firestore repos; full suite green on both databases
+
 #### P1-07 — Shopper data service
 
 | | |
 |---|---|
-| Description | API for the shopper app: published maps, stores, active announcements. |
+| Description | Public, read-only shopper API: the LIQo directory, each branch's shopper package, live store info and out-of-service marks, approved announcements as posts (with one picture), anonymous counts, app config. Web additions: per-day hours with special days, store status (mall admin or store owner), out-of-service lifts and escalators, branch location from a Google Maps link. |
 | Why this tier | The shopper app cannot show real malls without it; the release is for shoppers. |
 | Tier | P1 |
 | PRD / Blueprint | PRD §6.14 · Blueprint §4.19 |
-| DB | to be designed |
-| Backend | to be designed |
-| Frontend | none (consumed by LIQo mobile) |
+| DB | hours, special days, store status, out-of-service marks, announcement pictures, counts (to be designed, on both databases) |
+| Backend | `/api/shopper/*` mounted before sign-in, own limiter, never audited |
+| Frontend | web: hours and status controls, store-owner status, out-of-service, branch link, announcement picture; consumed by LIQo mobile |
 | Effort | L |
-| Dependencies | P0-06 — announcements to serve · P0-07 — published maps to serve · **owner: integration decisions (user-story open item 4)** |
-| Status | `BLOCKED` |
-| Intent | US-044 (shopper half), open item 4 |
-| Spec | — |
+| Dependencies | P0-06 — announcements to serve · P0-07 — published maps to serve · P1-06A — built on the Firestore data layer |
+| Status | `PLANNED` |
+| Intent | US-044 (shopper half), open item 4 (settled 2026-10-23) |
+| Spec | `docs/shopper-hybrid-decisions.md` |
 | Plan | — |
 | PR | n/a |
 
-- [ ] Owner: decide the shopper-integration plan
-- [ ] Design and build the service
+- [x] Owner: decide the shopper-integration plan (2026-10-23)
+- [ ] Agree endpoint names and the app's package format between the sessions
+- [ ] Build the web additions and the shopper routes
 
 #### P1-08 — Map publishing to the shopper app
 
 | | |
 |---|---|
-| Description | When a map is published, shoppers get the new version safely: update, sync and rollout rules. |
+| Description | Publishing builds an immutable, versioned shopper package (walkways, places, connectors) in the same transaction, refuses unwalkable maps and warns about vanished spaces; phones update on opening (Wi-Fi automatic, ask on data, after a trip). |
 | Why this tier | A map that does not reach shoppers does not help them. |
 | Tier | P1 |
 | PRD / Blueprint | PRD §6.15 · Blueprint §4.19 |
-| DB | to be designed |
-| Backend | to be designed |
-| Frontend | mobile: to be designed |
+| DB | shopper packages per map version (to be designed) |
+| Backend | `src/maps/shopper/` (pure builder), publish route |
+| Frontend | web: walkability refusals and the vanished-spaces warning in the editor (also the easy editor's Publish step); mobile: downloads and updates |
 | Effort | M |
-| Dependencies | P1-07 — the service it publishes through · P1-09 — the app that receives it · **owner: integration decisions** |
-| Status | `BLOCKED` |
-| Intent | Owner planning, 2026-10-22 |
-| Spec | — |
+| Dependencies | P1-07 — the service it publishes through · P1-09 — the app that receives it |
+| Status | `PLANNED` |
+| Intent | Owner decisions 2026-10-23 |
+| Spec | `docs/shopper-hybrid-decisions.md` |
 | Plan | — |
 | PR | n/a |
 
-- [ ] Owner: decide the shopper-integration plan
-- [ ] Design and build publishing and rollout to the app
+- [x] Owner: decide the shopper-integration plan (2026-10-23)
+- [ ] Agree the walkability rule's messages and the package format
+- [ ] Build the package builder and the publish gate
 
 #### P1-09 — Shopper app (port from demo_app)
 
 | | |
 |---|---|
-| Description | `liqo_mobile` for Android and iPhone: malls, search, directions across levels, saved places, settings, Tagalog; offline sample malls until P1-07. |
+| Description | `liqo_mobile` for Android and iPhone: malls, search, directions across levels, saved places, settings, Tagalog. Becoming hybrid: downloaded branches work fully offline; directory, live store info, posts and anonymous counts online (`docs/shopper-hybrid-decisions.md`). |
 | Why this tier | Shopper wayfinding is the product's purpose. |
 | Tier | P1 |
 | PRD / Blueprint | PRD §6.16 · Blueprint §4.18 |
@@ -273,7 +298,7 @@ Active entries only. Done entries are in §6.
 | Backend | none yet |
 | Frontend | `LIQo mobile/lib/` (engine, features, shared widgets) |
 | Effort | L |
-| Dependencies | — for the port · P1-07 for live mall data |
+| Dependencies | — for the port and the offline core (against a fake server) · P1-07 for live mall data |
 | Status | `IN PROGRESS` |
 | Intent | Owner request, 2026-10-22 |
 | Spec | `C:\Users\User\.claude\plans\do-you-know-what-starry-stearns.md` |
@@ -284,29 +309,35 @@ Active entries only. Done entries are in §6.
 - [x] Owner feedback 2026-10-23: search in category lists; lighter dark-mode map; map screen laid out like Google Maps (search bar with the mall, chips, Layers panel, floor picker, Directions and my-location buttons; compact turn banner that shrinks after 4 s, with a shine and arrow slide toward the turn; bottom bar with Pause and End; red evacuation); the map faces the way you walk by default; closed or under-repair places still get directions with their status shown; chip lists preview a row's way and only its Directions button starts the trip; the floor picker folds to your floor (166 tests pass)
 - [ ] Run the main flows on an Android emulator or phone (this machine has no emulator image yet); iOS is checked on paper only (no Mac)
 - [ ] Owner: have a fluent speaker review the Tagalog added for the new screens
+- [x] Owner: decide how the app works offline and online (2026-10-23)
+- [ ] Offline core: downloads, Saved malls, directory, updates, "Connect once", greyed places, sample malls out of the release
+- [ ] Home and Map without a mall; being in a mall (confirm, location, 200 m area, leaving); Get there; search across malls
+- [ ] Posts from announcements with offline rules and picture cache
+- [ ] Anonymous counts and the privacy note (owner: the company's privacy text)
 
 #### P1-10 — Pilot deployment
 
 | | |
 |---|---|
-| Description | Web on Firebase Hosting, API on Cloud Run with ODA File Converter, a production database, uploaded plans in object storage, a deployment runbook and per-release deploy plan. |
+| Description | Internal test first (owner, 2026-10-23): web on Firebase Hosting (Spark), the API on a PC behind Cloudflare Tunnel (ODA installed there), Firestore (Spark) as the deployed database, files on the server PC; a deployment runbook and per-release deploy plan. Firebase Storage (Blaze) when real users come. |
 | Why this tier | The pilot mall group cannot use a laptop-hosted system. |
 | Tier | P1 |
 | PRD / Blueprint | PRD §6.17 · Blueprint Part 2.6 |
-| DB | production database: **not chosen** (`EXCEPTIONS.md` #1) |
-| Backend | plan storage moved off the local disk (`routes/backdrops.js` `UPLOAD_DIR`); container image with ODA and `xvfb-run` |
+| DB | Firestore (decided 2026-10-23, P1-06A; `EXCEPTIONS.md` #1) |
+| Backend | `DB_DRIVER=mssql|firestore` driver switch (P1-06A); files stay on the server PC's disk (`routes/backdrops.js` `UPLOAD_DIR`) during the internal test |
 | Frontend | `--dart-define=API_BASE=...`; `CORS_ORIGINS` set |
 | Effort | L |
-| Dependencies | P1-11 — deploy from a versioned, CI-checked repo · **owner: production DB and GCP project** |
+| Dependencies | P1-11 — deploy from a versioned, CI-checked repo · P1-06A — the Firestore data layer · **owner: named tunnel and domain** |
 | Status | `PLANNED` |
 | Intent | `EXCEPTIONS.md` #1, #4 |
 | Spec | — |
 | Plan | — |
 | PR | n/a |
 
-- [ ] Owner: choose the production database and Google Cloud project
-- [ ] Move uploaded floor plans from the server's disk to cloud storage
-- [ ] Server image that includes ODA File Converter
+- [x] Owner: choose the production database (Firestore, 2026-10-23)
+- [x] Owner: choose the hosting (Firebase Hosting on Spark; the API on a PC behind Cloudflare Tunnel; files on that PC) (2026-10-23)
+- [ ] Owner: a named Cloudflare tunnel and a domain, so phones have a stable address
+- [ ] Later, with real users: Firebase Storage (Blaze) for files
 - [ ] Deployment runbook and a deploy plan per release
 
 #### P1-11 — Engineering baseline (company standard)
@@ -450,6 +481,8 @@ flowchart LR
   P007 --> P104[P1-04 plan upload]
   P104 --> P105[P1-05 AI reading]
   P007 --> P106[P1-06 3D preview]
+  P106A[P1-06A Firestore data layer] --> P107
+  P106A --> P110
   P006 --> P107[P1-07 shopper service]
   P007 --> P107
   P107 --> P108[P1-08 map sync]
@@ -469,11 +502,11 @@ flowchart LR
 2. Finish the superadmin and map editor gaps (P0-02, P0-07)
 3. Owner steps for plans and AI; browser check of the 3D preview (P1-04, P1-05, P1-06)
 4. Engineering baseline (P1-11)
-5. Shopper data service, then map sync, once the integration plan is decided; the shopper app continues alongside (P1-07, P1-08, P1-09)
+5. Firestore data layer (P1-06A), then the shopper data service and map sync (P1-07, P1-08); the shopper app's offline core continues alongside against a fake server (P1-09)
 6. Pilot deployment (P1-10)
 7. After the pilot: P2 and P3 entries
 
-**Owner decisions that unblock the most:** the shopper-integration plan (P1-07, P1-08, P2-01, P3-02), the gateway wallet and model (P1-05), the production database (P1-10).
+**Owner decisions that unblock the most:** the role-analytics plan (P2-01), the gateway wallet and model (P1-05), the named tunnel and domain (P1-10). Settled 2026-10-23: the shopper-integration plan, the database (Firestore) and the internal-test hosting.
 
 **Cross-cutting prerequisites** (already in place, Blueprint §2.4): middleware order, `{error}` shape, pagination envelope, scope resolver, audit trail, layout sweep. In place since 2026-10-22: the git repository and its pre-commit hook. Missing: CI (P1-11).
 
