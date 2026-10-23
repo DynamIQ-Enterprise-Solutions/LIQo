@@ -45,16 +45,24 @@ export function runTx(fn) {
   return getDb().runTransaction((tx) => fn(tx));
 }
 
+/**
+ * [count] new integer ids for [collection], reading the counter once. Inside a
+ * transaction when [tx] is given. Firestore refuses a read after a write in a
+ * transaction, so a step that needs several ids reserves them all here, before
+ * its first write, and never calls nextId() again.
+ */
+export async function reserveIds(collection, count, tx = null) {
+  if (!tx) return runTx((t) => reserveIds(collection, count, t));
+  const ref = docOf('_counters', collection);
+  const snap = await tx.get(ref);
+  const last = snap.exists ? snap.data().value : 0;
+  if (count > 0) tx.set(ref, { value: last + count });
+  return Array.from({ length: count }, (_, i) => last + 1 + i);
+}
+
 /** The next integer id for [collection]. Inside a transaction when [tx] is given. */
 export async function nextId(collection, tx = null) {
-  const ref = docOf('_counters', collection);
-  if (tx) {
-    const snap = await tx.get(ref);
-    const next = (snap.exists ? snap.data().value : 0) + 1;
-    tx.set(ref, { value: next });
-    return next;
-  }
-  return runTx(async (t) => nextId(collection, t));
+  return (await reserveIds(collection, 1, tx))[0];
 }
 
 /** Converts Firestore Timestamps in a plain object to JS Dates (one level and arrays of objects). */

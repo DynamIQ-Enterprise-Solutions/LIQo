@@ -127,6 +127,25 @@ test('a dangling store link is reported as a warning, never a block', async () =
   assert.ok(get.body.warnings.some((w) => w.code === 'dangling_link' && w.message.includes(`S2 ${tag}`)));
 });
 
+test('a mall owner created with several malls and branches at once gets them all and a temporary password', async () => {
+  // Found on the deployed Firestore system (2026-10-23): two or more places at once failed after the account was made.
+  const r = await call('POST', '/accounts', {
+    token: tokens.superadmin,
+    body: { email: `owner2.${tag}@test.local`, fullName: 'Two Malls', role: 'supervisor', assignments: { mallIds: [fx.mallA, fx.mallB], branchIds: [fx.branchA] } },
+  });
+  assert.equal(r.status, 201);
+  assert.ok(r.body.tempPassword, 'the temporary password is shown once');
+  const detail = await call('GET', `/accounts/${r.body.user.id}`, { token: tokens.superadmin });
+  assert.equal(detail.body.assignments.malls.length, 2);
+  assert.equal(detail.body.assignments.branches.length, 1);
+  // Changing the set later replaces it whole.
+  const again = await call('PUT', `/assignments/supervisors/${r.body.user.id}`, { token: tokens.superadmin, body: { mallIds: [fx.mallB], branchIds: [fx.branchA, fx.branchB] } });
+  assert.equal(again.status, 200);
+  const after = await call('GET', `/accounts/${r.body.user.id}`, { token: tokens.superadmin });
+  assert.equal(after.body.assignments.malls.length, 1);
+  assert.equal(after.body.assignments.branches.length, 2);
+});
+
 test('accounts can be created with an initial assignment, and orphans are listed as unassigned', async () => {
   const withAssign = await call('POST', '/accounts', {
     token: tokens.superadmin,

@@ -1,7 +1,7 @@
 // Who owns and manages what, on Firestore (P1-06A). Documents mirror the SQL rows:
 //   supervisor_assignments/<id>     { user_id, mall_id | branch_id, assigned_by, assigned_at }
 //   mall_admin_assignments/<u>_<b>  { user_id, branch_id, ... }   (SQL: UNIQUE (user_id, branch_id))
-import { col, docOf, getDb, runTx, nextId, all, Timestamp } from '../../db/firestore.js';
+import { col, docOf, getDb, runTx, nextId, reserveIds, all, Timestamp } from '../../db/firestore.js';
 import { byId, compare, fkError } from './util.js';
 
 export const ONE_BRANCH = 'ONE_BRANCH';
@@ -31,8 +31,7 @@ export async function replaceSupervisorAssignments(userId, { mallIds, branchIds 
     const old = await tx.get(col('supervisor_assignments').where('user_id', '==', uid));
     for (const m of mallIds) if (!(await tx.get(docOf('malls', m))).exists) throw fkError();
     for (const b of branchIds) if (!(await tx.get(docOf('branches', b))).exists) throw fkError();
-    const ids = [];
-    for (let i = 0; i < mallIds.length + branchIds.length; i++) ids.push(await nextId('supervisor_assignments', tx));
+    const ids = await reserveIds('supervisor_assignments', mallIds.length + branchIds.length, tx);
     old.docs.forEach((d) => tx.delete(d.ref));
     let k = 0;
     for (const mallId of mallIds) {
