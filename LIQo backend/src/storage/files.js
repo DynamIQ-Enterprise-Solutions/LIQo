@@ -5,6 +5,7 @@
 //   uploads/backdrops/<key>.png|jpg         a plan's picture
 //   uploads/backdrops/<key>.dxf|dwg|svg      a drawing's original
 //   uploads/backdrops/<key>.vector.json      a drawing's lines and texts
+//   uploads/pictures/<key>.png|jpg          an announcement's picture (Round 21)
 //   data/maps/<branch>/draft.json            a map draft          (Firestore driver)
 //   data/maps/<branch>/versions/<n>.json     a published version  (Firestore driver; never rewritten)
 //
@@ -18,8 +19,10 @@ const PLANS = path.join(ROOT, 'uploads/backdrops');
 /** Where plan files are kept (tests check them here; FILES_ROOT moves it). */
 export const PLANS_DIR = PLANS;
 const MAPS = path.join(ROOT, 'data/maps');
+const PICTURES = path.join(ROOT, 'uploads/pictures');
 
 fs.mkdirSync(PLANS, { recursive: true });
+fs.mkdirSync(PICTURES, { recursive: true });
 
 const pictureExt = (mime) => (mime === 'image/png' ? 'png' : 'jpg');
 
@@ -85,5 +88,18 @@ export const mapFiles = {
   /** Removes a branch's map files (when its map is deleted). */
   removeBranch(branchId) {
     fs.rmSync(branchDir(branchId), { recursive: true, force: true });
+  },
+};
+
+/** Announcement pictures (Round 21): one per announcement, kept with the plans' uploads. */
+export const pictures = {
+  path: (key, mime) => path.join(PICTURES, key + '.' + pictureExt(mime)),
+  has: (key, mime) => fs.existsSync(path.join(PICTURES, key + '.' + pictureExt(mime))),
+  save(key, mime, bytes) {
+    fs.writeFileSync(path.join(PICTURES, key + '.' + pictureExt(mime)), bytes);
+  },
+  stream: (key, mime) => fs.createReadStream(path.join(PICTURES, key + '.' + pictureExt(mime))),
+  remove(key, mime) {
+    fs.rmSync(path.join(PICTURES, key + '.' + pictureExt(mime)), { force: true });
   },
 };

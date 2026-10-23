@@ -1,3 +1,7 @@
+import 'dart:typed_data';
+
+import 'package:dio/dio.dart';
+
 import '../../core/api_client.dart';
 import '../../shared/models/paged.dart';
 
@@ -19,6 +23,7 @@ class Announcement {
     required this.title,
     required this.body,
     this.imageUrl,
+    this.imageKey,
     required this.startsOn,
     required this.endsOn,
     required this.status,
@@ -41,6 +46,9 @@ class Announcement {
   final String title;
   final String body;
   final String? imageUrl;
+
+  /// Round 21: the uploaded picture (replaces the old link), or null.
+  final String? imageKey;
   final String startsOn;
   final String endsOn;
 
@@ -75,6 +83,7 @@ class Announcement {
         title: j['title'] as String,
         body: j['body'] as String,
         imageUrl: j['imageUrl'] as String?,
+        imageKey: j['imageKey'] as String?,
         startsOn: j['startsOn'] as String,
         endsOn: j['endsOn'] as String,
         status: j['status'] as String,
@@ -123,6 +132,23 @@ class AnnouncementsService {
   Future<Announcement> update(int id, Map<String, Object?> body) async {
     final r = await _client.dio.put('/announcements/$id', data: body);
     return Announcement.fromJson((r.data as Map<String, dynamic>)['announcement'] as Map<String, dynamic>);
+  }
+
+  /// Round 21: one picture per announcement (PNG or JPEG up to 2 MB).
+  Future<Announcement> uploadPicture(int id, Uint8List bytes, String fileName) async {
+    final form = FormData.fromMap({'file': MultipartFile.fromBytes(bytes, filename: fileName)});
+    final r = await _client.dio.post('/announcements/$id/picture', data: form);
+    return Announcement.fromJson((r.data as Map<String, dynamic>)['announcement'] as Map<String, dynamic>);
+  }
+
+  Future<Announcement> removePicture(int id) async {
+    final r = await _client.dio.delete('/announcements/$id/picture');
+    return Announcement.fromJson((r.data as Map<String, dynamic>)['announcement'] as Map<String, dynamic>);
+  }
+
+  Future<Uint8List> pictureBytes(int id) async {
+    final r = await _client.dio.get<List<int>>('/announcements/$id/picture', options: Options(responseType: ResponseType.bytes));
+    return Uint8List.fromList(r.data ?? const []);
   }
 
   Future<Announcement> approve(int id) async {

@@ -13,6 +13,7 @@ export const DEFAULTS = Object.freeze({
   default_announcement_days: '7',
   session_timeout_hours: '8',
   max_login_attempts: '5',
+  app_must_update_below: '0', // Round 21: shopper app builds below this number must update (0 = none)
 });
 
 // Allowed ranges, enforced on update.
@@ -24,4 +25,5 @@ export const RULES = Object.freeze({
   max_login_attempts: { min: 3, max: 20, label: 'Max failed sign-ins before lockout' },
   ai_start_credits: { min: 0, max: 1000, label: 'Starting AI credits for a new mall admin' },
   ai_credit_cap: { min: 1, max: 10000, label: 'Most AI credits per mall admin' },
+  app_must_update_below: { min: 0, max: 100000000, label: 'Oldest shopper app build allowed' },
 });

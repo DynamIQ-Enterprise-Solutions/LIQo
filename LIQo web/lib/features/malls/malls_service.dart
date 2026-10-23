@@ -1,4 +1,5 @@
 import '../../core/api_client.dart';
+import '../../shared/models/opening_hours.dart';
 import '../../shared/models/paged.dart';
 
 class Mall {
@@ -37,6 +38,9 @@ class Branch {
     this.contactPhone,
     this.contactEmail,
     required this.isActive,
+    this.hours,
+    this.mapsLink,
+    this.placeName,
   });
 
   final int id;
@@ -52,6 +56,11 @@ class Branch {
   final String? contactEmail;
   final bool isActive;
 
+  /// Round 21: opening hours, and the location from a Google Maps link (the pin's numbers stay hidden).
+  final OpeningHours? hours;
+  final String? mapsLink;
+  final String? placeName;
+
   factory Branch.fromJson(Map<String, dynamic> j) => Branch(
         id: j['id'] as int,
         mallId: j['mallId'] as int,
@@ -65,7 +74,44 @@ class Branch {
         contactPhone: j['contactPhone'] as String?,
         contactEmail: j['contactEmail'] as String?,
         isActive: j['isActive'] as bool? ?? true,
+        hours: OpeningHours.fromJson(j['hours']),
+        mapsLink: j['mapsLink'] as String?,
+        placeName: j['placeName'] as String?,
       );
+}
+
+/// A lift, escalator, stairs, ramp or walkway on the published map, and whether it is out of service (Round 21).
+class MapConnector {
+  const MapConnector({required this.id, required this.kind, this.name, this.levels = const [], required this.outOfService, this.since, this.markedByName});
+
+  final String id;
+  final String kind;
+  final String? name;
+  final List<String> levels;
+  final bool outOfService;
+  final DateTime? since;
+  final String? markedByName;
+
+  factory MapConnector.fromJson(Map<String, dynamic> j) => MapConnector(
+        id: j['id'] as String,
+        kind: j['kind'] as String? ?? 'stairs',
+        name: j['name'] as String?,
+        levels: [for (final l in (j['levels'] as List? ?? const [])) l.toString()],
+        outOfService: j['outOfService'] == true,
+        since: DateTime.tryParse(j['since']?.toString() ?? '')?.toLocal(),
+        markedByName: j['markedByName'] as String?,
+      );
+
+  String get kindLabel => const {
+        'elevator': 'Lift',
+        'escalator': 'Escalator',
+        'stairs': 'Stairs',
+        'ramp': 'Ramp',
+        'moving_walkway': 'Moving walkway',
+        'walkway': 'Walkway',
+        'bridge': 'Bridge',
+      }[kind] ??
+      kind;
 }
 
 /// What deactivating a mall hides. Counts are effective-active only.
@@ -153,6 +199,27 @@ class MallsService {
   Future<Branch> createBranch(Map<String, Object?> body) async {
     final r = await _client.dio.post('/branches', data: body);
     return Branch.fromJson((r.data as Map<String, dynamic>)['branch'] as Map<String, dynamic>);
+  }
+
+  Future<Branch> setBranchHours(int id, OpeningHours? hours) async =>
+      Branch.fromJson(((await _client.dio.put('/branches/$id/hours', data: {'hours': hours?.toJson()})).data as Map<String, dynamic>)['branch'] as Map<String, dynamic>);
+
+  /// Reads a pasted Google Maps link without saving it: the place name to confirm (may be null).
+  Future<String?> checkLocation(int id, String link) async =>
+      ((await _client.dio.post('/branches/$id/location/check', data: {'mapsLink': link})).data as Map<String, dynamic>)['placeName'] as String?;
+
+  Future<Branch> setLocation(int id, String? link) async =>
+      Branch.fromJson(((await _client.dio.put('/branches/$id/location', data: {'mapsLink': link})).data as Map<String, dynamic>)['branch'] as Map<String, dynamic>);
+
+  /// The published map's lifts, escalators and stairs; [published] is false when the branch has no published map.
+  Future<({bool published, List<MapConnector> items})> connectors(int branchId) async {
+    final d = (await _client.dio.get('/maps/$branchId/connectors')).data as Map<String, dynamic>;
+    return (published: d['published'] == true, items: [for (final c in d['items'] as List) MapConnector.fromJson(c as Map<String, dynamic>)]);
+  }
+
+  Future<List<MapConnector>> setOutOfService(int branchId, String connectorId, bool out) async {
+    final d = (await _client.dio.put('/maps/$branchId/connectors/$connectorId/out-of-service', data: {'out': out})).data as Map<String, dynamic>;
+    return [for (final c in d['items'] as List) MapConnector.fromJson(c as Map<String, dynamic>)];
   }
 
   Future<Branch> updateBranch(int id, Map<String, Object?> body) async {

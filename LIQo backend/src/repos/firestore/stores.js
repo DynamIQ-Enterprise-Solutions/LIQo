@@ -1,6 +1,7 @@
 // Stores and their map spaces on Firestore (P1-06A); documents mirror the SQL rows.
 //   stores/<id>, store_spaces/<storeId>_<spaceKey>, _unique/store_name:<branch>:<name>
 import { col, docOf, getDb, runTx, nextId, one, all, uniqueRef, Timestamp } from '../../db/firestore.js';
+import { parseHours, hoursText } from '../../utils/hours.js';
 import { listInMemory, inScope, byId, compare, dupError, fkError } from './util.js';
 
 export function toPublic(row) {
@@ -15,6 +16,8 @@ export function toPublic(row) {
     logoUrl: row.logo_url,
     description: row.description,
     openingHours: row.opening_hours,
+    hours: parseHours(row.hours_json),
+    status: row.status ?? 'open',
     contactPhone: row.contact_phone,
     contactEmail: row.contact_email,
     isActive: !!row.is_active,
@@ -161,3 +164,14 @@ export async function branchOfOwnedActiveStore(userId, storeId) {
   return s?.is_active ? s.branch_id : null;
 }
 
+// ---- Round 21: hours and status (mall admin, or the store owner through the narrow route) ----
+
+export async function setHours(id, hours) {
+  await docOf('stores', id).update({ hours_json: hoursText(hours), updated_at: Timestamp.now() });
+  return findById(id);
+}
+
+export async function setStatus(id, status) {
+  await docOf('stores', id).update({ status, updated_at: Timestamp.now() });
+  return findById(id);
+}

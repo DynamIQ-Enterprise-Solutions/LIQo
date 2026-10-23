@@ -13,10 +13,11 @@ function toPublic(row) {
     sortOrder: row.sort_order,
     isActive: !!row.is_active,
     inUse: row.in_use ?? 0,
+    appCategory: row.app_category ?? 'other',
   };
 }
 
-const COLS = `o.id, o.branch_id, o.kind, o.name, o.sort_order, o.is_active,
+const COLS = `o.id, o.branch_id, o.kind, o.name, o.sort_order, o.is_active, o.app_category,
   (SELECT COUNT(*) FROM stores s WHERE s.category_id = o.id) AS in_use`;
 
 export async function list({ branchId, kind, includeInactive }) {
@@ -63,4 +64,10 @@ export async function setActive(id, active) {
 
 export async function remove(id) {
   await query('DELETE FROM branch_options WHERE id = @id', { id: { type: sql.Int, value: id } });
+}
+
+/** Round 21: the shopper app's category for a store-category option. */
+export async function setAppCategory(id, appCategory) {
+  await query('UPDATE branch_options SET app_category = @c, updated_at = SYSDATETIME() WHERE id = @id', { id: { type: sql.Int, value: id }, c: appCategory });
+  return findById(id);
 }

@@ -15,6 +15,7 @@ function toPublic(row) {
     sortOrder: row.sort_order,
     isActive: !!row.is_active,
     inUse: row.in_use ?? 0,
+    appCategory: row.app_category ?? 'other',
   };
 }
 
@@ -85,4 +86,10 @@ export async function remove(id) {
     tx.delete(guardOf(cur.branch_id, cur.kind, cur.name));
     tx.delete(ref);
   });
+}
+
+/** Round 21: the shopper app's category for a store-category option. */
+export async function setAppCategory(id, appCategory) {
+  await docOf('branch_options', id).update({ app_category: appCategory, updated_at: Timestamp.now() });
+  return findById(id);
 }

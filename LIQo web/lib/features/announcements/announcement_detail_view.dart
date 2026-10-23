@@ -11,6 +11,7 @@ import '../../shared/messaging/messages.dart';
 import '../../shared/nav/role_nav.dart';
 import '../../shared/widgets/common.dart';
 import '../../shared/widgets/detail_widgets.dart';
+import 'announcement_picture.dart';
 import 'announcements_service.dart';
 import 'announcements_view.dart';
 
@@ -154,7 +155,6 @@ class _AnnouncementDetailViewState extends ConsumerState<AnnouncementDetailView>
                                   'body': a.body,
                                   'startsOn': a.startsOn,
                                   'endsOn': a.endsOn,
-                                  'imageUrl': a.imageUrl,
                                   'branches': [for (final b in a.branches) b.toLookup()],
                                 },
                                 onSubmit: (v) async {
@@ -178,9 +178,16 @@ class _AnnouncementDetailViewState extends ConsumerState<AnnouncementDetailView>
                               DetailRow('Status', reviewStatusLabel(a.status)),
                               if (a.reviewedByName != null) DetailRow('Reviewed by', a.reviewedByName),
                               if (a.rejectReason != null) DetailRow('Reason', a.rejectReason),
-                              if (a.imageUrl != null) DetailRow('Image URL', a.imageUrl),
                             ],
                           ),
+                  ),
+                  AnnouncementPictureCard(
+                    announcement: a,
+                    canChange: canEdit,
+                    owner: owner,
+                    service: _service,
+                    onChanged: (updated) => setState(() => _a = updated),
+                    onMessage: _msg,
                   ),
                   if (a.sharedBeyondScope)
                     DetailCard(

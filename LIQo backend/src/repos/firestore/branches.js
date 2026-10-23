@@ -1,5 +1,6 @@
 // Branches on Firestore (P1-06A); documents mirror the SQL rows (mall_name joined in).
 import { col, docOf, runTx, nextId, one, all, uniqueRef, Timestamp } from '../../db/firestore.js';
+import { parseHours, hoursText } from '../../utils/hours.js';
 import { listInMemory, inScope, byId, dupError, fkError } from './util.js';
 
 export function toPublic(row) {
@@ -13,6 +14,9 @@ export function toPublic(row) {
     latitude: row.latitude == null ? null : Number(row.latitude),
     longitude: row.longitude == null ? null : Number(row.longitude),
     openingHours: row.opening_hours,
+    hours: parseHours(row.hours_json),
+    mapsLink: row.maps_link ?? null,
+    placeName: row.place_name ?? null,
     contactPhone: row.contact_phone,
     contactEmail: row.contact_email,
     isActive: !!row.is_active,
@@ -108,4 +112,23 @@ export async function impact(id) {
     storeOwners: new Set(soa.filter((a) => storeIds.has(a.store_id)).map((a) => a.user_id)).size,
     mallAdmins: ma.length,
   };
+}
+
+// ---- Round 21: hours and the location from a Google Maps link ----
+
+export async function setHours(id, hours) {
+  await docOf('branches', id).update({ hours_json: hoursText(hours), updated_at: Timestamp.now() });
+  return findById(id);
+}
+
+/** Sets (or clears, with nulls) the Maps link, its place name and the pin. */
+export async function setLocation(id, { mapsLink, placeName, latitude, longitude }) {
+  await docOf('branches', id).update({
+    maps_link: mapsLink ?? null,
+    place_name: placeName ?? null,
+    latitude: latitude ?? null,
+    longitude: longitude ?? null,
+    updated_at: Timestamp.now(),
+  });
+  return findById(id);
 }

@@ -2,7 +2,7 @@ import { query, sql, withTransaction, txQuery } from '../../db/pool.js';
 import { inList } from '../../db/sqlHelpers.js';
 import { toDateOnly, fromDateOnly, todayDateOnly } from '../../utils/dates.js';
 
-const COLS = `a.id, a.title, a.body, a.image_url, a.starts_on, a.ends_on, a.status, a.store_id, s.name AS store_name,
+const COLS = `a.id, a.title, a.body, a.image_url, a.image_key, a.image_mime, a.starts_on, a.ends_on, a.status, a.store_id, s.name AS store_name,
   a.created_by, u.full_name AS created_by_name, a.created_role, a.reviewed_by, r.full_name AS reviewed_by_name,
   a.reviewed_at, a.reject_reason, a.created_at, a.updated_at`;
 const FROM = `FROM announcements a
@@ -26,6 +26,9 @@ export function toPublic(row, branches = []) {
     title: row.title,
     body: row.body,
     imageUrl: row.image_url,
+    // Round 21: one uploaded picture (replaces the link; old links show until the announcement is edited).
+    imageKey: row.image_key ?? null,
+    imageMime: row.image_mime ?? null,
     startsOn: toDateOnly(row.starts_on),
     endsOn: toDateOnly(row.ends_on),
     status: row.status,
@@ -197,4 +200,14 @@ export async function removeBranches(id, branchIds) {
 
 export async function remove(id) {
   await query('DELETE FROM announcements WHERE id = @id', { id: { type: sql.Int, value: id } });
+}
+
+/** Round 21: sets or clears (null) the announcement's uploaded picture. */
+export async function setImage(id, key, mime) {
+  await query('UPDATE announcements SET image_key = @k, image_mime = @m, updated_at = SYSDATETIME() WHERE id = @id', {
+    id: { type: sql.Int, value: id },
+    k: key ?? null,
+    m: mime ?? null,
+  });
+  return findById(id);
 }

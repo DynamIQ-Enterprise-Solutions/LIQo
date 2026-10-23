@@ -21,6 +21,9 @@ export function toPublic(row, branches = []) {
     title: row.title,
     body: row.body,
     imageUrl: row.image_url,
+    // Round 21: one uploaded picture (replaces the link; old links show until the announcement is edited).
+    imageKey: row.image_key ?? null,
+    imageMime: row.image_mime ?? null,
     startsOn: toDateOnly(row.starts_on),
     endsOn: toDateOnly(row.ends_on),
     status: row.status,
@@ -156,3 +159,8 @@ export async function remove(id) {
   await docOf('announcements', id).delete();
 }
 
+/** Round 21: sets or clears (null) the announcement's uploaded picture. */
+export async function setImage(id, key, mime) {
+  await docOf('announcements', id).update({ image_key: key ?? null, image_mime: mime ?? null, updated_at: Timestamp.now() });
+  return findById(id);
+}

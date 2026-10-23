@@ -18,7 +18,6 @@ List<FieldSpec> announcementFields({required bool owner}) => [
       const FieldSpec(name: 'body', label: 'Message', kind: FieldKind.multiline, required: true, maxLength: 5000),
       const FieldSpec(name: 'startsOn', label: 'Start date', kind: FieldKind.date, required: true),
       const FieldSpec(name: 'endsOn', label: 'End date', kind: FieldKind.date, required: true),
-      const FieldSpec(name: 'imageUrl', label: 'Image URL', maxLength: 500, hint: 'https://…', help: 'Optional. Image upload comes later.'),
       if (owner)
         const FieldSpec(name: 'store', label: 'Store', kind: FieldKind.lookup, lookup: 'stores', required: true, hint: 'Choose your store…')
       else
@@ -30,7 +29,6 @@ Map<String, Object?> announcementBody(Map<String, Object?> v, {required bool own
       'body': v['body'],
       'startsOn': v['startsOn'],
       'endsOn': v['endsOn'],
-      'imageUrl': v['imageUrl'],
       if (owner) 'storeId': (v['store'] as List<LookupItem>?)?.firstOrNull?.id,
       if (!owner) 'branchIds': <int>[for (final b in (v['branches'] as List<LookupItem>? ?? const <LookupItem>[])) b.id],
     };

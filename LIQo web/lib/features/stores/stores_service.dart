@@ -1,4 +1,5 @@
 import '../../core/api_client.dart';
+import '../../shared/models/opening_hours.dart';
 import '../../shared/models/paged.dart';
 
 class Store {
@@ -18,6 +19,8 @@ class Store {
     required this.isActive,
     required this.spaceCount,
     required this.ownerCount,
+    this.hours,
+    this.status = 'open',
   });
 
   final int id;
@@ -36,6 +39,10 @@ class Store {
   final int spaceCount;
   final int ownerCount;
 
+  /// Round 21: opening hours per weekday and special days, and the store's status for shoppers.
+  final OpeningHours? hours;
+  final String status;
+
   factory Store.fromJson(Map<String, dynamic> j) => Store(
         id: j['id'] as int,
         branchId: j['branchId'] as int,
@@ -52,8 +59,32 @@ class Store {
         isActive: j['isActive'] as bool? ?? true,
         spaceCount: j['spaceCount'] as int? ?? 0,
         ownerCount: j['ownerCount'] as int? ?? 0,
+        hours: OpeningHours.fromJson(j['hours']),
+        status: j['status'] as String? ?? 'open',
       );
 }
+
+/// Store status for shoppers (Round 21); directions are given whatever it is.
+const storeStatuses = <(String, String)>[
+  ('open', 'Open'),
+  ('temporarily_closed', 'Temporarily closed'),
+  ('being_repaired', 'Being repaired'),
+  ('opening_soon', 'Opening soon'),
+];
+
+String storeStatusLabel(String status) => storeStatuses.firstWhere((s) => s.$1 == status, orElse: () => (status, status)).$2;
+
+/// The shopper app's categories for a store category (Round 21).
+const appCategories = <(String, String)>[
+  ('food', 'Food'),
+  ('fashion', 'Fashion'),
+  ('tech', 'Tech'),
+  ('books', 'Books'),
+  ('services', 'Services'),
+  ('other', 'Other'),
+];
+
+String appCategoryLabel(String c) => appCategories.firstWhere((x) => x.$1 == c, orElse: () => (c, c)).$2;
 
 class OwnerRef {
   const OwnerRef({required this.id, required this.email, required this.fullName, required this.isActive});
@@ -115,7 +146,7 @@ class StoreOwner {
 }
 
 class BranchOption {
-  const BranchOption({required this.id, required this.branchId, required this.kind, required this.name, required this.sortOrder, required this.isActive, required this.inUse});
+  const BranchOption({required this.id, required this.branchId, required this.kind, required this.name, required this.sortOrder, required this.isActive, required this.inUse, this.appCategory = 'other'});
 
   final int id;
   final int branchId;
@@ -125,6 +156,9 @@ class BranchOption {
   final bool isActive;
   final int inUse;
 
+  /// Round 21: the shopper app's category (store categories only).
+  final String appCategory;
+
   factory BranchOption.fromJson(Map<String, dynamic> j) => BranchOption(
         id: j['id'] as int,
         branchId: j['branchId'] as int,
@@ -133,6 +167,7 @@ class BranchOption {
         sortOrder: j['sortOrder'] as int? ?? 0,
         isActive: j['isActive'] as bool? ?? true,
         inUse: j['inUse'] as int? ?? 0,
+        appCategory: j['appCategory'] as String? ?? 'other',
       );
 }
 
@@ -168,6 +203,9 @@ class StoresService {
   Future<Store> update(int id, Map<String, Object?> body) async => Store.fromJson(_m(_m((await _client.dio.put('/stores/$id', data: body)).data)['store']));
   Future<Store> setActive(int id, bool active) async => Store.fromJson(_m(_m((await _client.dio.post('/stores/$id/${active ? 'reactivate' : 'deactivate'}')).data)['store']));
 
+  Future<Store> setHours(int id, OpeningHours? hours) async => Store.fromJson(_m(_m((await _client.dio.put('/stores/$id/hours', data: {'hours': hours?.toJson()})).data)['store']));
+  Future<Store> setStatus(int id, String status) async => Store.fromJson(_m(_m((await _client.dio.put('/stores/$id/status', data: {'status': status})).data)['store']));
+
   Future<List<String>> setSpaces(int id, List<String> keys) async => (_m((await _client.dio.put('/stores/$id/spaces', data: {'spaceKeys': keys})).data)['spaces'] as List<dynamic>).cast<String>();
 
   // ---- Option lists ----
@@ -178,6 +216,8 @@ class StoresService {
   }
 
   Future<BranchOption> createOption(Map<String, Object?> body) async => BranchOption.fromJson(_m(_m((await _client.dio.post('/options', data: body)).data)['option']));
+  Future<BranchOption> setAppCategory(int id, String appCategory) async =>
+      BranchOption.fromJson(_m(_m((await _client.dio.put('/options/$id/app-category', data: {'appCategory': appCategory})).data)['option']));
   Future<BranchOption> updateOption(int id, Map<String, Object?> body) async => BranchOption.fromJson(_m(_m((await _client.dio.put('/options/$id', data: body)).data)['option']));
   Future<BranchOption> setOptionActive(int id, bool active) async => BranchOption.fromJson(_m(_m((await _client.dio.post('/options/$id/${active ? 'reactivate' : 'deactivate'}')).data)['option']));
   Future<void> deleteOption(int id) => _client.dio.delete('/options/$id');

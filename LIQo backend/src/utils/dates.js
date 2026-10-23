@@ -18,3 +18,26 @@ export function fromDateOnly(text) {
 export function todayDateOnly() {
   return toDateOnly(new Date());
 }
+
+// ---- Philippine time (UTC+8, no daylight saving), for the shopper app (Round 21) ----
+
+const PH_MS = 8 * 3600 * 1000;
+
+/** Today's date in the Philippines, 'yyyy-MM-dd'. */
+export function phToday(now = new Date()) {
+  return new Date(now.getTime() + PH_MS).toISOString().slice(0, 10);
+}
+
+/** A moment as ISO 8601 with the Philippine offset: '2026-10-23T10:15:00+08:00'. */
+export function phIso(value) {
+  if (value == null) return null;
+  const d = value instanceof Date ? value : new Date(value);
+  return `${new Date(d.getTime() + PH_MS).toISOString().slice(0, 19)}+08:00`;
+}
+
+/** Adds [days] to a 'yyyy-MM-dd' date. */
+export function addDays(dateOnly, days) {
+  const d = new Date(`${dateOnly}T00:00:00Z`);
+  d.setUTCDate(d.getUTCDate() + days);
+  return d.toISOString().slice(0, 10);
+}

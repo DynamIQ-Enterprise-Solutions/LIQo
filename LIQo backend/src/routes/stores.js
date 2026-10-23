@@ -9,6 +9,7 @@ import * as options from '../repos/options.js';
 import * as owners from '../repos/owners.js';
 import { resolveScope, assertBranchInScope } from '../utils/scope.js';
 import { parsePaging, pageEnvelope } from '../utils/pagination.js';
+import { hoursSchema, STORE_STATUSES } from '../utils/hours.js';
 
 export const storesRouter = Router();
 
@@ -146,6 +147,40 @@ storesRouter.put('/:id/spaces', requireRole('mall_admin'), validate(spacesSchema
     const spaces = await stores.setSpaces(store.id, store.branchId, keys);
     await recordAudit(req, res, { action: 'store_spaces_updated', entityType: 'store', entityId: store.id, details: { spaceKeys: keys } });
     res.json({ spaces });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// ---- Round 21: hours and status. The mall admin, or the store owner for their
+// own active stores (owner decisions 2026-10-23: a narrow route, audited). ----
+
+const hoursBody = z.object({ hours: hoursSchema.nullable() });
+const statusBody = z.object({ status: z.enum(STORE_STATUSES) });
+
+async function loadWritable(req) {
+  const store = await loadInScope(req, Number(req.params.id));
+  if (req.user.role === 'store_owner' && !store.isActive) throw new AppError(403, 'That store is not active.');
+  return store;
+}
+
+storesRouter.put('/:id/hours', requireRole('mall_admin', 'store_owner'), validate(hoursBody), async (req, res, next) => {
+  try {
+    const store = await loadWritable(req);
+    const updated = await stores.setHours(store.id, req.body.hours);
+    await recordAudit(req, res, { action: 'store_hours_updated', entityType: 'store', entityId: store.id, details: { hours: updated.hours, byRole: req.user.role } });
+    res.json({ store: updated });
+  } catch (err) {
+    next(err);
+  }
+});
+
+storesRouter.put('/:id/status', requireRole('mall_admin', 'store_owner'), validate(statusBody), async (req, res, next) => {
+  try {
+    const store = await loadWritable(req);
+    const updated = await stores.setStatus(store.id, req.body.status);
+    await recordAudit(req, res, { action: 'store_status_changed', entityType: 'store', entityId: store.id, details: { from: store.status, to: updated.status, byRole: req.user.role } });
+    res.json({ store: updated });
   } catch (err) {
     next(err);
   }

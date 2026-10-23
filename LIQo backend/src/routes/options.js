@@ -6,6 +6,7 @@ import { AppError } from '../middleware/errors.js';
 import { recordAudit } from '../middleware/audit.js';
 import * as options from '../repos/options.js';
 import { resolveScope, assertBranchInScope } from '../utils/scope.js';
+import { APP_CATEGORIES } from '../utils/hours.js';
 
 export const optionsRouter = Router();
 
@@ -105,6 +106,19 @@ optionsRouter.get('/:id', async (req, res, next) => {
     if (!opt) throw new AppError(404, 'Option not found.');
     assertBranchInScope(await resolveScope(req.user), opt.branchId);
     res.json({ option: opt });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// Round 21: the shopper app's category for a store category (owner decision 2026-10-23; default Other).
+optionsRouter.put('/:id/app-category', requireRole('mall_admin'), validate(z.object({ appCategory: z.enum(APP_CATEGORIES) })), async (req, res, next) => {
+  try {
+    const opt = await loadInScope(req, Number(req.params.id));
+    if (opt.kind !== 'store_category') throw new AppError(400, 'Only store categories have an App category.');
+    const updated = await options.setAppCategory(opt.id, req.body.appCategory);
+    await recordAudit(req, res, { action: 'option_app_category_set', entityType: 'branch_option', entityId: opt.id, details: { from: opt.appCategory, to: updated.appCategory } });
+    res.json({ option: updated });
   } catch (err) {
     next(err);
   }

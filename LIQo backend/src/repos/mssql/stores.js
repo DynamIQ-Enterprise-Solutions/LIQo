@@ -1,8 +1,9 @@
 import { query, sql, withTransaction, txQuery } from '../../db/pool.js';
 import { inList } from '../../db/sqlHelpers.js';
+import { parseHours, hoursText } from '../../utils/hours.js';
 
 const COLS = `s.id, s.branch_id, b.name AS branch_name, m.name AS mall_name, s.name, s.category_id, c.name AS category_name,
-  s.logo_url, s.description, s.opening_hours, s.contact_phone, s.contact_email, s.is_active, s.created_at, s.updated_at,
+  s.logo_url, s.description, s.opening_hours, s.hours_json, s.status, s.contact_phone, s.contact_email, s.is_active, s.created_at, s.updated_at,
   (SELECT COUNT(*) FROM store_spaces ss WHERE ss.store_id = s.id) AS space_count,
   (SELECT COUNT(*) FROM store_owner_assignments soa WHERE soa.store_id = s.id) AS owner_count`;
 const FROM = `FROM stores s
@@ -22,6 +23,8 @@ export function toPublic(row) {
     logoUrl: row.logo_url,
     description: row.description,
     openingHours: row.opening_hours,
+    hours: parseHours(row.hours_json),
+    status: row.status ?? 'open',
     contactPhone: row.contact_phone,
     contactEmail: row.contact_email,
     isActive: !!row.is_active,
@@ -159,4 +162,19 @@ export async function branchOfOwnedActiveStore(userId, storeId) {
     { uid: { type: sql.Int, value: userId }, sid: { type: sql.Int, value: storeId } },
   );
   return r.recordset[0]?.branch_id ?? null;
+}
+
+// ---- Round 21: hours and status (mall admin, or the store owner through the narrow route) ----
+
+export async function setHours(id, hours) {
+  await query('UPDATE stores SET hours_json = @h, updated_at = SYSDATETIME() WHERE id = @id', {
+    id: { type: sql.Int, value: id },
+    h: { type: sql.NVarChar(sql.MAX), value: hoursText(hours) },
+  });
+  return findById(id);
+}
+
+export async function setStatus(id, status) {
+  await query('UPDATE stores SET status = @s, updated_at = SYSDATETIME() WHERE id = @id', { id: { type: sql.Int, value: id }, s: status });
+  return findById(id);
 }

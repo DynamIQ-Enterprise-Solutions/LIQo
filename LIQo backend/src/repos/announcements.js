@@ -14,4 +14,5 @@ export const {
   review,
   toPublic,
   update,
+  setImage,
 } = impl;

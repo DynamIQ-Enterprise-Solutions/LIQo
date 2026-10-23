@@ -24,6 +24,7 @@ import { mapsRouter } from './routes/maps.js';
 import { aiRouter } from './routes/ai.js';
 import { creditsRouter } from './routes/credits.js';
 import { reportsRouter, requestsRouter } from './routes/reports.js';
+import { shopperRouter } from './routes/shopper.js';
 
 export function createApp() {
   const app = express();
@@ -67,6 +68,13 @@ export function createApp() {
 
   // Public + self-auditing auth routes.
   app.use('/api/auth', authRouter);
+
+  // Round 21: the public shopper service (phones, no sign-in, never audited), with its own limits.
+  if (config.rateLimitOn) {
+    app.use('/api/shopper/counts', rateLimit({ windowMs: 60_000, limit: 30, standardHeaders: true, legacyHeaders: false, message: { error: 'Too many counts. Try again in a minute.' } }));
+    app.use('/api/shopper', rateLimit({ windowMs: 60_000, limit: 300, standardHeaders: true, legacyHeaders: false, message: { error: 'Too many requests. Try again in a minute.' } }));
+  }
+  app.use('/api/shopper', shopperRouter);
 
   // Everything below needs a signed-in user who has already changed a temp password.
   const api = express.Router();

@@ -24,11 +24,12 @@ const mallFields = [
 
 /// Branch form. Latitude and longitude stay in the API but are hidden from the
 /// screens until the shopper app exists (owner decision, 2026-10-21).
-List<FieldSpec> branchFields({required bool full, bool lockMall = false}) => [
+List<FieldSpec> branchFields({required bool full, bool lockMall = false, bool create = false}) => [
       if (full) FieldSpec(name: 'mall', label: 'Mall', kind: FieldKind.lookup, lookup: 'malls', required: true, hint: 'Choose a mall…', readOnly: lockMall),
       if (full) const FieldSpec(name: 'name', label: 'Branch name', required: true, maxLength: 200, hint: 'e.g. SM Mall of Asia'),
       const FieldSpec(name: 'address', label: 'Address', kind: FieldKind.multiline, maxLength: 500),
-      const FieldSpec(name: 'openingHours', label: 'Opening hours', maxLength: 300, hint: 'Mon–Sun 10:00 AM – 10:00 PM'),
+      // Round 21: hours are entered per day under Opening hours; the old text stays as a read-only note.
+      if (!create) const FieldSpec(name: 'openingHours', label: 'Old hours note', maxLength: 300, readOnly: true, help: 'Read only. Enter the hours under Opening hours.'),
       const FieldSpec(name: 'contactPhone', label: 'Contact phone', maxLength: 50),
       const FieldSpec(name: 'contactEmail', label: 'Contact email', kind: FieldKind.email, maxLength: 255),
       const FieldSpec(name: 'logoUrl', label: 'Logo URL', maxLength: 500, hint: 'https://…'),
@@ -125,7 +126,7 @@ class _MallsViewState extends ConsumerState<MallsView> {
       context: context,
       title: 'Create branch',
       submitLabel: 'Create',
-      fields: branchFields(full: true),
+      fields: branchFields(full: true, create: true),
       onSubmit: (v) => _service.createBranch(branchBody(v, null, full: true)),
     );
     if (ok) {
@@ -251,7 +252,7 @@ Future<bool> addBranchDialog(BuildContext context, MallsService service, Mall m,
     initial: {
       'mall': [LookupItem(id: m.id, label: m.name)],
     },
-    fields: branchFields(full: true, lockMall: true),
+    fields: branchFields(full: true, lockMall: true, create: true),
     onSubmit: (v) => service.createBranch(branchBody(v, null, full: true)),
   );
 }

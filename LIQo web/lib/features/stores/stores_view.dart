@@ -26,7 +26,8 @@ List<FieldSpec> storeFields({required bool create}) => [
           hint: 'Choose a category…',
           help: 'Categories are managed under Option lists.'),
       const FieldSpec(name: 'description', label: 'Description', kind: FieldKind.multiline, maxLength: 1000),
-      const FieldSpec(name: 'openingHours', label: 'Opening hours', maxLength: 300, hint: 'Mon–Sun 10:00 AM – 9:00 PM'),
+      // Round 21: hours are entered per day under Opening hours; the old text stays as a read-only note.
+      if (!create) const FieldSpec(name: 'openingHours', label: 'Old hours note', maxLength: 300, readOnly: true, help: 'Read only. Enter the hours under Opening hours.'),
       const FieldSpec(name: 'contactPhone', label: 'Contact phone', maxLength: 50),
       const FieldSpec(name: 'contactEmail', label: 'Contact email', kind: FieldKind.email, maxLength: 255),
       const FieldSpec(name: 'logoUrl', label: 'Logo URL', maxLength: 500, hint: 'https://…'),
@@ -171,7 +172,15 @@ class _StoresViewState extends ConsumerState<StoresView> {
             ListColumn(label: 'Hours', flex: 2, hideOnMobile: true, cell: (c, s) => Text(s.openingHours ?? '—', style: ts(11, color: p.muted))),
             ListColumn(label: 'Spaces', flex: 1, hideOnMobile: true, cell: (c, s) => Text('${s.spaceCount}')),
             ListColumn(label: 'Owners', flex: 1, hideOnMobile: true, cell: (c, s) => Text('${s.ownerCount}')),
-            ListColumn(label: 'Status', flex: 2, cell: (c, s) => StatusPill(active: s.isActive)),
+            ListColumn(
+              label: 'Status',
+              flex: 2,
+              // Round 21: the status shoppers see, when it is not plain Open.
+              cell: (c, s) => Wrap(spacing: 6, runSpacing: 4, children: [
+                StatusPill(active: s.isActive),
+                if (s.status != 'open') Pill(storeStatusLabel(s.status), kind: PillKind.pending),
+              ]),
+            ),
           ],
         ),
       ],

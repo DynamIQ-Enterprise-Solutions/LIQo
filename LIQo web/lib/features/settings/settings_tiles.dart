@@ -30,6 +30,8 @@ const settingInfo = <String, SettingInfo>{
   // Round 19: AI credits per mall admin.
   'ai_start_credits': SettingInfo(SettingsTopic.ai, 'Starting credits', 'credits', 'Each new mall admin starts with this'),
   'ai_credit_cap': SettingInfo(SettingsTopic.ai, 'Most credits per admin', 'credits', 'No mall admin can hold more'),
+  // Round 21: phones running an older build of the shopper app are asked to update (0 = none).
+  'app_must_update_below': SettingInfo(SettingsTopic.other, 'Oldest shopper app build', 'build', 'Older apps are asked to update; 0 lets every build in'),
 };
 
 /// A topic tile: a card with its title, then its settings separated by soft lines.

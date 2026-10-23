@@ -11,6 +11,7 @@ const EDIT_AUDIT_GAP_MINUTES = 10;
 import * as maps from '../repos/maps.js';
 import * as branches from '../repos/branches.js';
 import * as stores from '../repos/stores.js';
+import * as outages from '../repos/outages.js';
 import { resolveScope, assertBranchInScope } from '../utils/scope.js';
 import { catalogPayload } from '../maps/catalog.js';
 import { validateLayout, blankLayout, spaceIndex, countSpaces, publishable, reattachBackdrops } from '../maps/validator.js';
@@ -35,6 +36,12 @@ function danglingLinkWarnings(layout, links) {
     message: `Store "${l.storeName}" is linked to space ${l.spaceKey}, which no longer exists on the map. Relink it under Stores & spaces.`,
     ids: [],
   }));
+}
+
+/** Round 21: out-of-service marks whose connector is not in the newly published map are cleared, and audited. */
+async function clearGoneOutages(req, res, branchId, layout) {
+  const gone = await outages.clearMissing(branchId, (layout.connectors ?? []).map((c) => c.id));
+  if (gone.length) await recordAudit(req, res, { action: 'connector_marks_cleared', entityType: 'branch', entityId: branchId, details: { connectorIds: gone, reason: 'not on the published map' } });
 }
 
 async function branchInScope(req, branchId) {
@@ -229,6 +236,7 @@ mapsRouter.post('/:branchId/publish', requireRole(...EDITORS), validate(publishS
       throw err;
     }
     await recordAudit(req, res, { action: 'map_published', entityType: 'map', entityId: map.id, details: { branchId: branch.id, version: result.version } });
+    await clearGoneOutages(req, res, branch.id, layout);
     const dangling = danglingLinkWarnings(layout, await stores.spaceLinksForBranch(branch.id));
     res.json({ publishedVersion: result.version, draftVersion: result.draftVersion, warnings: dangling });
   } catch (err) {
@@ -297,6 +305,7 @@ mapsRouter.post('/:branchId/rollback', requireRole(...EDITORS), validate(z.objec
       note: `Rollback to version ${req.body.version}`,
       resetDraftTo: JSON.stringify(reattachBackdrops(structuredClone(layout), map.draft)),
     });
+    await clearGoneOutages(req, res, branch.id, layout);
     await recordAudit(req, res, { action: 'map_rolled_back', entityType: 'map', entityId: map.id, details: { branchId: branch.id, restoredFrom: req.body.version, newVersion: result.version } });
     res.json({ publishedVersion: result.version, draftVersion: result.draftVersion, restoredFrom: req.body.version });
   } catch (err) {
@@ -343,6 +352,66 @@ mapsRouter.delete('/:branchId', requireRole('superadmin'), async (req, res, next
     await maps.remove(branch.id);
     await recordAudit(req, res, { action: 'map_deleted', entityType: 'map', entityId: null, details: { branchId: branch.id } });
     res.status(204).end();
+  } catch (err) {
+    next(err);
+  }
+});
+
+// ---- Round 21: lifts, escalators and stairs out of service (owner decisions 2026-10-23).
+// Kept apart from map versions, keyed by branch and connector id; reaches phones
+// through /api/shopper/branches/:id/live. Mall admins mark and clear. ----
+
+const SHOPPER_CONNECTORS = new Set(['elevator', 'escalator', 'stairs', 'ramp', 'moving_walkway', 'walkway', 'bridge']);
+
+/** The published map's connectors shoppers use, with their out-of-service state. */
+async function connectorRows(branchId) {
+  const pub = await maps.publishedLayout(branchId);
+  const levelName = new Map();
+  for (const b of pub?.layout?.buildings ?? []) for (const l of b.levels ?? []) levelName.set(l.id, l.name);
+  const marks = new Map((await outages.list(branchId)).map((m) => [m.connectorId, m]));
+  const rows = (pub?.layout?.connectors ?? [])
+    .filter((c) => SHOPPER_CONNECTORS.has(c.kind) && c.walkable !== false)
+    .map((c) => ({
+      id: c.id,
+      kind: c.kind,
+      name: c.name || null,
+      levels: [...new Set((c.endpoints ?? []).map((e) => levelName.get(e.level)).filter(Boolean))],
+      outOfService: marks.has(c.id),
+      since: marks.get(c.id)?.since ?? null,
+      markedByName: marks.get(c.id)?.markedByName ?? null,
+    }))
+    .sort((a, b) => String(a.name ?? a.id).localeCompare(String(b.name ?? b.id)));
+  return { published: !!pub, rows };
+}
+
+mapsRouter.get('/:branchId/connectors', async (req, res, next) => {
+  try {
+    const branch = await branchInScope(req, req.params.branchId);
+    const { published, rows } = await connectorRows(branch.id);
+    res.json({ published, items: rows });
+  } catch (err) {
+    next(err);
+  }
+});
+
+mapsRouter.put('/:branchId/connectors/:connectorId/out-of-service', requireRole(...EDITORS), validate(z.object({ out: z.boolean() })), async (req, res, next) => {
+  try {
+    const branch = await branchInScope(req, req.params.branchId);
+    const { rows } = await connectorRows(branch.id);
+    const row = rows.find((r) => r.id === req.params.connectorId);
+    if (!row) throw new AppError(404, 'That lift, escalator or stairs is not on the published map.');
+    const changed = req.body.out ? await outages.mark(branch.id, row.id, req.user.id) : await outages.clear(branch.id, row.id);
+    if (changed) {
+      await recordAudit(req, res, {
+        action: req.body.out ? 'connector_out_of_service' : 'connector_back_in_service',
+        entityType: 'branch',
+        entityId: branch.id,
+        details: { connectorId: row.id, kind: row.kind, name: row.name },
+      });
+    } else {
+      res.locals.audited = true; // nothing changed
+    }
+    res.json({ items: (await connectorRows(branch.id)).rows });
   } catch (err) {
     next(err);
   }

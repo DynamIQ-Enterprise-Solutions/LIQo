@@ -5,6 +5,8 @@ import 'package:go_router/go_router.dart';
 import '../../core/api_client.dart';
 import '../../core/theme.dart';
 import '../../shared/forms/app_form_dialog.dart';
+import '../../shared/forms/field_builder.dart';
+import '../../shared/forms/field_spec.dart';
 import '../../shared/lists/list_scaffold.dart' show StatusPill;
 import '../../shared/messaging/messages.dart';
 import '../../shared/widgets/common.dart';
@@ -98,6 +100,19 @@ class _OptionDetailViewState extends ConsumerState<OptionDetailView> {
     }
   }
 
+  /// Round 21 (owner decision 2026-10-23): the shopper app's category for this store category.
+  Future<void> _setAppCategory(String value) async {
+    final o = _o!;
+    if (value == o.appCategory) return;
+    try {
+      final updated = await _service.setAppCategory(o.id, value);
+      setState(() => _o = updated);
+      _msg('Shoppers now see these stores under ${appCategoryLabel(value)}.');
+    } catch (e) {
+      _msg(formatApiError(e), error: true);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final p = context.pal;
@@ -154,6 +169,25 @@ class _OptionDetailViewState extends ConsumerState<OptionDetailView> {
                             ],
                           ),
                   ),
+                  if (o.kind == 'store_category')
+                    DetailCard(
+                      title: 'App category',
+                      subtitle: 'Where these stores show in the shopper app',
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          FieldBuilder(
+                            key: const ValueKey('app-category'),
+                            spec: FieldSpec(name: 'appCategory', label: 'App category', kind: FieldKind.select, options: [for (final (v, l) in appCategories) SelectOption(v, l)]),
+                            value: o.appCategory,
+                            bare: true,
+                            onChanged: (v) => _setAppCategory(v as String),
+                          ),
+                          const SizedBox(height: 6),
+                          Text('The shopper app sorts stores into Food, Fashion, Tech, Books, Services and Other.', style: ts(11.5, color: p.muted)),
+                        ],
+                      ),
+                    ),
                   DetailCard(
                     title: 'Used by',
                     subtitle: o.kind == 'store_category' ? 'Stores with this category' : 'Map spaces that use this value',

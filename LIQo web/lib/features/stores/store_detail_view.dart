@@ -7,6 +7,7 @@ import '../../core/session.dart';
 import '../../core/theme.dart';
 import '../malls/malls_view.dart' show countOf;
 import '../../shared/forms/app_form_dialog.dart';
+import '../../shared/forms/field_builder.dart';
 import '../../shared/forms/field_spec.dart';
 import '../../shared/lists/list_scaffold.dart' show StatusPill;
 import '../../shared/messaging/messages.dart';
@@ -14,6 +15,7 @@ import '../../shared/models/paged.dart';
 import '../../shared/nav/role_nav.dart';
 import '../../shared/widgets/common.dart';
 import '../../shared/widgets/detail_widgets.dart';
+import '../../shared/widgets/hours_card.dart';
 import 'store_owner_wizard.dart';
 import 'stores_service.dart';
 import 'stores_view.dart';
@@ -94,6 +96,19 @@ class _StoreDetailViewState extends ConsumerState<StoreDetailView> {
     }
   }
 
+  /// Round 21: the status shoppers see. Mall admins, and store owners for their own active store.
+  Future<void> _setStatus(String status) async {
+    final s = _s!;
+    if (status == s.status) return;
+    try {
+      final updated = await _service.setStatus(s.id, status);
+      setState(() => _s = updated);
+      _msg('Status set to ${storeStatusLabel(status)}.');
+    } catch (e) {
+      _msg(formatApiError(e), error: true);
+    }
+  }
+
   Future<void> _addOwner() async {
     final s = _s!;
     final r = await runStoreOwnerWizard(context, store: LookupItem(id: s.id, label: s.name), service: _service);
@@ -131,6 +146,8 @@ class _StoreDetailViewState extends ConsumerState<StoreDetailView> {
     final isOwner = role == 'store_owner';
     final s = _s;
     final listLabel = isOwner ? 'My stores' : (role == 'supervisor' ? 'Stores' : 'Stores & spaces');
+    // Round 21 (owner decisions 2026-10-23): hours and status, also by the store owner for their own active store.
+    final canShopperInfo = s != null && (canEdit || (isOwner && s.isActive));
 
     return DetailScaffold(
       eyebrow: '${nav.name} / $listLabel / ${s?.name ?? 'Store'}',
@@ -144,7 +161,11 @@ class _StoreDetailViewState extends ConsumerState<StoreDetailView> {
               mark: HeroMark.logo(logoUrl: s.logoUrl, name: s.name),
               title: s.name,
               sub: '${s.branchName} · ${s.mallName}',
-              pills: [StatusPill(active: s.isActive), if (s.categoryName != null) Pill(s.categoryName!, kind: PillKind.off)],
+              pills: [
+                StatusPill(active: s.isActive),
+                if (s.status != 'open') Pill(storeStatusLabel(s.status), kind: PillKind.pending),
+                if (s.categoryName != null) Pill(s.categoryName!, kind: PillKind.off),
+              ],
               line: [
                 _keys.isEmpty ? 'Not on the map yet' : '${_keys.length} on the map',
                 countOf(_owners.length, 'owner', 'owners'),
@@ -181,12 +202,36 @@ class _StoreDetailViewState extends ConsumerState<StoreDetailView> {
                               DetailRow('Branch', '${s.mallName} · ${s.branchName}'),
                               DetailRow('Category', s.categoryName),
                               DetailRow('Description', s.description),
-                              DetailRow('Opening hours', s.openingHours),
                               DetailRow('Phone', s.contactPhone),
                               DetailRow('Email', s.contactEmail),
                               DetailRow('Logo URL', s.logoUrl),
                             ],
                           ),
+                  ),
+                  DetailCard(
+                    title: 'Status for shoppers',
+                    subtitle: 'Shown in the shopper app. Directions are given whatever it is.',
+                    child: canShopperInfo
+                        ? FieldBuilder(
+                            key: const ValueKey('store-status'),
+                            spec: FieldSpec(name: 'status', label: 'Status', kind: FieldKind.select, options: [for (final (v, l) in storeStatuses) SelectOption(v, l)]),
+                            value: s.status,
+                            bare: true,
+                            onChanged: (v) => _setStatus(v as String),
+                          )
+                        : DetailRow('Status', storeStatusLabel(s.status)),
+                  ),
+                  HoursCard(
+                    hours: s.hours,
+                    canEdit: canShopperInfo,
+                    subtitle: 'Shoppers see when the store is open',
+                    emptyText: 'No hours yet. Shoppers then see the branch hours.',
+                    oldNote: s.openingHours,
+                    onSave: (h) async {
+                      final updated = await _service.setHours(s.id, h);
+                      setState(() => _s = updated);
+                      _msg(h == null ? 'Hours cleared.' : 'Hours saved.');
+                    },
                   ),
                   DetailCard(
                     title: 'Map spaces',

@@ -13,9 +13,11 @@ import '../../shared/models/paged.dart';
 import '../../shared/nav/role_nav.dart';
 import '../../shared/widgets/common.dart';
 import '../../shared/widgets/detail_widgets.dart';
+import '../../shared/widgets/hours_card.dart';
 import '../../shared/widgets/logo_image.dart';
 import '../map_editor/maps_service.dart';
 import '../stores/stores_service.dart';
+import 'branch_shopper_cards.dart';
 import 'malls_service.dart';
 import 'malls_view.dart';
 
@@ -36,6 +38,7 @@ class _BranchDetailViewState extends ConsumerState<BranchDetailView> {
   List<Store> _stores = const [];
   int _storeCount = 0;
   MapStatus? _map;
+  ({bool published, List<MapConnector> items})? _connectors;
   bool _loading = true;
   bool _editing = false;
   String? _error;
@@ -55,6 +58,10 @@ class _BranchDetailViewState extends ConsumerState<BranchDetailView> {
       final branch = await _service.getBranch(widget.branchId);
       PagedResult<Store>? stores;
       MapStatus? map;
+      ({bool published, List<MapConnector> items})? connectors;
+      try {
+        connectors = await _service.connectors(widget.branchId);
+      } catch (_) {}
       try {
         stores = await StoresService().list(ListQuery(pageSize: 8, filters: {'branchId': '${widget.branchId}'}));
       } catch (_) {}
@@ -67,6 +74,7 @@ class _BranchDetailViewState extends ConsumerState<BranchDetailView> {
         _stores = stores?.items ?? const [];
         _storeCount = stores?.totalCount ?? 0;
         _map = map;
+        _connectors = connectors;
       });
     } catch (e) {
       if (mounted) setState(() => _error = formatApiError(e));
@@ -114,6 +122,17 @@ class _BranchDetailViewState extends ConsumerState<BranchDetailView> {
     }
   }
 
+  /// Round 21: a lift, escalator or stairs out of service, or back (mall admins).
+  Future<void> _toggleOutage(MapConnector c, bool out) async {
+    try {
+      final items = await _service.setOutOfService(widget.branchId, c.id, out);
+      setState(() => _connectors = (published: true, items: items));
+      _msg(out ? '${c.name ?? c.kindLabel} is marked out of service. Phones route around it.' : '${c.name ?? c.kindLabel} is back in service.');
+    } catch (e) {
+      _msg(formatApiError(e), error: true);
+    }
+  }
+
   Future<void> _releaseLock() async {
     final b = _branch!;
     final holder = _map?.lockedBy ?? 'Someone';
@@ -141,6 +160,8 @@ class _BranchDetailViewState extends ConsumerState<BranchDetailView> {
     final nav = navForRole(role);
     final isSuper = role == 'superadmin';
     final canToggle = isSuper || role == 'supervisor';
+    // Who may change the branch's information (the server allows the same people).
+    final canEditInfo = isSuper || role == 'supervisor' || role == 'mall_admin';
     final b = _branch;
     final map = _map;
     // Opened from a mall page (?fromMall=<id>): Back returns to that mall (Round 14).
@@ -205,12 +226,29 @@ class _BranchDetailViewState extends ConsumerState<BranchDetailView> {
                             children: [
                               DetailRow('Mall', b.mallName),
                               DetailRow('Address', b.address),
-                              DetailRow('Opening hours', b.openingHours),
                               DetailRow('Phone', b.contactPhone),
                               DetailRow('Email', b.contactEmail),
                               DetailRow('Logo', null, child: _LogoBlock(url: b.logoUrl, name: b.name)),
                             ],
                           ),
+                  ),
+                  HoursCard(
+                    hours: b.hours,
+                    canEdit: canEditInfo,
+                    subtitle: 'Stores without hours of their own use these',
+                    oldNote: b.openingHours,
+                    onSave: (h) async {
+                      final updated = await _service.setBranchHours(b.id, h);
+                      setState(() => _branch = updated);
+                      _msg(h == null ? 'Hours cleared.' : 'Hours saved.');
+                    },
+                  ),
+                  BranchLocationCard(
+                    branch: b,
+                    canEdit: canEditInfo,
+                    service: _service,
+                    onSaved: (updated) => setState(() => _branch = updated),
+                    onMessage: _msg,
                   ),
                   DetailCard(
                     title: 'Map',
@@ -253,6 +291,12 @@ class _BranchDetailViewState extends ConsumerState<BranchDetailView> {
                     ),
                 ],
                 lists: [
+                  OutOfServiceCard(
+                    published: _connectors?.published ?? false,
+                    items: _connectors?.items ?? const [],
+                    canEdit: role == 'mall_admin' || isSuper,
+                    onToggle: _toggleOutage,
+                  ),
                   DetailCard(
                     title: 'Stores at this branch',
                     subtitle: _storeCount == 0 ? 'None yet' : '${countOf(_storeCount, 'store', 'stores')}${b.isActive ? '' : ' · hidden while inactive'}',

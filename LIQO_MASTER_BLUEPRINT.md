@@ -155,7 +155,7 @@ mall ──< branch ──< store
 | `supervisor` | Mall owner | malls assigned whole (all their branches, also later ones) + single branches; with `includeInactive` also their own inactive ones | a mall only when owned whole (`assertWholeMallOwner`); their branches; the admins that report to them |
 | `mall_admin` | Mall admin | exactly one branch | that branch's info, stores, store owners, option lists, map, announcements; reviews store-owner announcements |
 | `store_owner` | Store owner | assigned stores (read-only view of their branches) | announcement submissions for their stores |
-| shopper | — | public, no account yet | nothing (shopper API not built, §4.19) |
+| shopper | — | public, no account yet | nothing; reads published, active and approved data through `/api/shopper/*` and sends anonymous counts (§4.19) |
 
 Hierarchy: malls contain branches; whole-mall assignment covers branches created later. Deactivating a mall hides its branches; each branch keeps its own flag, so reactivating restores everything.
 
@@ -256,7 +256,7 @@ Audit redaction: `src/utils/redact.js` removes secrets (passwords, tokens) befor
 
 ## Part 3 — DB Schema Architecture
 
-Source of truth: `LIQo backend/src/db/migrations/001`–`011`. There is no `schema.sql` with teardown yet (FEATURE_PIPELINE P1-11).
+Source of truth: `LIQo backend/src/db/migrations/001`–`013`. There is no `schema.sql` with teardown yet (FEATURE_PIPELINE P1-11).
 
 **Conventions.** `snake_case` tables and columns; `INT IDENTITY` keys except `map_backdrops` (32-char random key) and `platform_settings` (text key). Times are `DATETIME2` from `SYSDATETIME()` (server-local). Booleans are `BIT`.
 
@@ -384,7 +384,8 @@ Each module: purpose · rules · routes · files. User stories in brackets.
 - Deactivation shows its impact first (`GET /malls/:id/impact`, `/branches/:id/impact`) and uses the typed confirmation.
 - Mall changes need whole-mall ownership. Owners keep seeing their own inactive malls and branches and can reactivate them.
 - Owners and admins of a mall are managed on the mall page (`GET /malls/:id/people`, owners add/remove, admins put/delete).
-- Logos are `http(s)` links with an initials fallback. Latitude/longitude stay in the API, hidden on screens. Partial branch PUTs keep unsent fields.
+- Logos are `http(s)` links with an initials fallback. Latitude/longitude stay in the API, hidden on screens; since Round 21 they come from a pasted Google Maps link (`PUT /branches/:id/location`, place name shown back to confirm). Partial branch PUTs keep unsent fields.
+- Opening hours per weekday plus special days (`PUT /branches/:id/hours`, `utils/hours.js`); the old free-text hours are a read-only note.
 - Files: `routes/malls.js`, `routes/branches.js`, `repos/malls.js`, `repos/branches.js`; web `features/malls/`. Decisions: `round-2`, `round-4`, `round-7`, `round-9`, `round-14`.
 
 ### 4.5 Stores, store-space links & store owners [US-018, US-019, US-020, US-024]
@@ -392,17 +393,19 @@ Each module: purpose · rules · routes · files. User stories in brackets.
 - Store ↔ space links are many-to-many and live in `store_spaces` (`PUT /stores/:id/spaces`). AI reading can link matched stores after the draft saves.
 - A store owner is created through a store assignment; one owner can hold many stores. An owner left with no stores is deactivated automatically. An inactive store owner's email is refused (409).
 - Mall owners read stores (and published maps) of their branches, including inactive ones, never write.
+- Round 21: opening hours and the status for shoppers (`open`, `temporarily_closed`, `being_repaired`, `opening_soon`) are changed by the mall admin, and by the store owner for their own active store (`PUT /stores/:id/hours`, `/status`, audited with the role).
 - Files: `routes/stores.js`, `routes/owners.js`, `repos/stores.js`, `repos/owners.js`; web `features/stores/` (`store_owner_wizard.dart`). Tests `flows.test.js`.
 
 ### 4.6 Branch option lists [US-021]
 - Per branch: `store_category`, `unit_type`, `floor_label`. Values are deactivated, or deleted only when unused. Changing a value never rewrites stores that use it.
+- A store category carries an App category for the shopper app (`food`…`other`, default `other`; `PUT /options/:id/app-category`).
 - Files: `routes/options.js`, `repos/options.js`; web `features/stores/options_view.dart`, `option_detail_view.dart`.
 
 ### 4.7 Announcements [US-016, US-022, US-025, US-044]
-- Fields: title, body, optional image link, start/end dates, target branches (in scope), optional store. A new announcement cannot already be over. Default length `default_announcement_days`.
+- Fields: title, body, start/end dates, target branches (in scope), optional store, and one optional uploaded picture (Round 21; it replaced the image link, old links show until edited; `POST/DELETE /announcements/:id/picture`, PNG/JPEG ≤ 2 MB, a store owner's change goes back for review). A new announcement cannot already be over. Default length `default_announcement_days`.
 - Store-owner submissions start `pending`; **only mall admins** (or a superadmin) approve or reject them (reject needs a reason).
 - Shared announcements (targets inside and outside someone's scope): each manager sees only their own branches; only the author, someone covering all targets or a superadmin can change it; others can only take it off their branches (`announcement_detached`). Logic: `managerAccess()` / `present()`.
-- Visible as active only when approved, in period and in scope. Shopper delivery is not built (§4.19). Image upload is not built.
+- Visible as active only when approved, in period and in scope. Shoppers get them as posts through `/api/shopper/posts` (§4.19).
 - Routes: `/announcements` (list, defaults, get, post, put, delete/detach, `/:id/approve`, `/:id/reject`).
 - Files: `routes/announcements.js`, `repos/announcements.js`; web `features/announcements/`. Tests `owner_round14.test.js`, `flows.test.js`.
 
@@ -493,8 +496,12 @@ Each module: purpose · rules · routes · files. User stories in brackets.
 - Not connected to the backend yet; no real positioning. Next: hybrid offline/online per `docs/shopper-hybrid-decisions.md` (downloaded branches work offline; directory, live store info, posts and anonymous counts online).
 - Files: `LIQo mobile/lib/core/engine/*`, `lib/features/*`. Tests `test/engine`, `test/logic`.
 
-### 4.19 Shopper integration API — not built
-Decided 2026-10-23 (`docs/shopper-hybrid-decisions.md`): public, read-only `/api/shopper/*` routes mounted before the sign-in middleware, never audited, own per-IP limiter (stricter on counts), serving the directory, an immutable per-version shopper package built at publish (`src/maps/shopper/`, same transaction; publish refused for unwalkable maps), live store info and out-of-service marks, approved announcements, and receiving anonymous counts. A written exception to the `utils/scope.js` rule. Built after the Firestore data layer. Every current route still needs an admin sign-in.
+### 4.19 Shopper service [P1-07, P1-08]
+- Public `/api/shopper/*` (`routes/shopper.js`) mounted before sign-in, never audited, own per-IP limits (300/min, counts 30/min, 256 KB and 500 events), ETag/304 and gzip. **A written exception to the `utils/scope.js` rule**: shoppers have no scope; only active branches of active malls with a published map, active stores and approved, live announcements are served, never people, emails or drafts.
+- Built (step A, Round 21): `/directory`, `/branches/:id/live`, `/posts`, `/pictures/:key`, `/counts`, `/app-config`. Contract: `docs/shopper-package-format.md` §7–§11. Data: `repos/shopper.js`, `repos/outages.js` (both drivers).
+- Out of service: mall admins mark a lift, escalator or stairs of the published map (`/maps/:branchId/connectors`); marks of connectors gone from a new version are cleared at publish and audited.
+- Step B (P1-08, next): the shopper package built at publish by the pure `src/maps/shopper/` (walkway graph, places, connectors), the walkability gate and `/branches/:id/package`.
+- Decisions: `docs/round-21-shopper-service.md`. Tests `shopper_service.test.js`, web `round21_test.dart`.
 
 ### 4.20 Beacon positioning — not built
 Reserved for MOKO Smart H2 BLE beacons in the shopper app. Placement, calibration, data model and admin tooling undecided.

@@ -1,8 +1,9 @@
 import { query, sql } from '../../db/pool.js';
 import { inList } from '../../db/sqlHelpers.js';
+import { parseHours, hoursText } from '../../utils/hours.js';
 
 const COLS = `b.id, b.mall_id, m.name AS mall_name, b.name, b.logo_url, b.address, b.latitude, b.longitude,
-  b.opening_hours, b.contact_phone, b.contact_email, b.is_active, b.created_at, b.updated_at`;
+  b.opening_hours, b.hours_json, b.maps_link, b.place_name, b.contact_phone, b.contact_email, b.is_active, b.created_at, b.updated_at`;
 
 export function toPublic(row) {
   return {
@@ -15,6 +16,9 @@ export function toPublic(row) {
     latitude: row.latitude == null ? null : Number(row.latitude),
     longitude: row.longitude == null ? null : Number(row.longitude),
     openingHours: row.opening_hours,
+    hours: parseHours(row.hours_json),
+    mapsLink: row.maps_link ?? null,
+    placeName: row.place_name ?? null,
     contactPhone: row.contact_phone,
     contactEmail: row.contact_email,
     isActive: !!row.is_active,
@@ -120,4 +124,29 @@ export async function impact(id) {
     { id: { type: sql.Int, value: id } },
   );
   return r.recordset[0];
+}
+
+// ---- Round 21: hours and the location from a Google Maps link ----
+
+export async function setHours(id, hours) {
+  await query('UPDATE branches SET hours_json = @h, updated_at = SYSDATETIME() WHERE id = @id', {
+    id: { type: sql.Int, value: id },
+    h: { type: sql.NVarChar(sql.MAX), value: hoursText(hours) },
+  });
+  return findById(id);
+}
+
+/** Sets (or clears, with nulls) the Maps link, its place name and the pin. */
+export async function setLocation(id, { mapsLink, placeName, latitude, longitude }) {
+  await query(
+    `UPDATE branches SET maps_link = @link, place_name = @place, latitude = @lat, longitude = @lng, updated_at = SYSDATETIME() WHERE id = @id`,
+    {
+      id: { type: sql.Int, value: id },
+      link: mapsLink ?? null,
+      place: placeName ?? null,
+      lat: latitude == null ? null : { type: sql.Decimal(9, 6), value: latitude },
+      lng: longitude == null ? null : { type: sql.Decimal(9, 6), value: longitude },
+    },
+  );
+  return findById(id);
 }

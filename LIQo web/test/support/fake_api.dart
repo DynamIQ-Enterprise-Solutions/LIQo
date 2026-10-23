@@ -156,6 +156,30 @@ Map<String, dynamic> profileRequestJson({int id = 1}) => {
     };
 
 /// Answers every request the admin pages make with canned JSON.
+/// Round 21: opening hours with every case (overnight, midnight, closed days, special days with notes).
+const longHours = {
+  'week': [
+    {'day': 1, 'open': '10:00', 'close': '21:00'},
+    {'day': 2, 'open': '10:00', 'close': '21:00'},
+    {'day': 3, 'open': '10:00', 'close': '21:00'},
+    {'day': 5, 'open': '10:00', 'close': '24:00'},
+    {'day': 6, 'open': '22:00', 'close': '02:00'},
+  ],
+  'specials': [
+    {'date': '2026-12-24', 'open': '08:00', 'close': '24:00', 'note': 'Christmas Eve midnight sale'},
+    {'date': '2026-12-25', 'closed': true, 'note': 'Holiday'},
+  ],
+};
+
+/// Round 21: the published map's lifts, escalators and stairs, one out of service.
+const connectorsJson = [
+  {'id': 'cn-1', 'kind': 'elevator', 'name': 'North Wing Panoramic Glass Lifts Beside the Grand Atrium Fountain', 'levels': ['Ground floor', 'Upper ground', 'Level 2', 'Level 3 Cinema and Food Hall'], 'outOfService': true, 'since': '2026-10-23T08:00:00+08:00', 'markedByName': 'Maria Clara de los Santos-Villanueva'},
+  {'id': 'cn-2', 'kind': 'escalator', 'name': null, 'levels': ['Ground floor', 'Level 2'], 'outOfService': false},
+];
+
+/// A 1 × 1 PNG.
+const tinyPng = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=';
+
 class FakeApiAdapter implements HttpClientAdapter {
   FakeApiAdapter({
     this.role = 'superadmin',
@@ -504,6 +528,13 @@ class FakeApiAdapter implements HttpClientAdapter {
     }
     if (RegExp(r'^/malls/\d+/people$').hasMatch(path)) return mallPeopleJson();
     if (RegExp(r'^/malls/\d+$').hasMatch(path)) return {'mall': mallPeopleJson()['mall'], 'canManage': role != 'supervisor'};
+    // Round 21: hours, status, App category, location and lifts out of service.
+    if (RegExp(r'^/maps/\d+/connectors').hasMatch(path)) return {'published': true, 'items': connectorsJson};
+    if (RegExp(r'^/branches/\d+/location/check$').hasMatch(path)) return {'placeName': 'SM Mall of Asia, Seaside Boulevard, Bay City, Pasay, Metro Manila'};
+    if (RegExp(r'^/branches/\d+/(hours|location)$').hasMatch(path)) return {'branch': (_answer('/branches', 'GET')['items'] as List).first};
+    if (RegExp(r'^/stores/\d+/(hours|status)$').hasMatch(path)) return {'store': (_answer('/stores', 'GET')['items'] as List).first};
+    if (RegExp(r'^/options/\d+/app-category$').hasMatch(path)) return {'option': (_answer('/options', 'GET')['items'] as List).first};
+    if (RegExp(r'^/announcements/\d+/picture$').hasMatch(path)) return {'announcement': (_answer('/announcements', 'GET')['items'] as List).first};
     if (RegExp(r'^/branches/\d+$').hasMatch(path)) {
       final b = Map<String, dynamic>.of((_answer('/branches', 'GET')['items'] as List).first as Map<String, dynamic>);
       if (inactiveBranch) b['isActive'] = false;
@@ -573,6 +604,9 @@ class FakeApiAdapter implements HttpClientAdapter {
           'address': 'Seaside Boulevard corner J.W. Diokno Boulevard, Mall of Asia Complex, Bay City, Pasay, 1300 Metro Manila, Philippines',
           'openingHours': 'Monday to Sunday 10:00 AM to 10:00 PM, extended to midnight on holidays',
           'isActive': true,
+          'hours': longHours,
+          'mapsLink': 'https://www.google.com/maps/place/SM+Mall+of+Asia/@14.5352,120.9822,17z/data=!3m1!4b1!4m6!3m5!1s0x3397cbf6e1d5c3bd:0x6a8d4c7e!8m2!3d14.535!4d120.982',
+          'placeName': 'SM Mall of Asia, Seaside Boulevard, Bay City, Pasay, Metro Manila',
         },
         {'id': 2, 'mallId': 2, 'mallName': 'Robinsons', 'name': 'Galleria', 'isActive': false},
       ]);
@@ -586,7 +620,7 @@ class FakeApiAdapter implements HttpClientAdapter {
     if (path == '/audit/actions') return {'actions': ['login_success', 'login_failed', 'mall_admin_assignments_updated']};
     if (path == '/settings') {
       return {
-        'settings': {'min_password_length': 8, 'ai_file_size_mb': 20, 'default_announcement_days': 7, 'session_timeout_hours': 8, 'max_login_attempts': 5, 'ai_model': 'gpt-4o', 'ai_start_credits': 3, 'ai_credit_cap': 20},
+        'settings': {'min_password_length': 8, 'ai_file_size_mb': 20, 'default_announcement_days': 7, 'session_timeout_hours': 8, 'max_login_attempts': 5, 'ai_model': 'gpt-4o', 'ai_start_credits': 3, 'ai_credit_cap': 20, 'app_must_update_below': 0},
         'rules': {
           'min_password_length': {'min': 6, 'max': 64, 'label': 'Minimum password length'},
           'ai_file_size_mb': {'min': 1, 'max': 50, 'label': 'AI file size limit (MB)'},
@@ -595,6 +629,7 @@ class FakeApiAdapter implements HttpClientAdapter {
           'max_login_attempts': {'min': 3, 'max': 20, 'label': 'Max failed sign-ins before lockout'},
           'ai_start_credits': {'min': 0, 'max': 1000, 'label': 'Starting AI credits for a new mall admin'},
           'ai_credit_cap': {'min': 1, 'max': 10000, 'label': 'Most AI credits per mall admin'},
+          'app_must_update_below': {'min': 0, 'max': 100000000, 'label': 'Oldest shopper app build allowed'},
         },
       };
     }
@@ -611,6 +646,8 @@ class FakeApiAdapter implements HttpClientAdapter {
           'liveState': 'live',
           'storeId': 1,
           'storeName': 'Northline Apparel Flagship Boutique',
+          'imageKey': 'abcdef0123456789abcdef0123456789',
+          'imageMime': 'image/png',
           'createdBy': 4,
           'createdByName': longPerson,
           'createdRole': 'store_owner',
@@ -639,7 +676,7 @@ class FakeApiAdapter implements HttpClientAdapter {
     }
     if (path == '/stores') {
       return paged([
-        {'id': 1, 'branchId': 1, 'branchName': longName, 'mallName': 'SM Prime', 'name': 'Northline Apparel Flagship Boutique and Outlet', 'categoryId': 1, 'categoryName': 'Apparel and Fashion Accessories', 'openingHours': 'Mon–Sun 10:00 AM – 10:00 PM', 'contactPhone': '+63 2 8888 8888', 'contactEmail': longEmail, 'isActive': true, 'spaceCount': 3, 'ownerCount': 2},
+        {'id': 1, 'branchId': 1, 'branchName': longName, 'mallName': 'SM Prime', 'name': 'Northline Apparel Flagship Boutique and Outlet', 'categoryId': 1, 'categoryName': 'Apparel and Fashion Accessories', 'openingHours': 'Mon–Sun 10:00 AM – 10:00 PM', 'contactPhone': '+63 2 8888 8888', 'contactEmail': longEmail, 'isActive': true, 'spaceCount': 3, 'ownerCount': 2, 'hours': longHours, 'status': 'temporarily_closed'},
         {'id': 2, 'branchId': 1, 'branchName': 'B', 'mallName': 'M', 'name': 'S', 'isActive': false, 'spaceCount': 0, 'ownerCount': 0},
       ]);
     }
@@ -661,7 +698,7 @@ class FakeApiAdapter implements HttpClientAdapter {
     }
     if (path == '/options') {
       return paged([
-        {'id': 1, 'branchId': 1, 'kind': 'store_category', 'name': 'Apparel and Fashion Accessories for the Whole Family', 'sortOrder': 1, 'isActive': true, 'inUse': 12},
+        {'id': 1, 'branchId': 1, 'kind': 'store_category', 'name': 'Apparel and Fashion Accessories for the Whole Family', 'sortOrder': 1, 'isActive': true, 'inUse': 12, 'appCategory': 'fashion'},
         {'id': 2, 'branchId': 1, 'kind': 'floor_label', 'name': 'G', 'sortOrder': 2, 'isActive': false, 'inUse': 0},
       ]);
     }
@@ -783,6 +820,11 @@ class FakeApiAdapter implements HttpClientAdapter {
     if (RegExp(r'^/maps/\d+/published$').hasMatch(path) && !mapCreated) {
       return ResponseBody.fromString(jsonEncode({'error': 'No published map for this branch yet.'}), 404, headers: {
         Headers.contentTypeHeader: [Headers.jsonContentType],
+      });
+    }
+    if (options.method == 'GET' && RegExp(r'^/announcements/\d+/picture$').hasMatch(path)) {
+      return ResponseBody.fromBytes(base64Decode(tinyPng), 200, headers: {
+        Headers.contentTypeHeader: ['image/png'],
       });
     }
     final answer = path == '/accounts/check'

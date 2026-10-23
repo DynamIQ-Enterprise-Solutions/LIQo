@@ -17,4 +17,6 @@ export const {
   spacesFor,
   toPublic,
   update,
+  setHours,
+  setStatus,
 } = impl;

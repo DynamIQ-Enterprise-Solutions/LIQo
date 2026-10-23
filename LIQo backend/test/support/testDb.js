@@ -198,6 +198,8 @@ export async function cleanTagged(tag) {
   });
   await pick('problem_report_messages', (m) => reportIds.has(m.report_id));
   await pick('map_backdrops', (b) => branchIds.has(b.branch_id));
+  await pick('connector_outages', (o) => branchIds.has(o.branch_id));
+  await pick('shopper_counts', (c) => branchIds.has(c.branch_id));
   await pick('stores', (s) => storeIds.has(s.id));
   await pick('branch_options', (o) => has(o.name) || branchIds.has(o.branch_id));
   await pick('mall_admin_assignments', (l) => userIds.has(l.user_id) || branchIds.has(l.branch_id));
@@ -237,6 +239,9 @@ async function cleanTaggedSql(tag) {
   await query(`DELETE r FROM problem_reports r JOIN users u ON u.id = r.reporter_id WHERE u.email LIKE @l`, { l: like });
   await query(`DELETE mc FROM map_conversions mc JOIN branches b ON b.id = mc.branch_id WHERE b.name LIKE @l`, { l: like });
   await query(`DELETE bd FROM map_backdrops bd JOIN branches b ON b.id = bd.branch_id WHERE b.name LIKE @l`, { l: like });
+  // Round 21: out-of-service marks and shopper counts hang off branches.
+  await query(`DELETE o FROM connector_outages o JOIN branches b ON b.id = o.branch_id WHERE b.name LIKE @l`, { l: like });
+  await query(`DELETE c FROM shopper_counts c JOIN branches b ON b.id = c.branch_id WHERE b.name LIKE @l`, { l: like });
   await query(`DELETE mp FROM maps mp JOIN branches b ON b.id = mp.branch_id WHERE b.name LIKE @l`, { l: like });
   await query(`DELETE FROM stores WHERE name LIKE @l`, { l: like });
   await query(`DELETE FROM branch_options WHERE name LIKE @l`, { l: like });

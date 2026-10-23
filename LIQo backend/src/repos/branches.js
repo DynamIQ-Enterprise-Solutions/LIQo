@@ -14,4 +14,6 @@ export const {
   toPublic,
   update,
   updateInfo,
+  setHours,
+  setLocation,
 } = impl;

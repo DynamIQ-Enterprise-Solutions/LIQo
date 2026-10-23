@@ -8,6 +8,8 @@ import * as branches from '../repos/branches.js';
 import * as malls from '../repos/malls.js';
 import { resolveScope, assertBranchInScope, assertMallInScope } from '../utils/scope.js';
 import { parsePaging, pageEnvelope } from '../utils/pagination.js';
+import { hoursSchema } from '../utils/hours.js';
+import { resolveMapsLink, MapsLinkError } from '../utils/mapsLink.js';
 
 export const branchesRouter = Router();
 
@@ -143,3 +145,60 @@ for (const [verb, active] of [['deactivate', false], ['reactivate', true]]) {
     }
   });
 }
+
+// ---- Round 21: hours and the location from a Google Maps link (same people as the branch info). ----
+
+async function loadEditable(req) {
+  const id = Number(req.params.id);
+  const scope = await resolveScope(req.user, { includeInactive: true });
+  assertBranchInScope(scope, id);
+  const branch = await branches.findById(id);
+  if (!branch) throw new AppError(404, 'Branch not found.');
+  return branch;
+}
+
+branchesRouter.put('/:id/hours', requireRole('supervisor', 'mall_admin'), validate(z.object({ hours: hoursSchema.nullable() })), async (req, res, next) => {
+  try {
+    const branch = await loadEditable(req);
+    const updated = await branches.setHours(branch.id, req.body.hours);
+    await recordAudit(req, res, { action: 'branch_hours_updated', entityType: 'branch', entityId: branch.id, details: { hours: updated.hours } });
+    res.json({ branch: updated });
+  } catch (err) {
+    next(err);
+  }
+});
+
+const linkBody = z.object({ mapsLink: z.string().trim().min(1, 'Paste a Google Maps link.').max(2000) });
+
+async function readLink(text) {
+  try {
+    return await resolveMapsLink(text);
+  } catch (err) {
+    if (err instanceof MapsLinkError) throw new AppError(400, err.message);
+    throw err;
+  }
+}
+
+/** Reads a pasted link without saving it, so the admin can confirm the place. */
+branchesRouter.post('/:id/location/check', requireRole('supervisor', 'mall_admin'), validate(linkBody), async (req, res, next) => {
+  try {
+    await loadEditable(req);
+    const found = await readLink(req.body.mapsLink);
+    res.locals.audited = true; // a read, nothing changes
+    res.json({ placeName: found.placeName });
+  } catch (err) {
+    next(err);
+  }
+});
+
+branchesRouter.put('/:id/location', requireRole('supervisor', 'mall_admin'), validate(z.object({ mapsLink: linkBody.shape.mapsLink.nullable() })), async (req, res, next) => {
+  try {
+    const branch = await loadEditable(req);
+    const found = req.body.mapsLink == null ? { mapsLink: null, placeName: null, latitude: null, longitude: null } : await readLink(req.body.mapsLink);
+    const updated = await branches.setLocation(branch.id, found);
+    await recordAudit(req, res, { action: 'branch_location_updated', entityType: 'branch', entityId: branch.id, details: { mapsLink: found.mapsLink, placeName: found.placeName } });
+    res.json({ branch: updated });
+  } catch (err) {
+    next(err);
+  }
+});

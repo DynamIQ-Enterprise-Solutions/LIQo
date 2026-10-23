@@ -112,7 +112,7 @@ class FieldBuilder extends StatelessWidget {
               activeThumbColor: p.brand,
             ),
             const SizedBox(width: 8),
-            Text(spec.label, style: ts(13, color: p.ink)),
+            Flexible(child: Text(spec.label, overflow: TextOverflow.ellipsis, style: ts(13, color: p.ink))),
           ],
         );
       case FieldKind.select:

@@ -1,4 +1,6 @@
 import { Router } from 'express';
+import crypto from 'node:crypto';
+import multer from 'multer';
 import * as stores from '../repos/stores.js';
 import { z } from 'zod';
 import { validate } from '../middleware/validate.js';
@@ -10,6 +12,8 @@ import * as settings from '../repos/settings.js';
 import { resolveScope } from '../utils/scope.js';
 import { parsePaging, pageEnvelope } from '../utils/pagination.js';
 import { todayDateOnly } from '../utils/dates.js';
+import { sniffMime, imageSize } from '../maps/image.js';
+import { pictures } from '../storage/files.js';
 
 export const announcementsRouter = Router();
 
@@ -263,6 +267,7 @@ announcementsRouter.delete('/:id', async (req, res, next) => {
       }
     }
     await announcements.remove(id);
+    if (ann.imageKey) pictures.remove(ann.imageKey, ann.imageMime);
     await recordAudit(req, res, { action: 'announcement_deleted', entityType: 'announcement', entityId: id, details: { title: ann.title } });
     res.status(204).end();
   } catch (err) {
@@ -271,3 +276,89 @@ announcementsRouter.delete('/:id', async (req, res, next) => {
 });
 
 export const todayForTests = todayDateOnly;
+
+// ---- Round 21: one uploaded picture per announcement (owner decisions 2026-10-23;
+// it replaces the image link). PNG or JPEG, sniffed from the bytes. ----
+
+const PICTURE_MAX_BYTES = 2 * 1024 * 1024;
+const PICTURE_MAX_PX = 4000;
+const pictureUpload = multer({ storage: multer.memoryStorage(), limits: { fileSize: PICTURE_MAX_BYTES + 1, files: 1 } });
+
+function pictureGuard(req, res, next) {
+  pictureUpload.single('file')(req, res, (err) => {
+    if (!err) return next();
+    if (err.code === 'LIMIT_FILE_SIZE') return next(new AppError(400, 'The picture is larger than 2 MB. Use a smaller picture.'));
+    return next(new AppError(400, 'Send one picture file.'));
+  });
+}
+
+/** Who may change the picture: whoever may change the announcement. A store owner's change goes back for review. */
+async function loadForPicture(req) {
+  const ann = await announcements.findById(Number(req.params.id));
+  if (!ann) throw new AppError(404, 'Announcement not found.');
+  if (req.user.role === 'store_owner') {
+    if (ann.createdBy !== req.user.id) throw new AppError(403, 'You can only change your own announcements.');
+  } else {
+    const access = await assertManagerScope(req.user, ann);
+    if (!access.change) throw new AppError(403, 'This announcement also reaches other branches; only its author can change it.');
+  }
+  return ann;
+}
+
+announcementsRouter.post('/:id/picture', pictureGuard, async (req, res, next) => {
+  try {
+    const ann = await loadForPicture(req);
+    const bytes = req.file?.buffer;
+    if (!bytes?.length) throw new AppError(400, 'Choose a picture to upload.');
+    if (bytes.length > PICTURE_MAX_BYTES) throw new AppError(400, 'The picture is larger than 2 MB. Use a smaller picture.');
+    const mime = sniffMime(bytes);
+    if (!mime) throw new AppError(400, 'Use a PNG or JPEG picture.');
+    let size;
+    try {
+      size = imageSize(bytes, mime);
+    } catch {
+      throw new AppError(400, 'That picture could not be read.');
+    }
+    if (size.width > PICTURE_MAX_PX || size.height > PICTURE_MAX_PX) throw new AppError(400, `Use a picture at most ${PICTURE_MAX_PX} pixels wide and high.`);
+    const key = crypto.randomBytes(16).toString('hex');
+    pictures.save(key, mime, bytes);
+    if (ann.imageKey) pictures.remove(ann.imageKey, ann.imageMime);
+    let updated = await announcements.setImage(ann.id, key, mime);
+    if (req.user.role === 'store_owner' && ann.status !== 'pending') updated = await announcements.update(ann.id, { ...ann, status: 'pending' });
+    await recordAudit(req, res, { action: 'announcement_picture_set', entityType: 'announcement', entityId: ann.id, details: { bytes: bytes.length, width: size.width, height: size.height } });
+    res.json({ announcement: await present(req.user, updated) });
+  } catch (err) {
+    next(err);
+  }
+});
+
+announcementsRouter.delete('/:id/picture', async (req, res, next) => {
+  try {
+    const ann = await loadForPicture(req);
+    if (ann.imageKey) pictures.remove(ann.imageKey, ann.imageMime);
+    const updated = await announcements.setImage(ann.id, null, null);
+    await recordAudit(req, res, { action: 'announcement_picture_removed', entityType: 'announcement', entityId: ann.id });
+    res.json({ announcement: await present(req.user, updated) });
+  } catch (err) {
+    next(err);
+  }
+});
+
+/** The picture for the admin screens (whoever may view the announcement). */
+announcementsRouter.get('/:id/picture', async (req, res, next) => {
+  try {
+    const ann = await announcements.findById(Number(req.params.id));
+    if (!ann) throw new AppError(404, 'Announcement not found.');
+    if (req.user.role === 'store_owner') {
+      if (ann.createdBy !== req.user.id && ann.status !== 'approved') throw new AppError(403, 'You cannot view that announcement.');
+    } else {
+      await assertManagerScope(req.user, ann);
+    }
+    if (!ann.imageKey || !pictures.has(ann.imageKey, ann.imageMime)) throw new AppError(404, 'This announcement has no picture.');
+    res.set('Content-Type', ann.imageMime);
+    res.set('Cache-Control', 'private, max-age=86400');
+    pictures.stream(ann.imageKey, ann.imageMime).pipe(res);
+  } catch (err) {
+    next(err);
+  }
+});

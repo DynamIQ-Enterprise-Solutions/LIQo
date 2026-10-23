@@ -225,20 +225,23 @@ Active entries only. Done entries are in §6.
 | Why this tier | The shopper app cannot show real malls without it; the release is for shoppers. |
 | Tier | P1 |
 | PRD / Blueprint | PRD §6.14 · Blueprint §4.19 |
-| DB | hours, special days, store status, out-of-service marks, announcement pictures, counts (to be designed, on both databases) |
-| Backend | `/api/shopper/*` mounted before sign-in, own limiter, never audited |
+| DB | migration 013 and Firestore twins: `hours_json` (branches, stores), `stores.status`, `branch_options.app_category`, `branches.maps_link`/`place_name`, `announcements.image_key`, `connector_outages`, `shopper_counts`, setting `app_must_update_below` |
+| Backend | `routes/shopper.js` (`/api/shopper/*` before sign-in, own limits, never audited), `repos/shopper.js`, `repos/outages.js`, `utils/hours.js`, `utils/mapsLink.js`, `maps/shopper/levels.js` |
 | Frontend | web: hours and status controls, store-owner status, out-of-service, branch link, announcement picture; consumed by LIQo mobile |
 | Effort | L |
 | Dependencies | P0-06 — announcements to serve · P0-07 — published maps to serve · P1-06A — built on the Firestore data layer |
-| Status | `PLANNED` |
+| Status | `IN PROGRESS` |
 | Intent | US-044 (shopper half), open item 4 (settled 2026-10-23) |
-| Spec | `docs/shopper-hybrid-decisions.md` |
-| Plan | — |
-| PR | n/a |
+| Spec | `docs/shopper-hybrid-decisions.md` · `docs/shopper-package-format.md` §7–§11 |
+| Plan | `docs/round-21-shopper-service.md` |
+| PR | the Round 21 step A commit |
 
 - [x] Owner: decide the shopper-integration plan (2026-10-23)
-- [ ] Agree endpoint names and the app's package format between the sessions
-- [ ] Build the web additions and the shopper routes
+- [x] Agree endpoint names and the app's package format between the sessions
+- [x] Build the web additions and the shopper routes (directory, live, posts, pictures, counts, app config)
+- [ ] The package route and the directory's package details (with P1-08)
+- [ ] Cross-check with the app on the internal server (the mobile session points a debug build at it)
+- [ ] Owner: try hours, store status, location, out of service and an announcement picture on the internal system
 
 #### P1-08 — Map publishing to the shopper app
 
