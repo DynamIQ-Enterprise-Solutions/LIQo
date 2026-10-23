@@ -265,7 +265,7 @@ Active entries only. Done entries are in §6.
 - [x] Owner: decide the shopper-integration plan (2026-10-23)
 - [x] Agree the walkability rule's messages and the package format
 - [x] Build the package builder and the publish gate (dry-run check in the Publish step, refusals with the room to select)
-- [ ] Mobile session: the loader test on `LIQo mobile/test/fixtures/published/`
+- [x] Mobile session: the loader test on `LIQo mobile/test/fixtures/published/` (137188b: loads, same routes and costs, one-way, wheelchair, directions and drawing)
 - [ ] Owner: publish a real floor on the internal system and download it in the app
 
 #### P1-09 — Shopper app (port from demo_app)
