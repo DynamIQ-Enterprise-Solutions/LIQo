@@ -62,6 +62,27 @@ void main() {
     expect(find.text('Draw every level of every branch.'), findsOneWidget, reason: 'wraps around');
   });
 
+  // Owner decision 2026-10-23: on big screens the carousel and the form stay one
+  // centred block (at most 1440 × 900); the living background fills the rest.
+  for (final size in const [Size(1920, 1080), Size(2560, 1440), Size(3440, 1440)]) {
+    testWidgets('big screen ${size.width.toInt()} × ${size.height.toInt()}: carousel and form stay one centred block', (tester) async {
+      await _pump(tester, size);
+      expect(tester.takeException(), isNull);
+      final block = tester.getRect(find.byKey(const ValueKey('login-block')));
+      expect(block.width, lessThanOrEqualTo(1440));
+      expect(block.height, lessThanOrEqualTo(900));
+      expect((block.center.dx - size.width / 2).abs(), lessThan(1), reason: 'centred across');
+      expect((block.center.dy - size.height / 2).abs(), lessThan(1), reason: 'centred down');
+      final carousel = tester.getRect(find.byType(FeatureCarousel));
+      final form = tester.getCenter(find.text('ADMIN CONSOLE'));
+      expect(block.contains(carousel.topLeft) && block.contains(carousel.bottomRight - const Offset(1, 1)), isTrue);
+      expect(block.contains(form), isTrue);
+      expect(form.dx - carousel.right, lessThan(500), reason: 'the form sits close to the carousel, not in an empty half');
+      expect(find.byType(LoginBackdrop), findsOneWidget);
+      expect(tester.getSize(find.byType(LoginBackdrop)), size, reason: 'the living background fills the whole screen');
+    });
+  }
+
   testWidgets('it advances every 6 s, and stops for good once someone picks a slide', (tester) async {
     await _pump(tester, const Size(1440, 900));
     await tester.pump(const Duration(seconds: 6));

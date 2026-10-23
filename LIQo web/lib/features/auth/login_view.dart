@@ -123,49 +123,62 @@ class _LoginViewState extends ConsumerState<LoginView> with TickerProviderStateM
     );
   }
 
+  /// Owner decision 2026-10-23: on big screens the carousel and the form stay
+  /// one block at most this size, centred; the living background fills the rest.
+  static const _wideMax = Size(1440, 900);
+
   /// Side by side. The page keeps a minimum height and scrolls in short windows.
   Widget _wideLayout(Pal p, Size size) {
-    final carouselWidth = ((size.width - 48) * 0.55).clamp(480.0, 820.0);
     final pageHeight = math.max(size.height, 780.0);
+    final blockWidth = math.min(size.width, _wideMax.width);
+    final blockHeight = math.min(pageHeight, _wideMax.height);
+    final carouselWidth = ((blockWidth - 48) * 0.55).clamp(480.0, 820.0);
     return SingleChildScrollView(
       child: SizedBox(
         height: pageHeight,
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              SizedBox(width: carouselWidth, child: _rise(0, 0.55, FeatureCarousel(ambient: _clock), dy: 12)),
-              const SizedBox(width: 16),
-              Expanded(
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 8, 8, 20),
-                  child: Column(
-                    children: [
-                      Align(alignment: Alignment.centerRight, child: _rise(0.3, 0.8, const _ThemeToggle(), dy: 0)),
-                      Expanded(
-                        child: Stack(
-                          children: [
-                            Positioned.fill(
-                              child: ClipRect(
-                                child: Center(child: _rise(0.25, 1, IqWatermark(clock: _clock, height: math.min(440, pageHeight * 0.48)), dy: 0)),
-                              ),
+        child: Center(
+          child: SizedBox(
+            key: const ValueKey('login-block'),
+            width: blockWidth,
+            height: blockHeight,
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  SizedBox(width: carouselWidth, child: _rise(0, 0.55, FeatureCarousel(ambient: _clock), dy: 12)),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 8, 8, 20),
+                      child: Column(
+                        children: [
+                          Align(alignment: Alignment.centerRight, child: _rise(0.3, 0.8, const _ThemeToggle(), dy: 0)),
+                          Expanded(
+                            child: Stack(
+                              children: [
+                                Positioned.fill(
+                                  child: ClipRect(
+                                    child: Center(child: _rise(0.25, 1, IqWatermark(clock: _clock, height: math.min(440, blockHeight * 0.48)), dy: 0)),
+                                  ),
+                                ),
+                                Center(
+                                  child: SingleChildScrollView(
+                                    padding: const EdgeInsets.symmetric(vertical: 16),
+                                    child: ConstrainedBox(constraints: const BoxConstraints(maxWidth: 420), child: _rise(0.15, 0.7, _formCard(p), dy: 22)),
+                                  ),
+                                ),
+                              ],
                             ),
-                            Center(
-                              child: SingleChildScrollView(
-                                padding: const EdgeInsets.symmetric(vertical: 16),
-                                child: ConstrainedBox(constraints: const BoxConstraints(maxWidth: 420), child: _rise(0.15, 0.7, _formCard(p), dy: 22)),
-                              ),
-                            ),
-                          ],
-                        ),
+                          ),
+                          _rise(0.5, 1, _footer(p), dy: 0),
+                        ],
                       ),
-                      _rise(0.5, 1, _footer(p), dy: 0),
-                    ],
+                    ),
                   ),
-                ),
+                ],
               ),
-            ],
+            ),
           ),
         ),
       ),

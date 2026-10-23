@@ -15,6 +15,7 @@ Status: **Done 2026-10-22.** Flutter analyze clean; 207 Flutter tests pass, 5 sk
 ## What was built
 - `lib/features/auth/login_view.dart`
   - **Wide windows:** the carousel panel is about 55% of the width. The form side has a theme toggle, the form card and a footer.
+  - **Big screens** (owner, 2026-10-23): the carousel and the form stay one block of at most 1440 × 900 px, centred; the living background fills the rest of the screen. Before this, the carousel stopped growing at 820 px but stretched to the full height while the form floated in an ever wider empty half (`test/login_test.dart` checks 1920, 2560 and 3440 px).
   - **Short windows:** the page keeps a minimum height of 780 px and scrolls.
   - **Narrow windows:** wordmark and toggle, then the form card, then the compact carousel, then the footer.
   - **The form card:** a panel surface with a border, a shadow and a short orange accent on its top edge. A full-width divider sits above the "Forgot your password?" note.
