@@ -57,6 +57,10 @@ class EditorData {
     this.draftVersion = 0,
     this.publishedVersion,
     this.publishProblems = const [],
+    this.shopperProblems = const [],
+    this.shopperWarnings = const [],
+    this.shopperCheckedVersion,
+    this.checkingShopper = false,
     this.warnings = const [],
     this.versions = const [],
     this.storeLinks = const [],
@@ -99,6 +103,12 @@ class EditorData {
   final int draftVersion;
   final int? publishedVersion;
   final List<String> publishProblems;
+
+  /// Round 21: what shoppers could not walk to (blocks publishing) and what they would lose (warns), for the draft version checked.
+  final List<MapWarning> shopperProblems;
+  final List<MapWarning> shopperWarnings;
+  final int? shopperCheckedVersion;
+  final bool checkingShopper;
   final List<MapWarning> warnings;
   final List<MapVersion> versions;
   final List<StoreLink> storeLinks;
@@ -162,6 +172,10 @@ class EditorData {
     int? draftVersion,
     Object? publishedVersion = _keep,
     List<String>? publishProblems,
+    List<MapWarning>? shopperProblems,
+    List<MapWarning>? shopperWarnings,
+    Object? shopperCheckedVersion = _keep,
+    bool? checkingShopper,
     List<MapWarning>? warnings,
     List<MapVersion>? versions,
     List<StoreLink>? storeLinks,
@@ -202,6 +216,10 @@ class EditorData {
         draftVersion: draftVersion ?? this.draftVersion,
         publishedVersion: identical(publishedVersion, _keep) ? this.publishedVersion : publishedVersion as int?,
         publishProblems: publishProblems ?? this.publishProblems,
+        shopperProblems: shopperProblems ?? this.shopperProblems,
+        shopperWarnings: shopperWarnings ?? this.shopperWarnings,
+        shopperCheckedVersion: identical(shopperCheckedVersion, _keep) ? this.shopperCheckedVersion : shopperCheckedVersion as int?,
+        checkingShopper: checkingShopper ?? this.checkingShopper,
         warnings: warnings ?? this.warnings,
         versions: versions ?? this.versions,
         storeLinks: storeLinks ?? this.storeLinks,
@@ -479,6 +497,22 @@ class EditorNotifier extends Notifier<EditorData> {
     }
   }
 
+  /// Round 21: asks the server what publishing would say for the saved draft (saving first when needed).
+  Future<void> checkShopper() async {
+    final id = state.branchId;
+    if (id == null || !state.editable || state.checkingShopper) return;
+    if (state.saveState == SaveState.dirty || state.saveState == SaveState.saving) await save();
+    if (state.saveState != SaveState.saved && state.saveState != SaveState.none) return;
+    final version = state.draftVersion;
+    state = state.copyWith(checkingShopper: true);
+    try {
+      final r = await _service.publishCheck(id);
+      state = state.copyWith(checkingShopper: false, shopperProblems: r.problems, shopperWarnings: r.warnings, shopperCheckedVersion: version);
+    } catch (_) {
+      state = state.copyWith(checkingShopper: false, shopperCheckedVersion: version);
+    }
+  }
+
   Future<String?> publish({String? note}) async {
     final id = state.branchId;
     if (id == null) return 'No map open.';
@@ -487,10 +521,11 @@ class EditorNotifier extends Notifier<EditorData> {
     try {
       final (pub, draft) = await _service.publish(id, state.draftVersion, note: note);
       final bundle = await _service.get(id);
-      state = state.copyWith(publishedVersion: pub, draftVersion: draft, versions: bundle.versions, publishProblems: const [], error: null);
+      state = state.copyWith(publishedVersion: pub, draftVersion: draft, versions: bundle.versions, publishProblems: const [], shopperProblems: const [], error: null);
       return null;
     } on MapProblemsException catch (e) {
-      state = state.copyWith(publishProblems: e.problems);
+      // Round 21: problems for shoppers come with the ids to select; the editor's own come as text.
+      state = e.details.isNotEmpty ? state.copyWith(shopperProblems: e.details, shopperCheckedVersion: state.draftVersion) : state.copyWith(publishProblems: e.problems);
       return e.message;
     } catch (e) {
       return formatApiError(e);

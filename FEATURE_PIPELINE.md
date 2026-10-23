@@ -239,7 +239,7 @@ Active entries only. Done entries are in §6.
 - [x] Owner: decide the shopper-integration plan (2026-10-23)
 - [x] Agree endpoint names and the app's package format between the sessions
 - [x] Build the web additions and the shopper routes (directory, live, posts, pictures, counts, app config)
-- [ ] The package route and the directory's package details (with P1-08)
+- [x] The package route and the directory's package details (with P1-08)
 - [ ] Cross-check with the app on the internal server (the mobile session points a debug build at it)
 - [ ] Owner: try hours, store status, location, out of service and an announcement picture on the internal system
 
@@ -251,20 +251,22 @@ Active entries only. Done entries are in §6.
 | Why this tier | A map that does not reach shoppers does not help them. |
 | Tier | P1 |
 | PRD / Blueprint | PRD §6.15 · Blueprint §4.19 |
-| DB | shopper packages per map version (to be designed) |
-| Backend | `src/maps/shopper/` (pure builder), publish route |
+| DB | `map_packages` (migration 014 and Firestore twin): version, format, checksum, size; the package file on disk `data/maps/<branch>/packages/<version>.json` |
+| Backend | `src/maps/shopper/` (pure builder: area, skeleton, network, gate, build), publish/rollback/publish-check in `routes/maps.js`, `/api/shopper/branches/:id/package`, `tool/shopper-fixtures.mjs` |
 | Frontend | web: walkability refusals and the vanished-spaces warning in the editor (also the easy editor's Publish step); mobile: downloads and updates |
 | Effort | M |
 | Dependencies | P1-07 — the service it publishes through · P1-09 — the app that receives it |
-| Status | `PLANNED` |
+| Status | `IN PROGRESS` |
 | Intent | Owner decisions 2026-10-23 |
-| Spec | `docs/shopper-hybrid-decisions.md` |
-| Plan | — |
-| PR | n/a |
+| Spec | `docs/shopper-hybrid-decisions.md` · `docs/shopper-package-format.md` §1–§5 |
+| Plan | `docs/round-21-shopper-service.md` (step B) |
+| PR | the Round 21 step B commit |
 
 - [x] Owner: decide the shopper-integration plan (2026-10-23)
-- [ ] Agree the walkability rule's messages and the package format
-- [ ] Build the package builder and the publish gate
+- [x] Agree the walkability rule's messages and the package format
+- [x] Build the package builder and the publish gate (dry-run check in the Publish step, refusals with the room to select)
+- [ ] Mobile session: the loader test on `LIQo mobile/test/fixtures/published/`
+- [ ] Owner: publish a real floor on the internal system and download it in the app
 
 #### P1-09 — Shopper app (port from demo_app)
 

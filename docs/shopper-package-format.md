@@ -47,8 +47,9 @@ The phone draws the map from **section 2** and routes on **section 3** without a
 **Levels**
 ```json
 { "id": "L1", "name": "Ground floor", "short": "G", "elev": 0, "height": 4.5, "ground": true,
-  "outline": { "outer": [[x,y],...], "holes": [[[x,y],...]] } }
+  "outlines": [ { "building": "b1", "outer": [[x,y],...], "holes": [[[x,y],...]] } ] }
 ```
+- Editor levels at the same elevation (to the centimetre) are **one package level**; `outlines` has one entry per building, and `outlines[].building` tells them apart. The level takes the first building's level name (buildings in id order).
 - `ground` is worked out by the builder: the level whose elevation is closest to 0, the lowest one on a tie. Exactly one level has it.
 - `short` is worked out from the name, at most 3 characters: "Ground floor" → `G`, "Level 2" → `2`, "Basement 1" → `B1`. A matching floor-label option wins if one exists. Owner: worked out, not an editor field.
 
@@ -59,7 +60,7 @@ The phone draws the map from **section 2** and routes on **section 3** without a
 ```
 - One entry per space. `storeId` comes from `store_spaces`, or `null`.
 - `type` is the editor's space type: retail, food, anchor, service, office, storage, atrium, corridor, restroom, parking, outdoor, custom.
-- **Walkable:** corridor, atrium, outdoor and parking, plus each level's free area inside the outline.
+- **Walkable:** corridor, atrium, outdoor and parking, plus each level's free area inside the outline. The editor's `walkable` flag defaults to true for every type, so it can only switch a walkable type off (an atrium void); it never makes a shop walkable.
 - **Outdoor:** outdoor and parking.
 - `label` is where the name is drawn: the centre of the polygon's largest inscribed area, or its centroid.
 
@@ -70,7 +71,7 @@ The phone draws the map from **section 2** and routes on **section 3** without a
 { "id": "ft_1", "lv": 0, "type": "atm", "at": [x,y], "label": "ATM" }
 ```
 - Wall `t` is the thickness.
-- Opening `at` is the opening's centre, worked out from its host wall. `window` is drawn only (`walkable: false`); every other opening kind is walkable.
+- Opening `at` is the opening's centre, worked out from its host wall; `angle` is the host wall's direction in radians (`atan2` in package axes). `window` is drawn only (`walkable: false`); every other opening kind is walkable.
 - Feature `type` is the editor's catalog key, so the app picks the icon. Every feature is drawn; only catalog features with `target: true` also become places (§3).
 
 **Buildings**
@@ -98,13 +99,14 @@ These feed the Layers panel's "Go to" buttons and the whole-site view.
 - `len`: metres walked, 0 for a hop.
 - `cost`: the routing cost. It equals `len` for a walk, is 1.25 × `len` across a store's floor, and is `null` for a hop, in which case the app uses its own per-type hop cost so routing tuning stays in one place.
 - `w`: the walkway's width in metres.
-- `through`: the store id walked through (cut-throughs; the app leaves them out for step-free and evacuation routes).
-- `conn`: the connector id, for hops.
+- `through`: the **place (space) id** walked across (cut-throughs and room-to-room doors; the app leaves them out for step-free and evacuation routes). The store's name still shows, because `/live` renames places by `spaceIds`.
+- `conn` and `ctype`: the connector id and its package type (`lift`, `escalator`, `stairs`, `ramp`), for hops; the app's hop cost needs `ctype`.
+- **Fields at their default are left out** (`out`, `inner`, `emergencyOnly`, `oneWay`, `covered`, `through`, `conn`, `ctype`, `label`), as the app's own export does; a missing field means false or null.
 - `label`: a bridge or entrance name, for directions.
 
 **How the builder makes the walkways** (the details are the builder's)
 - A network of centre-lines through walkable spaces and the free area of each level's outline. It doesn't have to be grid-aligned.
-- Every walkable opening joins the two sides it connects with a short `enter` edge. The builder finds the sides by probing either side of the host wall.
+- An opening joins the two sides of its host wall (found by probing either side). **Only an opening between indoors and outdoors is an `enter` edge**, named for directions ("Go in/out through {label}"); every other door is a short `walk` edge with `w` = the door width.
 - A store with two or more doors gets `through` edges across its floor.
 - Each connector stop is a node joined to the walkway.
 
@@ -135,7 +137,7 @@ These feed the Layers panel's "Go to" buttons and the whole-site view.
 { "id": "cn_1", "type": "lift|escalator|stairs|ramp|walkway", "name": "West lifts",
   "stops": [{ "lv": 0, "node": "n90" }, { "lv": 1, "node": "n91" }], "oneWay": false, "building": "b1" }
 ```
-- **Types:** editor `elevator` → `lift`, `moving_walkway` → `walkway`, `stairs`, `escalator` and `ramp` as they are. `bridge` is not a connector; it becomes `bridge` walk edges with a label. `vehicle_ramp` is left out of the shopper graph, because it is for cars.
+- **Types:** editor `elevator` → `lift`; `stairs`, `escalator` and `ramp` as they are. Format 1 has **no `walkway` type** (the app has no name for it yet): a moving walkway on one level becomes `bridge` edges (one-way when the editor says so), an inclined one an `escalator` hop. Editor `bridge` and `walkway` become `bridge` edges with a label on one level, or `ramp` hops between levels; they get no connector entry. `vehicle_ramp` and connectors marked not walkable are left out of the shopper graph.
 - **`oneWay`** is a boolean. When `true`, the stops keep the editor's endpoint order and hops run from each stop to the next only, which covers escalators and same-level moving walkways. When `false`, the stops are ordered low to high and hops run both ways.
 - Out-of-service marks come from `/live` by connector id; the app takes those hops out of routing and draws the connector crossed out.
 
@@ -143,10 +145,12 @@ These feed the Layers panel's "Go to" buttons and the whole-site view.
 ```json
 { "id": "ex_1", "name": "Grand Court north doors", "node": "n5", "assembly": false }
 ```
-- Ways out for evacuation: `entrance` openings on `boundary` walls, plus `exit` and `fire_exit` features, each with a node just outside.
+- Ways out for evacuation: `entrance` openings on `boundary` walls (with a node just outside; they are also places with `cat: exit`), plus `entrance`, `exit` and `fire_exit` features (many hand-made maps have only an Entrance feature).
 - `assembly_point` features are listed with `assembly: true` as places to head for once outside.
 
 ## 4. What the publish gate checks
+
+Built by `LIQo backend/src/maps/shopper/` (Round 21). Each problem also carries the editor ids to select (`problemDetails: [{code, message, ids}]`), and `POST /api/maps/:branchId/publish-check` asks the same questions without publishing (the easy editor's Publish step).
 
 Publishing is refused, with each problem listed in plain words, when:
 1. A space linked to a store, or a named room, has no route on foot from any entrance. Entrances are `entrance` openings and `entrance`, `exit` and `parking_entrance` features. Example: "Uniqlo (Unit 101) can't be reached: it has no door to a corridor".

@@ -128,8 +128,11 @@ class _MapEditorViewState extends ConsumerState<MapEditorView> {
   }
 
   Future<void> _publish() async {
+    // Round 21: the shopper check runs first, so problems show under Issues before the dialog.
+    await ref.read(editorProvider.notifier).checkShopper();
+    if (!mounted) return;
     final st = ref.read(editorProvider);
-    if (st.publishProblems.isNotEmpty) {
+    if (st.publishProblems.isNotEmpty || st.shopperProblems.isNotEmpty) {
       setState(() => _tab = 1);
       _msg('Fix the issues listed under Issues before publishing.', error: true);
       return;
@@ -633,15 +636,31 @@ class _IssuesPanel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final p = context.pal;
-    if (st.publishProblems.isEmpty && st.warnings.isEmpty) {
+    if (st.publishProblems.isEmpty && st.shopperProblems.isEmpty && st.warnings.isEmpty && st.shopperWarnings.isEmpty) {
       return Text('No issues. The map can be published.', style: ts(12, color: p.green));
     }
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        if (st.publishProblems.isNotEmpty) ...[
+        if (st.publishProblems.isNotEmpty || st.shopperProblems.isNotEmpty) ...[
           Text('BLOCKS PUBLISHING', style: ts(10, w: FontWeight.w800, color: p.warn, ls: 1)),
           const SizedBox(height: 6),
+          // Round 21: shoppers could not walk there; click one to select it.
+          for (final w in st.shopperProblems)
+            InkWell(
+              onTap: w.ids.isEmpty ? null : () => n.selectById(w.ids.first),
+              child: Padding(
+                padding: const EdgeInsets.only(bottom: 6),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Icon(Icons.error_outline, size: 14, color: p.warn),
+                    const SizedBox(width: 6),
+                    Expanded(child: Text(w.message, style: ts(11, color: p.ink))),
+                  ],
+                ),
+              ),
+            ),
           for (final s in st.publishProblems)
             Padding(
               padding: const EdgeInsets.only(bottom: 6),
@@ -656,10 +675,10 @@ class _IssuesPanel extends StatelessWidget {
             ),
           const SizedBox(height: 10),
         ],
-        if (st.warnings.isNotEmpty) ...[
+        if (st.warnings.isNotEmpty || st.shopperWarnings.isNotEmpty) ...[
           Text('WARNINGS', style: ts(10, w: FontWeight.w800, color: p.sideNote, ls: 1)),
           const SizedBox(height: 6),
-          for (final w in st.warnings)
+          for (final w in [...st.shopperWarnings, ...st.warnings])
             InkWell(
               onTap: w.ids.isEmpty ? null : () => n.selectById(w.ids.first),
               child: Padding(

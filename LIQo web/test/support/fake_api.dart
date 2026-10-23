@@ -530,6 +530,19 @@ class FakeApiAdapter implements HttpClientAdapter {
     if (RegExp(r'^/malls/\d+$').hasMatch(path)) return {'mall': mallPeopleJson()['mall'], 'canManage': role != 'supervisor'};
     // Round 21: hours, status, App category, location and lifts out of service.
     if (RegExp(r'^/maps/\d+/connectors').hasMatch(path)) return {'published': true, 'items': connectorsJson};
+    if (RegExp(r'^/maps/\d+/publish-check$').hasMatch(path)) {
+      const msg = "Northline Apparel Flagship Boutique and Outlet (Unit B) can't be reached: the corridor outside it doesn't lead to an entrance";
+      return {
+        'ready': false,
+        'problems': [msg],
+        'problemDetails': [
+          {'code': 'unreachable', 'message': msg, 'ids': ['sp-b']},
+        ],
+        'warnings': [
+          {'code': 'places_gone', 'message': '3 places shoppers may have saved will be gone: Old Kiosk, Pop-up Store and the Northline Apparel Flagship Boutique', 'ids': []},
+        ],
+      };
+    }
     if (RegExp(r'^/branches/\d+/location/check$').hasMatch(path)) return {'placeName': 'SM Mall of Asia, Seaside Boulevard, Bay City, Pasay, Metro Manila'};
     if (RegExp(r'^/branches/\d+/(hours|location)$').hasMatch(path)) return {'branch': (_answer('/branches', 'GET')['items'] as List).first};
     if (RegExp(r'^/stores/\d+/(hours|status)$').hasMatch(path)) return {'store': (_answer('/stores', 'GET')['items'] as List).first};

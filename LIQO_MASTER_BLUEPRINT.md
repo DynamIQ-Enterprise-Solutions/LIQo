@@ -256,7 +256,7 @@ Audit redaction: `src/utils/redact.js` removes secrets (passwords, tokens) befor
 
 ## Part 3 — DB Schema Architecture
 
-Source of truth: `LIQo backend/src/db/migrations/001`–`013`. There is no `schema.sql` with teardown yet (FEATURE_PIPELINE P1-11).
+Source of truth: `LIQo backend/src/db/migrations/001`–`014`. There is no `schema.sql` with teardown yet (FEATURE_PIPELINE P1-11).
 
 **Conventions.** `snake_case` tables and columns; `INT IDENTITY` keys except `map_backdrops` (32-char random key) and `platform_settings` (text key). Times are `DATETIME2` from `SYSDATETIME()` (server-local). Booleans are `BIT`.
 
@@ -500,7 +500,7 @@ Each module: purpose · rules · routes · files. User stories in brackets.
 - Public `/api/shopper/*` (`routes/shopper.js`) mounted before sign-in, never audited, own per-IP limits (300/min, counts 30/min, 256 KB and 500 events), ETag/304 and gzip. **A written exception to the `utils/scope.js` rule**: shoppers have no scope; only active branches of active malls with a published map, active stores and approved, live announcements are served, never people, emails or drafts.
 - Built (step A, Round 21): `/directory`, `/branches/:id/live`, `/posts`, `/pictures/:key`, `/counts`, `/app-config`. Contract: `docs/shopper-package-format.md` §7–§11. Data: `repos/shopper.js`, `repos/outages.js` (both drivers).
 - Out of service: mall admins mark a lift, escalator or stairs of the published map (`/maps/:branchId/connectors`); marks of connectors gone from a new version are cleared at publish and audited.
-- Step B (P1-08, next): the shopper package built at publish by the pure `src/maps/shopper/` (walkway graph, places, connectors), the walkability gate and `/branches/:id/package`.
+- Built (step B, P1-08): publish and rollback build the shopper package with the pure `src/maps/shopper/` (raster walkable area, centre-line network, doors, rooms, cut-throughs, connectors, branch frame, 0.1 m snapping, stable bytes) and refuse maps shoppers could not walk (`gate.js`, plain words with the ids to select; `POST /maps/:branchId/publish-check` dry run for the editors). Packages are files on disk (`data/maps/<branch>/packages/<version>.json`, never rewritten) recorded in `map_packages`; `/api/shopper/branches/:id/package` serves them with ETag = SHA-256. Fixtures for the app: `tool/shopper-fixtures.mjs`.
 - Decisions: `docs/round-21-shopper-service.md`. Tests `shopper_service.test.js`, web `round21_test.dart`.
 
 ### 4.20 Beacon positioning — not built

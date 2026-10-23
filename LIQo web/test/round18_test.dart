@@ -482,6 +482,21 @@ void main() {
       await _leave(tester, c);
     });
 
+    // Round 21 (P1-08): the Publish step asks the server what shoppers could not walk to.
+    testWidgets('the publish step lists what shoppers could not reach, and a click selects the room', (tester) async {
+      final (c, fake, _) = await _page(tester, doc: _doc());
+      await _tapKey(tester, 'guided-step-4');
+      await _steps(tester, 6);
+      expect(fake.requests.any((r) => r.contains('/publish-check')), isTrue);
+      final problem = find.textContaining("can't be reached");
+      expect(problem, findsOneWidget);
+      expect(find.textContaining('shoppers may have saved will be gone'), findsOneWidget);
+      await tester.tap(problem);
+      await _steps(tester, 3);
+      expect(c.read(editorProvider).selection.id, 'sp-b');
+      await _leave(tester, c);
+    });
+
     testWidgets('starting from a DXF goes straight to Read with AI', (tester) async {
       final (c, _, _) = await _page(tester, file: (Uint8List.fromList(const [1]), 'ground.dxf'));
       await tester.tap(find.text('Upload a floor plan'));

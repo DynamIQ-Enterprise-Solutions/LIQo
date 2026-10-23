@@ -91,6 +91,24 @@ export const mapFiles = {
   },
 };
 
+/** Shopper packages (Round 21, P1-08): data/maps/<branch>/packages/<version>.json, under both drivers; never rewritten. */
+export const packageFiles = {
+  path: (branchId, version) => path.join(branchDir(branchId), 'packages', Number(version) + '.json'),
+  has: (branchId, version) => fs.existsSync(path.join(branchDir(branchId), 'packages', Number(version) + '.json')),
+  write(branchId, version, json) {
+    const dir = path.join(branchDir(branchId), 'packages');
+    fs.mkdirSync(dir, { recursive: true });
+    fs.writeFileSync(path.join(dir, Number(version) + '.json'), json, { flag: 'wx' });
+  },
+  read(branchId, version) {
+    const f = path.join(branchDir(branchId), 'packages', Number(version) + '.json');
+    return fs.existsSync(f) ? fs.readFileSync(f) : null;
+  },
+  removeBranch(branchId) {
+    fs.rmSync(path.join(branchDir(branchId), 'packages'), { recursive: true, force: true });
+  },
+};
+
 /** Announcement pictures (Round 21): one per announcement, kept with the plans' uploads. */
 export const pictures = {
   path: (key, mime) => path.join(PICTURES, key + '.' + pictureExt(mime)),

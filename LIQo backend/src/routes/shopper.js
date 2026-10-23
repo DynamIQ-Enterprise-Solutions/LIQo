@@ -15,7 +15,8 @@ import * as maps from '../repos/maps.js';
 import * as options from '../repos/options.js';
 import * as outages from '../repos/outages.js';
 import * as settings from '../repos/settings.js';
-import { pictures } from '../storage/files.js';
+import * as packages from '../repos/packages.js';
+import { pictures, packageFiles } from '../storage/files.js';
 import { spaceFloors } from '../maps/shopper/levels.js';
 import { phToday, phIso, addDays } from '../utils/dates.js';
 
@@ -52,19 +53,38 @@ function send(req, res, body, { tagOf = body, maxAge = 60 } = {}) {
 // ---- Floors of a branch's stores, from its published map (cached per version, which never changes) ----
 
 const floorCache = new Map();
+/**
+ * Space id → floor short label for a branch's published version: from its
+ * package (what the phone has), else from the published map (versions published
+ * before packages existed).
+ */
 async function floorsOf(branchId, version) {
   const key = `${branchId}:${version}`;
   if (floorCache.has(key)) return floorCache.get(key);
-  const [pub, labels] = await Promise.all([maps.publishedLayout(branchId), options.list({ branchId, kind: 'floor_label', includeInactive: false })]);
-  const floors = pub ? spaceFloors(pub.layout, labels.map((o) => o.name)) : new Map();
+  let floors = new Map();
+  const bytes = packageFiles.read(branchId, version);
+  if (bytes) {
+    try {
+      const pkg = JSON.parse(bytes.toString('utf8'));
+      for (const sp of pkg.spaces ?? []) floors.set(sp.id, pkg.levels?.[sp.lv]?.short);
+    } catch {
+      floors = new Map();
+    }
+  }
+  if (!floors.size) {
+    const [pub, labels] = await Promise.all([maps.publishedLayout(branchId), options.list({ branchId, kind: 'floor_label', includeInactive: false })]);
+    if (pub) floors = spaceFloors(pub.layout, labels.map((o) => o.name));
+  }
   if (floorCache.size > 500) floorCache.clear();
   floorCache.set(key, floors);
   return floors;
 }
 
-/** The package details the directory lists (step B, P1-08: built at publish). */
-async function packageMeta() {
-  return null;
+/** The package details the directory lists, or null when this version has none (published before packages). */
+async function packageMeta(b) {
+  const p = await packages.find(b.id, b.version);
+  if (!p || !packageFiles.has(b.id, b.version)) return null;
+  return { version: p.version, formatVersion: p.formatVersion, checksum: p.checksum, sizeBytes: p.sizeBytes };
 }
 
 shopperRouter.get('/directory', async (req, res, next) => {
@@ -106,6 +126,36 @@ async function publishedBranch(id) {
   if (!b) throw new AppError(404, 'This mall is not on LIQo right now.');
   return b;
 }
+
+/**
+ * A branch's shopper package (§1): the bytes as built at publish, ETag and
+ * X-Package-Checksum = SHA-256 of the un-gzipped bytes, gzipped on the wire.
+ * ?version=N asks for that version (the directory's); without it, the current one.
+ */
+shopperRouter.get('/branches/:id/package', async (req, res, next) => {
+  try {
+    const b = await publishedBranch(req.params.id);
+    const version = req.query.version == null ? b.version : Number(req.query.version);
+    if (!Number.isInteger(version) || version < 1) throw new AppError(400, 'Ask for a version number.');
+    const p = await packages.find(b.id, version);
+    const bytes = p ? packageFiles.read(b.id, version) : null;
+    if (!bytes) throw new AppError(404, 'That map version is not available. Refresh the directory.');
+    const etag = `"${p.checksum}"`;
+    res.set('ETag', etag);
+    res.set('X-Package-Checksum', p.checksum);
+    res.set('Cache-Control', 'public, max-age=86400, immutable');
+    res.set('Vary', 'Accept-Encoding');
+    if (req.get('If-None-Match') === etag) return res.status(304).end();
+    res.type('application/json');
+    if (/\bgzip\b/.test(req.get('Accept-Encoding') ?? '')) {
+      res.set('Content-Encoding', 'gzip');
+      return res.send(zlib.gzipSync(bytes));
+    }
+    return res.send(bytes);
+  } catch (err) {
+    next(err);
+  }
+});
 
 shopperRouter.get('/branches/:id/live', async (req, res, next) => {
   try {

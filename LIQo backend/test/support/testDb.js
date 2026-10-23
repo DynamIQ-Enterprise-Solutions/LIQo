@@ -14,7 +14,7 @@ export const FIRESTORE = config.db.driver === 'firestore';
 
 const sqlDb = FIRESTORE ? null : await import('../../src/db/pool.js');
 const fsDb = FIRESTORE ? await import('../../src/db/firestore.js') : null;
-const files = FIRESTORE ? await import('../../src/storage/files.js') : null;
+const files = await import('../../src/storage/files.js');
 
 const int = (v) => ({ type: sqlDb.sql.Int, value: v });
 const rowsOf = async (text, params) => (await sqlDb.query(text, params)).recordset;
@@ -200,6 +200,7 @@ export async function cleanTagged(tag) {
   await pick('map_backdrops', (b) => branchIds.has(b.branch_id));
   await pick('connector_outages', (o) => branchIds.has(o.branch_id));
   await pick('shopper_counts', (c) => branchIds.has(c.branch_id));
+  await pick('map_packages', (p) => branchIds.has(p.branch_id));
   await pick('stores', (s) => storeIds.has(s.id));
   await pick('branch_options', (o) => has(o.name) || branchIds.has(o.branch_id));
   await pick('mall_admin_assignments', (l) => userIds.has(l.user_id) || branchIds.has(l.branch_id));
@@ -222,6 +223,8 @@ export async function cleanTagged(tag) {
 async function cleanTaggedSql(tag) {
   const { query } = sqlDb;
   const like = `%${tag}%`;
+  // Round 21: shopper package files of the tagged branches.
+  for (const { id } of await rowsOf(`SELECT id FROM branches WHERE name LIKE @l`, { l: like })) files.packageFiles.removeBranch(id);
   await query(`DELETE ab FROM announcement_branches ab JOIN announcements a ON a.id = ab.announcement_id JOIN users u ON u.id = a.created_by WHERE u.email LIKE @l`, { l: like });
   await query(`DELETE a FROM announcements a JOIN users u ON u.id = a.created_by WHERE u.email LIKE @l`, { l: like });
   await query(`DELETE pr FROM profile_requests pr JOIN users u ON u.id = pr.user_id WHERE u.email LIKE @l`, { l: like });
@@ -242,6 +245,7 @@ async function cleanTaggedSql(tag) {
   // Round 21: out-of-service marks and shopper counts hang off branches.
   await query(`DELETE o FROM connector_outages o JOIN branches b ON b.id = o.branch_id WHERE b.name LIKE @l`, { l: like });
   await query(`DELETE c FROM shopper_counts c JOIN branches b ON b.id = c.branch_id WHERE b.name LIKE @l`, { l: like });
+  await query(`DELETE p FROM map_packages p JOIN branches b ON b.id = p.branch_id WHERE b.name LIKE @l`, { l: like });
   await query(`DELETE mp FROM maps mp JOIN branches b ON b.id = mp.branch_id WHERE b.name LIKE @l`, { l: like });
   await query(`DELETE FROM stores WHERE name LIKE @l`, { l: like });
   await query(`DELETE FROM branch_options WHERE name LIKE @l`, { l: like });

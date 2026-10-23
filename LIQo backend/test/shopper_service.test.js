@@ -165,7 +165,8 @@ test('directory: published branches of active malls, with their stores, App cate
   assert.equal(a.mallId, fx.mallA);
   assert.equal(a.mallName, `Mall A ${tag}`);
   assert.equal(a.active, true);
-  assert.equal(a.package, null, 'packages come with P1-08');
+  // Step B (P1-08) builds the package at publish; its details are checked in the package test below.
+  assert.equal(a.package.formatVersion, 1, 'the package built at publish');
   assert.deepEqual(
     a.stores.find((s) => s.storeId === fx.storeA),
     { storeId: fx.storeA, name: `Store A ${tag}`, category: 'fashion', floor: 'G' },
@@ -383,4 +384,74 @@ test('branch location: a pasted Google Maps link, short links followed once; the
   assert.equal((await call('POST', `/branches/${fx.branchA}/location/check`, { token: tokens.mall_admin, body: { mapsLink: 'https://maps.app.goo.gl/x' } })).status, 400);
   assert.equal((await call('PUT', `/branches/${fx.branchA}/location`, { token: tokens.store_owner, body: { mapsLink: full } })).status, 403);
   assert.ok((await db.auditRows({ action: 'branch_location_updated', entityId: fx.branchA })).length);
+});
+
+// ---- Round 21 step B (P1-08): the shopper package built at publish, and the gate ----
+
+test('publishing builds the package: listed in the directory, downloaded with its checksum, 304 when unchanged', async () => {
+  const dir = await pub('GET', '/directory');
+  const a = dir.body.branches.find((b) => b.id === fx.branchA);
+  assert.ok(a.package, 'the directory lists the package');
+  assert.equal(a.package.formatVersion, 1);
+  assert.match(a.package.checksum, /^[0-9a-f]{64}$/);
+  const res = await fetch(`${base}/shopper/branches/${fx.branchA}/package?version=${a.package.version}`, { headers: { 'Accept-Encoding': 'gzip' } });
+  assert.equal(res.status, 200);
+  assert.equal(res.headers.get('x-package-checksum'), a.package.checksum);
+  assert.equal(res.headers.get('etag'), `"${a.package.checksum}"`);
+  const bytes = Buffer.from(await res.arrayBuffer());
+  const { createHash } = await import('node:crypto');
+  assert.equal(createHash('sha256').update(bytes).digest('hex'), a.package.checksum, 'the checksum is of the un-gzipped bytes');
+  assert.equal(bytes.length, a.package.sizeBytes);
+  const pkg = JSON.parse(bytes.toString('utf8'));
+  assert.equal(pkg.formatVersion, 1);
+  assert.equal(pkg.version, a.package.version);
+  assert.equal(pkg.branchId, fx.branchA);
+  assert.match(pkg.publishedAt, /\+08:00$/);
+  assert.ok(pkg.places.some((p) => p.id === 'sp-1' && p.storeId === fx.storeA));
+  assert.ok(pkg.connectors.some((c) => c.id === 'cn-lift' && c.type === 'lift'));
+  const same = await fetch(`${base}/shopper/branches/${fx.branchA}/package?version=${a.package.version}`, { headers: { 'If-None-Match': `"${a.package.checksum}"` } });
+  assert.equal(same.status, 304);
+  assert.equal((await fetch(`${base}/shopper/branches/${fx.branchA}/package?version=999`)).status, 404);
+  assert.equal((await fetch(`${base}/shopper/branches/${fx.branchB}/package`)).status, 404);
+});
+
+test('the gate: a dry run says what blocks publishing, publishing is refused with the space to select, and passes once fixed', async () => {
+  const t = tokens.mall_admin;
+  const ok = await call('POST', `/maps/${fx.branchA}/publish-check`, { token: t });
+  assert.equal(ok.status, 200);
+  assert.equal(ok.body.ready, true);
+  // A walled shop with no door, linked to Store A.
+  assert.equal((await call('POST', `/maps/${fx.branchA}/lock`, { token: t })).status, 200);
+  const get = await call('GET', `/maps/${fx.branchA}`, { token: t });
+  const layout = get.body.map.draft;
+  const ground = layout.buildings[0].levels[0];
+  ground.walls = [
+    { id: 'w1', a: [10, 2], b: [16, 2], t: 0.2 },
+    { id: 'w2', a: [16, 2], b: [16, 8], t: 0.2 },
+    { id: 'w3', a: [16, 8], b: [10, 8], t: 0.2 },
+    { id: 'w4', a: [10, 8], b: [10, 2], t: 0.2 },
+  ];
+  const save = await call('PUT', `/maps/${fx.branchA}/draft`, { token: t, body: { layout, baseVersion: get.body.map.draftVersion } });
+  assert.equal(save.status, 200);
+  const check = await call('POST', `/maps/${fx.branchA}/publish-check`, { token: t });
+  assert.equal(check.body.ready, false);
+  assert.deepEqual(check.body.problems, [`Store A ${tag} (Unit 1) can't be reached: it has no door to a corridor`]);
+  assert.deepEqual(check.body.problemDetails[0].ids, ['sp-1']);
+  const refused = await call('POST', `/maps/${fx.branchA}/publish`, { token: t, body: { baseVersion: save.body.draftVersion } });
+  assert.equal(refused.status, 400);
+  assert.deepEqual(refused.body.problems, check.body.problems);
+  assert.equal(refused.body.problemDetails[0].code, 'unreachable');
+  // A door fixes it.
+  ground.openings = [{ id: 'op-1', wall: 'w3', at: 0.5, w: 1.2, kind: 'door' }];
+  const save2 = await call('PUT', `/maps/${fx.branchA}/draft`, { token: t, body: { layout, baseVersion: save.body.draftVersion } });
+  const pubd = await call('POST', `/maps/${fx.branchA}/publish`, { token: t, body: { baseVersion: save2.body.draftVersion } });
+  assert.equal(pubd.status, 200, JSON.stringify(pubd.body));
+  assert.equal(pubd.body.packageError, null);
+  assert.ok(Array.isArray(pubd.body.shopperWarnings));
+  await call('POST', `/maps/${fx.branchA}/lock/release`, { token: t });
+  // The mall owner cannot run the check.
+  assert.equal((await call('POST', `/maps/${fx.branchA}/publish-check`, { token: tokens.supervisor })).status, 403);
+  // The directory points at the new version's package.
+  const dir = await pub('GET', '/directory');
+  assert.equal(dir.body.branches.find((b) => b.id === fx.branchA).package.version, pubd.body.publishedVersion);
 });

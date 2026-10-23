@@ -443,11 +443,23 @@ class SaveResult {
 }
 
 /// Thrown when the server refuses a save or publish with a problem list.
+/// Round 21: the publish gate's answer for the saved draft.
+class PublishCheck {
+  const PublishCheck({required this.ready, this.problems = const [], this.warnings = const []});
+
+  final bool ready;
+  final List<MapWarning> problems;
+  final List<MapWarning> warnings;
+}
+
 class MapProblemsException implements Exception {
-  const MapProblemsException(this.message, this.problems);
+  const MapProblemsException(this.message, this.problems, [this.details = const []]);
 
   final String message;
   final List<String> problems;
+
+  /// Round 21: what shoppers could not walk to, with the editor ids to select.
+  final List<MapWarning> details;
 
   @override
   String toString() => message;
@@ -482,7 +494,13 @@ class MapsService {
   Never _rethrow(DioException e) {
     final data = e.response?.data;
     if (data is Map) {
-      if (data['problems'] is List) throw MapProblemsException(data['error'] as String? ?? 'The map has problems.', (data['problems'] as List).cast<String>());
+      if (data['problems'] is List) {
+        throw MapProblemsException(
+          data['error'] as String? ?? 'The map has problems.',
+          (data['problems'] as List).cast<String>(),
+          [for (final d in (data['problemDetails'] as List? ?? const [])) MapWarning.fromJson(_m(d))],
+        );
+      }
       if (data['code'] == 'MAP_STALE') throw MapStaleException(data['error'] as String, data['draftVersion'] as int?);
       if (e.response?.statusCode == 423) throw MapLockedException(data['error'] as String);
     }
@@ -536,6 +554,20 @@ class MapsService {
         publishProblems: (d['publishProblems'] as List<dynamic>? ?? []).cast<String>(),
         warnings: (d['warnings'] as List<dynamic>? ?? []).map((e) => MapWarning.fromJson(_m(e))).toList(),
         spaceCount: d['spaceCount'] as int? ?? 0,
+      );
+    } on DioException catch (e) {
+      _rethrow(e);
+    }
+  }
+
+  /// Round 21: what publishing would say now (nothing is published): problems that block it for shoppers, and warnings.
+  Future<PublishCheck> publishCheck(int branchId) async {
+    try {
+      final d = _m((await _client.dio.post('/maps/$branchId/publish-check')).data);
+      return PublishCheck(
+        ready: d['ready'] == true,
+        problems: [for (final x in (d['problemDetails'] as List? ?? const [])) MapWarning.fromJson(_m(x))],
+        warnings: [for (final x in (d['warnings'] as List? ?? const [])) MapWarning.fromJson(_m(x))],
       );
     } on DioException catch (e) {
       _rethrow(e);

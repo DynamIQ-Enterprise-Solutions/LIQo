@@ -830,11 +830,23 @@ class _PublishStep extends ConsumerWidget {
         ),
       for (final w in st.warnings.take(8)) (w.message, w.ids.isEmpty ? null : () => n.selectById(w.ids.first)),
       for (final pr in st.publishProblems.take(5)) (pr, null),
+      // Round 21: what shoppers could not walk to blocks publishing; what they would lose only warns.
+      for (final pr in st.shopperProblems.take(8)) (pr.message, pr.ids.isEmpty ? null : () => n.selectById(pr.ids.first)),
+      for (final w in st.shopperWarnings.take(4)) (w.message, w.ids.isEmpty ? null : () => n.selectById(w.ids.first)),
     ];
+    // Ask once per saved draft version.
+    if (st.editable && !st.checkingShopper && st.shopperCheckedVersion != st.draftVersion && st.saveState != SaveState.saving) {
+      WidgetsBinding.instance.addPostFrameCallback((_) => unawaited(n.checkShopper()));
+    }
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         _title(context, '5', 'Make it live', 'Publishing makes this map the one shoppers see. You can keep editing afterwards and publish again.'),
+        if (st.checkingShopper)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 8),
+            child: Text('Checking that shoppers can walk to every shop…', key: const ValueKey('guided-checking'), style: ts(12, color: p.muted)),
+          ),
         if (checks.isEmpty)
           Row(children: [Icon(Icons.check_circle, color: p.green, size: 18), const SizedBox(width: 8), Expanded(child: Text('Everything looks ready.', style: ts(13, color: p.ink)))])
         else ...[

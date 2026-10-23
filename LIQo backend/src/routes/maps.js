@@ -12,6 +12,12 @@ import * as maps from '../repos/maps.js';
 import * as branches from '../repos/branches.js';
 import * as stores from '../repos/stores.js';
 import * as outages from '../repos/outages.js';
+import * as shopper from '../repos/shopper.js';
+import * as options from '../repos/options.js';
+import * as packages from '../repos/packages.js';
+import { packageFiles } from '../storage/files.js';
+import { buildShopperPackage, stampPackage, FORMAT_VERSION } from '../maps/shopper/build.js';
+import { phIso } from '../utils/dates.js';
 import { resolveScope, assertBranchInScope } from '../utils/scope.js';
 import { catalogPayload } from '../maps/catalog.js';
 import { validateLayout, blankLayout, spaceIndex, countSpaces, publishable, reattachBackdrops } from '../maps/validator.js';
@@ -61,6 +67,51 @@ async function requireLock(req, branchId) {
     throw new AppError(423, holder ? `${holder} is editing this map. Try again when they are done.` : 'Open the editor first to lock the map.');
   }
 }
+
+/**
+ * Round 21 (P1-08): the shopper package for a layout about to be published,
+ * with the gate's problems and warnings (docs/shopper-package-format.md §4).
+ */
+async function shopperBuild(branch, layout, map) {
+  const [stores, labels] = await Promise.all([shopper.storesOf([branch.id]), options.list({ branchId: branch.id, kind: 'floor_label', includeInactive: false })]);
+  const links = stores.flatMap((st) => st.spaceIds.map((spaceKey) => ({ spaceKey, storeId: st.id, storeName: st.name })));
+  const appCategories = Object.fromEntries(stores.map((st) => [st.id, st.category]));
+  let previous = null;
+  if (map?.publishedVersion != null) {
+    const bytes = packageFiles.read(branch.id, map.publishedVersion);
+    if (bytes) {
+      try {
+        previous = { places: JSON.parse(bytes.toString('utf8')).places ?? [] };
+      } catch {
+        previous = null;
+      }
+    }
+  }
+  return buildShopperPackage({ layout: publishable(layout), links, appCategories, floorLabels: labels.map((o) => o.name), branchId: branch.id, branchName: branch.name, mallName: branch.mallName, previous });
+}
+
+/** A refusal listing what shoppers could not walk to, each with the editor ids to select. */
+function unwalkable(problems) {
+  const err = new AppError(400, `Shoppers couldn't use this map yet: ${problems.length} problem${problems.length === 1 ? '' : 's'} to fix before publishing.`);
+  err.extra = { problems: problems.map((p) => p.message), problemDetails: problems };
+  return err;
+}
+
+/** Saves the package of a published version and records it; a failure leaves the previous package served and is reported. */
+async function savePackage(req, branchId, version, built) {
+  try {
+    const stamped = stampPackage(built.package, { version, publishedAt: phIso(new Date()) });
+    if (!packageFiles.has(branchId, version)) packageFiles.write(branchId, version, stamped.json);
+    await packages.record({ branchId, version, formatVersion: FORMAT_VERSION, checksum: stamped.checksum, sizeBytes: stamped.sizeBytes });
+    return { checksum: stamped.checksum, sizeBytes: stamped.sizeBytes };
+  } catch (err) {
+    console.error(`shopper package of branch ${branchId} version ${version} not saved: ${err.message}`);
+    return { error: 'The map is published, but its copy for the shopper app could not be saved. Phones keep the previous version; publish again to retry.' };
+  }
+}
+
+/** Dry runs are cached per draft version and store links, so the Publish step can ask often. */
+const checkCache = new Map();
 
 function invalid(problems) {
   const err = new AppError(400, `The map has ${problems.length} problem${problems.length === 1 ? '' : 's'}. Fix them and save again.`);
@@ -214,6 +265,33 @@ mapsRouter.put('/:branchId/draft', requireRole(...EDITORS), validate(draftSchema
 
 const publishSchema = z.object({ baseVersion: z.number().int().min(0), note: z.string().trim().max(200).optional() });
 
+/**
+ * Round 21: what publishing would say now, without publishing (the easy editor's
+ * Publish step and the Issues tab). Nothing is written or audited.
+ */
+mapsRouter.post('/:branchId/publish-check', requireRole(...EDITORS), async (req, res, next) => {
+  try {
+    res.locals.audited = true;
+    const branch = await branchInScope(req, req.params.branchId);
+    const map = await maps.findByBranch(branch.id);
+    if (!map?.draft) throw new AppError(404, 'This branch has no draft to publish.');
+    const { layout, problems, publishProblems } = validateLayout(map.draft);
+    const editorProblems = [...problems, ...publishProblems];
+    if (editorProblems.length) return res.json({ ready: false, problems: editorProblems, problemDetails: [], warnings: [] });
+    const linksKey = JSON.stringify(await stores.spaceLinksForBranch(branch.id));
+    const key = `${branch.id}:${map.draftVersion}:${map.publishedVersion ?? 0}:${linksKey.length}:${linksKey.slice(0, 2000)}`;
+    let built = checkCache.get(key);
+    if (!built) {
+      built = await shopperBuild(branch, layout, map);
+      if (checkCache.size > 50) checkCache.clear();
+      checkCache.set(key, { problems: built.problems, warnings: built.warnings });
+    }
+    res.json({ ready: built.problems.length === 0, problems: built.problems.map((p) => p.message), problemDetails: built.problems, warnings: built.warnings });
+  } catch (err) {
+    next(err);
+  }
+});
+
 mapsRouter.post('/:branchId/publish', requireRole(...EDITORS), validate(publishSchema), async (req, res, next) => {
   try {
     const branch = await branchInScope(req, req.params.branchId);
@@ -222,6 +300,8 @@ mapsRouter.post('/:branchId/publish', requireRole(...EDITORS), validate(publishS
     const { layout, problems, publishProblems } = validateLayout(map.draft);
     const all = [...problems, ...publishProblems];
     if (all.length) throw invalid(all);
+    const built = await shopperBuild(branch, layout, map);
+    if (built.problems.length) throw unwalkable(built.problems);
     const result = await maps.publish({
       branchId: branch.id,
       layoutJson: JSON.stringify(publishable(layout)),
@@ -235,10 +315,11 @@ mapsRouter.post('/:branchId/publish', requireRole(...EDITORS), validate(publishS
       err.extra = { code: 'MAP_STALE', draftVersion: result.draftVersion };
       throw err;
     }
-    await recordAudit(req, res, { action: 'map_published', entityType: 'map', entityId: map.id, details: { branchId: branch.id, version: result.version } });
+    const saved = await savePackage(req, branch.id, result.version, built);
+    await recordAudit(req, res, { action: 'map_published', entityType: 'map', entityId: map.id, details: { branchId: branch.id, version: result.version, package: saved.error ? 'not saved' : { checksum: saved.checksum, sizeBytes: saved.sizeBytes } } });
     await clearGoneOutages(req, res, branch.id, layout);
     const dangling = danglingLinkWarnings(layout, await stores.spaceLinksForBranch(branch.id));
-    res.json({ publishedVersion: result.version, draftVersion: result.draftVersion, warnings: dangling });
+    res.json({ publishedVersion: result.version, draftVersion: result.draftVersion, warnings: dangling, shopperWarnings: built.warnings, packageError: saved.error ?? null });
   } catch (err) {
     next(err);
   }
@@ -294,6 +375,8 @@ mapsRouter.post('/:branchId/rollback', requireRole(...EDITORS), validate(z.objec
     const { layout, problems, publishProblems } = validateLayout(old.layout);
     const all = [...problems, ...publishProblems];
     if (all.length) throw invalid(all);
+    const built = await shopperBuild(branch, layout, map);
+    if (built.problems.length) throw unwalkable(built.problems);
     // Republish as a NEW version (never rewind), and make it the current draft again
     // with the tracing backdrops the current draft had on levels that still exist.
     const result = await maps.publish({
@@ -305,9 +388,10 @@ mapsRouter.post('/:branchId/rollback', requireRole(...EDITORS), validate(z.objec
       note: `Rollback to version ${req.body.version}`,
       resetDraftTo: JSON.stringify(reattachBackdrops(structuredClone(layout), map.draft)),
     });
+    const saved = await savePackage(req, branch.id, result.version, built);
     await clearGoneOutages(req, res, branch.id, layout);
     await recordAudit(req, res, { action: 'map_rolled_back', entityType: 'map', entityId: map.id, details: { branchId: branch.id, restoredFrom: req.body.version, newVersion: result.version } });
-    res.json({ publishedVersion: result.version, draftVersion: result.draftVersion, restoredFrom: req.body.version });
+    res.json({ publishedVersion: result.version, draftVersion: result.draftVersion, restoredFrom: req.body.version, shopperWarnings: built.warnings, packageError: saved.error ?? null });
   } catch (err) {
     next(err);
   }
@@ -350,6 +434,8 @@ mapsRouter.delete('/:branchId', requireRole('superadmin'), async (req, res, next
   try {
     const branch = await branchInScope(req, req.params.branchId);
     await maps.remove(branch.id);
+    await packages.removeBranch(branch.id);
+    packageFiles.removeBranch(branch.id);
     await recordAudit(req, res, { action: 'map_deleted', entityType: 'map', entityId: null, details: { branchId: branch.id } });
     res.status(204).end();
   } catch (err) {

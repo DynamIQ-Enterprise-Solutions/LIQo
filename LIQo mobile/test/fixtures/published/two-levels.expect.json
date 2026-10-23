@@ -1,0 +1,22 @@
+{
+  "note": "Built by LIQo backend/tool/shopper-fixtures.mjs. Routes start at exits[0].node; totals are the cheapest route cost to any of the place nodes (cost when present, else node distance; hops cost as in kit_venue.dart hopCostFor).",
+  "from": "n3",
+  "nodeCount": 32,
+  "reachable": [
+    "ft-in",
+    "sp-1",
+    "sp-2"
+  ],
+  "totals": {
+    "ft-in": 0,
+    "sp-1": 112.194,
+    "sp-2": 149.694
+  },
+  "oneWay": [
+    [
+      "n18",
+      "n4"
+    ]
+  ],
+  "wheelchairUnreachable": []
+}
