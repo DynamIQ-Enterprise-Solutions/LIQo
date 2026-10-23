@@ -232,3 +232,62 @@ GET /api/shopper/branches/:id/live        ETag; answers 304 to If-None-Match
   - `hoursNote`: the store's old free-text hours, shown as written only when its `hours` and `branchHours` are both null (owner, 2026-10-23);
   - `logoUrl`, used from step 4 (the picture cache).
 - **No website** for now (owner, 2026-10-23): shoppers see the phone and the description.
+
+## 8. Posts (`/posts`, draft for review)
+
+The approved announcements shoppers see (owner decisions 2026-10-23). Home shows them as a feed, newest first, 10 at a time.
+
+```
+GET /api/shopper/posts?branch=<id>&cursor=<opaque>      ETag on the first page; 304 on If-None-Match
+GET /api/shopper/posts?scope=all&cursor=<opaque>        every branch (What's on, step 3)
+{
+  "items": [
+    { "id": 812, "title": "50% off this weekend", "body": "…", "imageUrl": "https://…",
+      "author": { "kind": "store", "storeId": 345, "name": "Uniqlo" },      // or { "kind": "mall", "name": "SM North EDSA" }
+      "startsOn": "2026-10-23", "endsOn": "2026-10-26",
+      "branch": { "id": 12, "name": "SM North EDSA", "mallName": "SM Malls" } }
+  ],
+  "nextCursor": "…" | null
+}
+```
+
+**Rules**
+- Only **approved** announcements targeted to that branch whose dates include today. "Today" is the Philippine date, and `endsOn` is inclusive.
+- **Newest first** (by `startsOn`, then `id`), **10 per page**. With `scope=all`, one item per announcement per branch it targets.
+- `author.storeId` is a number, the same as the package's and `/live`'s, so a store's post can offer Directions to that store.
+- `imageUrl` is optional (the announcement's one picture). The text is shown as written.
+- No reviewer names, reasons or drafts. A rejected, pending or expired announcement is never sent.
+
+## 9. Anonymous counts (`/counts`, draft for review)
+
+Always on (owner decision 2026-10-23). The phone adds them up per day and sends them in batches when online.
+
+```
+POST /api/shopper/counts        answers 204
+{ "events": [ { "type": "place_opened", "branchId": 12, "storeId": 345, "placeId": "sp_abc", "day": "2026-10-23", "n": 3 },
+              { "type": "category_tap", "branchId": 12, "category": "food", "day": "2026-10-23", "n": 5 },
+              { "type": "search", "branchId": 12, "query": "uniqlo", "day": "2026-10-23", "n": 2 } ] }
+```
+
+**Rules**
+- `type` is one of `place_opened`, `directions_started`, `directions_finished`, `category_tap`, `search` or `mall_opened`.
+- **No person or device id**, and no IP kept with the counts.
+- At most **500 events per batch**. A batch that can't be sent stays queued on the phone (capped), and resends are de-duplicated by the phone.
+- **Search words** are cleaned on the phone before sending:
+  - trimmed, lower case, at most 40 characters;
+  - anything that looks like an email, or holds 4 or more digits (a phone number), is dropped.
+
+  The server may filter again.
+- The server adds them into per-day totals by branch, store and event, for each role's analytics (P2-01).
+
+## 10. The directory's store list (for "Find a store in any mall", step 3)
+
+Part of the `/directory` reply, refreshed with it, kept on the phone:
+
+```
+"branches": [ { "id": 12, …, "stores": [ { "storeId": 345, "name": "Uniqlo", "category": "fashion", "floor": "2" } ] } ]
+```
+
+- `floor` is the floor's short label (as in the package).
+- `category` is the store's App category.
+- Only active stores that are on the published map.

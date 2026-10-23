@@ -84,6 +84,15 @@ Everything works offline for a downloaded mall. The internet only brings new mal
 - Pictures are cached up to 50 MB.
 - Names, descriptions and posts show as written. Only the app's own words are translated.
 
+**Posts on Home** (owner answers 2026-10-23)
+- Below the categories, the mall's posts are a **feed down the page**, newest first, 10 at a time with a "More posts" button. The LIQo-wide sections (step 3) sit below it.
+- A store's post page has **Directions** to that store and a link to its place page.
+- Each post has a **heart and a Comment button**. Until shopper accounts exist, tapping them says "Sign in to react and comment · Accounts are coming soon". Sign-in stays optional.
+- **Later, with accounts:**
+  - one kind of reaction, a heart with a count;
+  - comments shown at once; the post's author, the branch's mall admins and superadmins can hide one; shoppers can report one; a word filter blocks obvious abuse.
+- Accounts are planned after the shopper service is live.
+
 **Anonymous counts**
 - Always on, with no switch.
 - What is counted:
