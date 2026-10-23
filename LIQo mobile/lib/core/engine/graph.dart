@@ -30,7 +30,10 @@ class Edge {
   final bool emergencyOnly, covered;
   /// A cut-through: the id of the store walked through (its doors and its floor).
   final String? through;
-  Edge({required this.to, required this.d, this.len = 0, required this.w, required this.kind, this.label, this.conn, this.ctype, this.tech, this.emergencyOnly = false, this.covered = false, this.through});
+
+  /// Walked only this way (no edge back).
+  final bool oneWay;
+  Edge({required this.to, required this.d, this.len = 0, required this.w, required this.kind, this.label, this.conn, this.ctype, this.tech, this.emergencyOnly = false, this.covered = false, this.through, this.oneWay = false});
 }
 
 class EdgeMeta {
@@ -65,6 +68,10 @@ class Graph {
   final nodes = <String, GNode>{};
   final adj = <String, List<Edge>>{};
   late final lines = List.generate(levelCount, (_) => <Line>[]);
+
+  /// Every link in the order it was made (its from-node and its outgoing edge), so a venue
+  /// can be written out as a shopper package that rebuilds the same graph, tie-breaks included.
+  final linkLog = <(String, Edge)>[];
   Graph(this.levelCount);
 
   String node(int lv, double x, double y, {bool? out, String? label}) {
@@ -81,8 +88,19 @@ class Graph {
   void link(String a, String b, double w, [EdgeMeta? meta, double? cost, bool emergencyOnly = false]) {
     final na = nodes[a]!, nb = nodes[b]!;
     final len = hypot(na.x - nb.x, na.y - nb.y), d = cost ?? len, m = meta ?? EdgeMeta.walk;
-    adj[a]!.add(Edge(to: b, d: d, len: len, w: w, kind: m.kind, label: m.label, conn: m.conn, ctype: m.ctype, tech: m.tech, emergencyOnly: emergencyOnly, covered: m.covered, through: m.through));
+    final ab = Edge(to: b, d: d, len: len, w: w, kind: m.kind, label: m.label, conn: m.conn, ctype: m.ctype, tech: m.tech, emergencyOnly: emergencyOnly, covered: m.covered, through: m.through);
+    adj[a]!.add(ab);
     adj[b]!.add(Edge(to: a, d: d, len: len, w: w, kind: m.kind, label: m.label, conn: m.conn, ctype: m.ctype, tech: m.tech, emergencyOnly: emergencyOnly, covered: m.covered, through: m.through));
+    linkLog.add((a, ab));
+  }
+
+  /// A link that can only be walked from [a] to [b] (an escalator, a one-way moving walkway).
+  void linkOneWay(String a, String b, double w, [EdgeMeta? meta, double? cost, bool emergencyOnly = false]) {
+    final na = nodes[a]!, nb = nodes[b]!;
+    final len = hypot(na.x - nb.x, na.y - nb.y), d = cost ?? len, m = meta ?? EdgeMeta.walk;
+    final ab = Edge(to: b, d: d, len: len, w: w, kind: m.kind, label: m.label, conn: m.conn, ctype: m.ctype, tech: m.tech, emergencyOnly: emergencyOnly, covered: m.covered, through: m.through, oneWay: true);
+    adj[a]!.add(ab);
+    linkLog.add((a, ab));
   }
 
   void line(int lv, List<double> a, List<double> b, double w, {bool out = false, String? zone, String? bld, bool covered = false}) =>
