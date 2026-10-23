@@ -181,3 +181,45 @@ A large branch is expected to be a few MB gzipped. Publishing is refused above *
 - Fire-only stairs: not now.
 - Store category to app category: an App category pick per store-category option on the web.
 - Floor short label and ground floor: worked out from the levels, with no editor field.
+
+## 7. Live store info (`/live`, draft for review)
+
+Separate from the package, because it changes far more often (owner decisions 2026-10-23). The app asks for it on every check, on any network, and keeps the last reply on the phone for offline use.
+
+```
+GET /api/shopper/branches/:id/live        ETag; answers 304 to If-None-Match
+{
+  "branchId": 12,
+  "generatedAt": "2026-10-23T10:15:00+08:00",
+  "branchHours": <Hours> | null,
+  "stores": [
+    { "storeId": "345", "spaceIds": ["sp_abc"], "name": "Uniqlo", "category": "fashion",
+      "status": "open|temporarily_closed|being_repaired|opening_soon",
+      "hours": <Hours> | null, "phone": "+63 2 ...", "website": "https://...", "description": "..." }
+  ],
+  "outOfService": [ { "connectorId": "cn_1", "since": "2026-10-23T08:00:00+08:00" } ]
+}
+
+<Hours> = {
+  "week":     [ { "day": 1, "open": "10:00", "close": "21:00" }, ... ],   // day 1 = Monday … 7 = Sunday; a missing day = closed that day
+  "specials": [ { "date": "2026-12-25", "closed": true, "note": "Holiday" },
+                { "date": "2026-11-11", "open": "10:00", "close": "24:00", "note": "Midnight sale" } ]   // note optional, short
+}
+```
+
+**Rules**
+- **Times:**
+  - Philippine time, 24-hour `HH:MM`.
+  - `"24:00"` is midnight at the end of the day.
+  - A `close` at or before `open` runs past midnight.
+- **Special days** override the week on their date. `note` is optional and shown as written: "Closed today · Holiday".
+- **A store with `hours: null`** uses `branchHours`. If both are null, the app shows no open/closed line (owner: fallback for now).
+- **`status`** comes from the store's status on the web:
+  - `temporarily_closed`, `being_repaired` and `opening_soon` show as such;
+  - directions are still given whatever the status.
+- **`category`** is the App category of the store's category option (Food, Fashion, Tech, Books, Services, Other), in lower case.
+- **`spaceIds`** are the spaces the store occupies (`store_spaces`).
+  - A store whose space isn't in the phone's package yet is listed with "Directions come with the next map update".
+  - A store with no space at all is not sent.
+- **`outOfService`** lists connector ids from the published map. Routes avoid them, and the map draws them crossed out.
+- **No people, emails or drafts.** Only active stores of an active, published branch.
