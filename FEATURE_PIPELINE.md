@@ -322,6 +322,7 @@ Active entries only. Done entries are in §6.
 - [x] Internal test live: https://liqo-12a80.web.app, the API on this PC through a Cloudflare quick tunnel (`npm run serve:internal`; owner chose to start without a domain, 2026-10-23)
 - [ ] Owner: sign in as the first superadmin and change its password; run the end-to-end check (mall, branch, admin, credits, plan, AI reading, publish, restart)
 - [x] Phones and the web app find the server through `https://liqo-12a80.web.app/config/api.json`, published at every server start (owner chose this workaround, 2026-10-23; format doc §12)
+- [x] The shopper app reads that file (`--dart-define=SHOPPER_CONFIG=https://liqo-12a80.web.app/config/api.json`, `core/data/server_address.dart`): when it opens, again when the server can't be reached (then one retry), and remembers the last good address
 - [ ] Owner, when ready: a domain on a free Cloudflare account for a fixed address (no longer blocking)
 - [ ] ODA File Converter on this PC, for DWG plans
 - [ ] Later, with real users: Firebase Storage (Blaze) for files

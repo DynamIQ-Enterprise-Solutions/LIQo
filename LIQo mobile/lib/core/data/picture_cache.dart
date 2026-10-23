@@ -32,7 +32,12 @@ class PictureCache {
   final _mem = <String, Uint8List>{};
   final _pending = <String, Future<Uint8List?>>{};
 
-  static String keyOf(String url) => 'pictures/${sha256Hex(utf8.encode(url))}';
+  /// The server's own pictures are kept by their path, so they survive its address changing (§12).
+  static String keyOf(String url) {
+    final u = Uri.tryParse(url);
+    final id = u != null && u.path.startsWith('/api/shopper/pictures/') ? u.path : url;
+    return 'pictures/${sha256Hex(utf8.encode(id))}';
+  }
 
   /// key -> (bytes, last shown in ms)
   Map<String, (int, int)> _index() {

@@ -1,6 +1,7 @@
 // The shopper server as the app sees it (docs/shopper-hybrid-decisions.md §3):
 // the LIQo directory, each branch's package and the app's config. The real one
-// talks HTTP to the address set at build time; debug builds and tests use the
+// talks HTTP to the server's address (set at build time, or read from the
+// address file, server_address.dart); debug builds and tests use the
 // stand-in that serves the sample malls (features/malls/data/sample_server.dart).
 import 'dart:convert';
 import 'dart:typed_data';
@@ -9,6 +10,8 @@ import 'package:crypto/crypto.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:http/http.dart' as http;
 import 'package:package_info_plus/package_info_plus.dart';
+
+import 'server_address.dart';
 
 /// No connection, or the server could not be reached.
 class OfflineException implements Exception {
@@ -125,25 +128,51 @@ abstract class ShopperApi {
 /// SHA-256 of [bytes], as lowercase hex (the package checksum).
 String sha256Hex(List<int> bytes) => sha256.convert(bytes).toString();
 
-/// The real server, at [base] (e.g. https://api.example.com). With no address set every
-/// call fails as offline, so a release built without one simply waits for a connection.
+/// The server could not be reached at an address (no answer, or its gateway says so).
+class _Unreachable implements Exception {
+  const _Unreachable(this.cause);
+  final Object? cause;
+}
+
+/// The real server, at [address]. With no address every call fails as offline, so a release
+/// built without one simply waits for a connection.
 class HttpShopperApi implements ShopperApi {
-  HttpShopperApi(this.base, [http.Client? client]) : _client = client ?? http.Client();
-  final String base;
+  HttpShopperApi(this.address, [http.Client? client]) : _client = client ?? http.Client();
+  final ServerAddress address;
   final http.Client _client;
   static const _timeout = Duration(seconds: 20);
 
+  /// The tunnel in front of the server answers these when the server behind it is gone.
+  static const _gatewayDown = {502, 504, 530};
+
+  /// GET [path] under /api/shopper. When the server can't be reached and its address comes from
+  /// the address file, the file is read again and, if the address changed, the call is tried
+  /// once more there (§12).
   Future<http.Response> _get(String path, {Map<String, String>? headers, bool allow304 = false}) async {
-    if (base.isEmpty) throw const OfflineException('no server address');
+    final base = await address.get();
     try {
-      final r = await _client.get(Uri.parse('$base/api/shopper$path'), headers: headers).timeout(_timeout);
-      if (r.statusCode != 200 && !(allow304 && r.statusCode == 304)) throw ServerException(r.statusCode, r.reasonPhrase ?? '');
-      return r;
-    } on ServerException {
-      rethrow;
-    } catch (e) {
-      throw OfflineException(e);
+      return await _at(base, path, headers, allow304);
+    } on _Unreachable catch (e) {
+      final again = address.changes ? await address.reread() : null;
+      if (again == null || again == base) throw OfflineException(e.cause);
+      try {
+        return await _at(again, path, headers, allow304);
+      } on _Unreachable catch (e) {
+        throw OfflineException(e.cause);
+      }
     }
+  }
+
+  Future<http.Response> _at(String base, String path, Map<String, String>? headers, bool allow304) async {
+    final http.Response r;
+    try {
+      r = await _client.get(Uri.parse('$base/api/shopper$path'), headers: headers).timeout(_timeout);
+    } catch (e) {
+      throw _Unreachable(e);
+    }
+    if (_gatewayDown.contains(r.statusCode)) throw _Unreachable('gateway ${r.statusCode}');
+    if (r.statusCode != 200 && !(allow304 && r.statusCode == 304)) throw ServerException(r.statusCode, r.reasonPhrase ?? '');
+    return r;
   }
 
   Map<String, Object?> _json(http.Response r) => (jsonDecode(utf8.decode(r.bodyBytes)) as Map).cast<String, Object?>();
@@ -173,8 +202,12 @@ class HttpShopperApi implements ShopperApi {
   }
 }
 
-/// The server address, set at build time: --dart-define=SHOPPER_API=https://...
+/// The server address, set at build time for local checks: --dart-define=SHOPPER_API=https://...
 const shopperApiBase = String.fromEnvironment('SHOPPER_API');
 
+/// Where to read the server's current address (§12):
+/// --dart-define=SHOPPER_CONFIG=https://liqo-12a80.web.app/config/api.json
+const shopperConfigUrl = String.fromEnvironment('SHOPPER_CONFIG');
+
 /// The server; main() picks the real one or the stand-in, tests override it.
-final shopperApiProvider = Provider<ShopperApi>((ref) => HttpShopperApi(shopperApiBase));
+final shopperApiProvider = Provider<ShopperApi>((ref) => HttpShopperApi(ServerAddress.fixed(shopperApiBase)));
